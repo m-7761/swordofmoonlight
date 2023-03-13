@@ -1,0 +1,151 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "SomEx.res.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+//#include "afxres.h"
+
+#include "WinResrc.h"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Japanese (Japan) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_JPN)
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
+#pragma code_page(932)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "SomEx.res.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "//#include ""afxres.h""\r\r\n"
+    "#include ""WinResrc.h""\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#include ""SomEx.rc2""\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_PAUSE_S DIALOGEX 0, 1, 277, 141
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Record"
+FONT 9, "ÇlÇr ÉSÉVÉbÉN", 400, 0, 0x0
+BEGIN
+    LTEXT           "File Folder",IDC_STATIC,12,14,56,8
+    EDITTEXT        1008,9,23,258,13,ES_AUTOHSCROLL | WS_GROUP
+    PUSHBUTTON      "File System",1009,217,6,50,16
+    LTEXT           "File Name",IDC_STATIC,12,42,60,8
+    EDITTEXT        1007,9,51,146,13,ES_AUTOHSCROLL | WS_GROUP
+    CONTROL         "Time",1210,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,66,41,31,10
+    CONTROL         "UTC",1211,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,101,41,31,10
+    LTEXT           "File Type",IDC_STATIC,162,41,48,8
+    COMBOBOX        1024,160,51,107,69,CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+    GROUPBOX        "Save Menu",IDC_STATIC,8,70,147,65
+    CONTROL         "Create Master",1200,"Button",BS_AUTOCHECKBOX | WS_GROUP | WS_TABSTOP,15,81,95,10
+    CONTROL         "Function Overlay",1201,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,93,100,10
+    CONTROL         "Title",1202,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,105,37,10
+    COMBOBOX        1025,15,115,134,22,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "60FPS AniGIF",1203,"Button",BS_AUTOCHECKBOX | BS_RIGHT | WS_TABSTOP,75,105,74,10,WS_EX_RIGHT
+    DEFPUSHBUTTON   "Save",IDOK,161,118,50,16,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,217,118,50,16
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_PAUSE_S, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 270
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 134
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Japanese (Japan) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_DUMMY DIALOGEX 0, 0, 86, 52
+STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_NOFAILCREATE | DS_CENTER | WS_MINIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    PUSHBUTTON      "I must be as tiny as can be to make SOM_MAP's loading window center???",IDCANCEL,0,0,84,50,BS_MULTILINE | NOT WS_VISIBLE
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_DUMMY, DIALOG
+    BEGIN
+        RIGHTMARGIN, 84
+        BOTTOMMARGIN, 50
+        HORZGUIDE, 6
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Neutral resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#include "SomEx.rc2"
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

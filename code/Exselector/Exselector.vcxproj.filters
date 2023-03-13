@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="resources">
+      <UniqueIdentifier>{93e48d1d-9948-4a34-9a43-f91160f863ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sources">
+      <UniqueIdentifier>{2a916a9b-4449-44d8-9a1c-8670b5ae39d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{fc53a040-ceeb-4f4a-a7cf-c869aca242c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="nanovg">
+      <UniqueIdentifier>{a53c7e82-1bd5-4e77-86f6-bdcee7cf05f4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Exselector.rc2">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Exselector.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="packages.config" />
+    <None Include="$(OpenXRLoaderBinaryRoot)\bin\openxr_loader.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\lib\swordofmoonlight.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Exselector.h" />
+    <ClInclude Include="Exselector.pch.h" />
+    <ClInclude Include="src\nanovg\fontstash.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\nanovg\nanovg.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\nanovg\nanovg_gl.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\nanovg\nanovg_gl_utils.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\nanovg\stb_image.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\nanovg\stb_rect_pack.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\nanovg\stb_truetype.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="src\nanovg.pch.h">
+      <Filter>nanovg</Filter>
+    </ClInclude>
+    <ClInclude Include="Exselector.hpp" />
+    <ClInclude Include="Exselector.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\lib\Swordofmoonlight.cpp">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Exselector.cpp" />
+    <ClCompile Include="Exselector.pch.cpp" />
+    <ClCompile Include="src\nanovg\nanovg.c">
+      <Filter>nanovg</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="src\nanovg\LICENSE.txt">
+      <Filter>nanovg</Filter>
+    </Text>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Exselector.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>

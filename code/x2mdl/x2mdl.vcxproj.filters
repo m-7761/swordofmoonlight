@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="resources">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="depends">
+      <UniqueIdentifier>{220d4982-d33e-4286-be7e-5bf8899082c7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{6209ec6f-c9b6-48e8-9e38-6f01a9b09fdd}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="x2mdl.cpp" />
+    <ClCompile Include="..\lib\Swordofmoonlight.cpp">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="x2mm3d.cpp" />
+    <ClCompile Include="x2mdo.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="x2mdl.h" />
+    <ClInclude Include="..\lib\swordofmoonlight.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="x2mdl.pch.h" />
+    <ClInclude Include="x2mdl.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuildStep Include="..\..\Assimp\Checkout\trunk\lib\assimp_debug-noboost-st_win32\assimp.lib">
+      <Filter>depends</Filter>
+    </CustomBuildStep>
+    <CustomBuildStep Include="..\..\Assimp\Checkout\trunk\lib\assimp_release-noboost-st_win32\assimp.lib">
+      <Filter>depends</Filter>
+    </CustomBuildStep>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="x2mdl.ico">
+      <Filter>resources</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="x2mdl.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="x2mdl.rc2">
+      <Filter>resources</Filter>
+    </None>
+  </ItemGroup>
+</Project>

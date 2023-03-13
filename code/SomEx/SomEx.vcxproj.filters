@@ -1,0 +1,466 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Ex sources">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Ex headers">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="libraries">
+      <UniqueIdentifier>{278e101a-4080-4fcd-adba-68e10befb673}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libraries\debug">
+      <UniqueIdentifier>{06c89bc3-5039-4596-9ac7-c63b9ff6e1a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="references">
+      <UniqueIdentifier>{6fac7ec1-091a-458a-b31c-0f176557ff8b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Direct X">
+      <UniqueIdentifier>{fc3c90ff-cbda-472e-b25c-010cb12003c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Som sources">
+      <UniqueIdentifier>{530d194c-d8cf-46bc-9008-3fc133674982}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{04fc0e32-9c28-43ec-8c9d-387db3046f82}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{3f9419ab-081b-418f-bb30-9873ba13d1e5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Som headers">
+      <UniqueIdentifier>{7abcb2ba-1910-4e5a-8552-75774ae5f1b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="inline includes">
+      <UniqueIdentifier>{61feb3ad-aedf-4f5d-988e-39bc35b30ba3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Ex.cursor.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.dataset.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.detours.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.disasm.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.fonts.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.input.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.langs.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.log.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.memory.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.mipmap.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.movie.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.number.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.output.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.regex.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.shader.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.window.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="EXML.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="reference\FixedFuncShader.cpp">
+      <Filter>references</Filter>
+    </ClCompile>
+    <ClCompile Include="directx.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
+    <ClCompile Include="dx.d3d9c.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
+    <ClCompile Include="dx.ddraw.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
+    <ClCompile Include="dx.dshow.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
+    <ClCompile Include="dx.dsound.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
+    <ClCompile Include="som.exe.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.files.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.fonts.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.game.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.hacks.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.keys.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.menus.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.mocap.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.shader.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.state.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.status.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.title.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.tool.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.zentai.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="SOM_EDIT.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="SOM_MAIN.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\Swordofmoonlight.cpp">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.cpp" />
+    <ClCompile Include="SomEx.ini.cpp" />
+    <ClCompile Include="SomEx.cpp" />
+    <ClCompile Include="som.MHM.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.scene.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.record.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="SOM_MAP.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="dx.dinput.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
+    <ClCompile Include="SOM_SYS.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="SOM_PRM.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="workshop.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.LYT.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.MDL.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="SoftMSM.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.logic.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SDK\win_iconv.c" />
+    <ClCompile Include="dx.d3d9X.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.debug.cpp">
+      <Filter>Ex sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.art.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.MPX.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="MapComp.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.clipc.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Ex.cursor.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.dataset.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.detours.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.fonts.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.hpp">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.ini.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.input.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.langs.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.log.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.macro.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.memory.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.mipmap.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.movie.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.number.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.output.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.regex.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.shader.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.window.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Ex.winnt.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="EXML.h">
+      <Filter>Ex headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Somplayer\Somvector.h">
+      <Filter>references</Filter>
+    </ClInclude>
+    <ClInclude Include="directx.h">
+      <Filter>Direct X</Filter>
+    </ClInclude>
+    <ClInclude Include="dx.d3d9c.h">
+      <Filter>Direct X</Filter>
+    </ClInclude>
+    <ClInclude Include="dx.ddraw.h">
+      <Filter>Direct X</Filter>
+    </ClInclude>
+    <ClInclude Include="dx.dinput.h">
+      <Filter>Direct X</Filter>
+    </ClInclude>
+    <ClInclude Include="dx.dshow.h">
+      <Filter>Direct X</Filter>
+    </ClInclude>
+    <ClInclude Include="dx.dsound.h">
+      <Filter>Direct X</Filter>
+    </ClInclude>
+    <ClInclude Include="som.932.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.932w.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.atlenc.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.extra.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.files.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.game.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.keys.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.menus.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.shader.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.state.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.status.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.title.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="som.tool.h">
+      <Filter>Som headers</Filter>
+    </ClInclude>
+    <ClInclude Include="SomEx.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\lib\swordofmoonlight.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Som.h" />
+    <ClInclude Include="SomEx.h" />
+    <ClInclude Include="SomEx.ini.h" />
+    <ClInclude Include="windowsex.h" />
+    <ClInclude Include="Ex.h" />
+    <ClInclude Include="som.tool.hpp">
+      <Filter>Som sources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Sword of Moonlight\PSVR\NoloDeviceSDK-master\NoloClient\NoloClientAPI\Nolo_DeviceType.h">
+      <Filter>references</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Sword of Moonlight\PSVR\NoloDeviceSDK-master\NoloClient\NoloClientAPI\Nolo_Math.h">
+      <Filter>references</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Sword of Moonlight\PSVR\NoloDeviceSDK-master\NoloClient\NoloClientAPI\NoloClientLib.h">
+      <Filter>references</Filter>
+    </ClInclude>
+    <ClInclude Include="som.shader.hpp">
+      <Filter>Som sources</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="dx8.1\amstrmid.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\d3d8.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx9libs\d3dxof.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\ddraw.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\dinput.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\dinput8.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\dxguid.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\dxtrans.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\quartz.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx8.1\strmiids.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="dx9libs\dsound.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\Exselector\Release\Exselector.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\Exselector\Debug\Exselector.lib">
+      <Filter>libraries\debug</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="reference\FixedFuncShader.fx">
+      <Filter>references</Filter>
+    </None>
+    <None Include="dx.ddcaps.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="ini.keypad.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="ini.lookup.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="log.3ddevdesc.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="log.ddbltfx.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="log.ddcaps.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="log.ddsurfdesc.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="som.enums.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="som.menus.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="som.shader.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="som.terms.inl">
+      <Filter>inline includes</Filter>
+    </None>
+    <None Include="SomEx.rc2">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="..\lib\pack.inl">
+      <Filter>lib</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SomEx.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuildStep Include="dx9libs\d3dx9.lib">
+      <Filter>libraries</Filter>
+    </CustomBuildStep>
+    <CustomBuildStep Include="dx9libs\d3dx9d.lib">
+      <Filter>libraries\debug</Filter>
+    </CustomBuildStep>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,51 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="resources">
+      <UniqueIdentifier>{b32f8688-75fb-46d9-8185-a5e4a9121c25}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sources">
+      <UniqueIdentifier>{8b98d524-34bf-4dc4-be26-a5fb4eb9f71c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Moonlight.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Sompaste.rc2">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Sompaste.inl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Sompaste.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Sompaste.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Sompaste.h" />
+    <ClInclude Include="Sompaste.pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Somclips.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somcolor.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somdirect.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somproject.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somprops.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Sompaste.cpp" />
+    <ClCompile Include="Sompaste.pch.cpp" />
+  </ItemGroup>
+</Project>

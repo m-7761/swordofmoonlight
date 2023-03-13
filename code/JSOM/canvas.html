@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html style="background:#000C0C;"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+
+<style>
+<!--
+
+.unicode { /*mindless how everything must be restated*/
+ font-family:"Arial Unicode MS", "Lucida Grande",Verdana,Arial,"Bitstream Vera Sans",sans-serif;
+}
+
+.easy-click{ /*clickable-padding*/
+ padding:0 0.4ex; margin-right:-0.4ex;
+}
+
+/*gold outlines in Chrome */
+textarea:focus, input:focus, select:focus{
+ outline: none;
+}
+*{  
+ background:transparent;
+ border:none;
+ padding:0;
+ margin:0;
+ /*Google Chrome*/
+ resize:none; 
+}
+body{
+ background:none;
+ line-height:1.4;
+ font-family:"Lucida Grande",Verdana,Arial,"Bitstream Vera Sans",sans-serif;
+ font-size:13px;
+ color:white; 
+ position:fixed;
+ top:0; left:0;
+ height:100%;
+ width:100%; 
+}
+input{
+ color:white; /*???*/
+ vertical-align:bottom;
+}
+label{
+ vertical-align:middle;
+ cursor:pointer;
+}
+label.track{
+ font-size:smaller;
+ vertical-align:text-top;
+}
+label.track.loading{
+ opacity:0.5;
+}
+body.x .ctrl{
+ display:none;
+}
+select{
+ color:white;
+ background:rgba(0,12,12,0.01); /*Chrome*/
+ text-align:left;
+}
+option{
+ color:white;
+ background-color:#000C0C; /*Chrome*/
+ text-align:left;
+}
+.reset
+{
+ line-height:1; 
+ font-size:1.3ex; 
+ margin-bottom:0.3em; 
+ color:#fff;
+ cursor:pointer;
+}
+.reset.alt
+{
+ color:#ccc;
+}
+.hidden{
+ display:none;
+}
+#canvas-ctrl-rec-select.presets .presets,
+#canvas-ctrl-rec-select.defaults .defaults,
+#canvas-ctrl-rec-select.memory .memory,
+#canvas-ctrl-rec-select.backup .backup,
+#canvas-ctrl-rec-select.camera .camera,
+#canvas-ctrl-rec-select.help .help{
+ display:block; min-width:14ex;
+}
+#canvas-ctrl-rec-select input[type="text"]{
+ width:7ex;
+}
+#canvas-ctrl-rec-select,
+#canvas-ctrl-rec-select>div{
+ min-height:100%;
+}
+-->
+</style>
+
+<script type="text/javascript" src="canvas_files/jquery.js"></script>
+<script type="text/javascript" src="canvas_files/gl-matrix.js"></script>
+<script type="text/javascript" src="canvas_files/rgbcolor.js"></script>
+<script type="text/javascript" src="canvas_files/requestAnimationFrame.js"></script>
+<script type="text/javascript" src="canvas_files/canvas.js"></script>
+
+<script id="demo-vs" type="x-shader/x-vertex">
+    attribute vec3 aVertexPosition;
+    attribute vec4 aVertexColor;
+
+    uniform mat4 uMVPMatrix;
+
+    varying vec4 vColor;
+
+    void main(void) {
+        gl_Position = uMVPMatrix * vec4(aVertexPosition, 1.0);
+        vColor = aVertexColor;
+    }
+</script>
+
+<script id="demo-fs" type="x-shader/x-fragment">
+    
+    varying vec4 vColor;
+
+    void main(void) {
+        gl_FragColor = vColor;
+    }
+</script>
+
+<script id="default-vs" type="x-shader/x-vertex">
+
+uniform vec4 light;
+uniform float opacity;
+
+attribute vec3 normal;
+attribute vec2 texcoord0;
+
+varying vec4 colour;
+varying vec2 sample;
+
+uniform mat4 uMVPMatrix;
+uniform vec4 uColDiffuse;
+uniform vec4 uColEmissive;
+uniform mat3 uTexMatrix;
+    
+void main()
+{
+ vec4 lit = NORMAL;
+ vec4 pos = POSITION;
+ vec4 wts = WEIGHT; 
+  
+ vec4 wpos = STATE0(pos)*wts.x; 
+ vec4 wlit = STATE0(lit)*wts.x; 
+  
+ if(STATES>1){ wpos+=STATE1(pos)*wts.y; wlit+=STATE1(lit)*wts.y; }
+ if(STATES>2){ wpos+=STATE2(pos)*wts.z; wlit+=STATE2(lit)*wts.z; }
+ if(STATES>3){ wpos+=STATE3(pos)*wts.w; wlit+=STATE3(lit)*wts.w; }
+  
+ wpos = ROTATE(wpos); wlit = ROTATE(wlit);
+  
+ #define AMBIENT 0.2     
+ #define INVERSE (1.0-AMBIENT)
+ 
+ vec3 amb = vec3(1.0,1.0,1.0)*AMBIENT+uColEmissive.rgb*INVERSE;
+ 
+ vec3 D = wpos.xyz-light.xyz;
+ float att = 1.0/(length(D)*light.w);
+ vec3 L = -normalize(D)*att; //point light
+ float I = max(0.0,dot(wlit.xyz,L))*INVERSE;
+  
+ colour.rgb = clamp(uColDiffuse.rgb*I+amb,0.0,1.0);
+ colour.a = uColDiffuse.a*opacity; 
+  
+ sample = vec2(uTexMatrix*TEXCOORD0);
+  
+ gl_Position = uMVPMatrix*wpos;
+}
+</script>
+
+<script id="default-fs" type="x-shader/x-fragment">
+
+varying vec4 colour;
+varying vec2 sample;
+
+uniform sampler2D sampler;
+
+uniform vec4 uColorKey;
+
+void main()
+{
+    vec4 rgba = texture2D(sampler,sample);
+    
+  //do a smooth alpha test unless colorkey is opaque//
+    
+    #define P 0.69 //WARNING: subject to precision
+    
+    if(rgba.a-(0.3+uColorKey.a*P)<0.0)
+    {
+     if(uColorKey.a<1.0) discard; rgba = uColorKey;
+    }
+    
+    gl_FragColor = colour*vec4(rgba.rgb/rgba.a,1.0); 
+}
+</script>
+
+<script id="shadow-vs" type="x-shader/x-vertex">
+
+varying vec4 fpos;
+
+uniform mat4 uShadowMat;
+uniform mat4 uMVPMatrix;
+ 
+void main()
+{
+ vec4 pos = POSITION; 
+ 
+ vec4 wpos = STATE0(pos); wpos = ROTATE(wpos); 
+ 
+ gl_Position = uMVPMatrix*wpos;
+ 
+ fpos = (uShadowMat*wpos);
+}
+</script>
+
+<script id="shadow-fs" type="x-shader/x-fragment">
+
+varying vec4 fpos;
+
+uniform vec3 uShadowCol;
+uniform vec3 uFogCol;
+uniform float uFogRadius;
+
+void main()
+{   
+    float fbeg = uFogRadius*1.5;
+    float fend = uFogRadius*1.75;
+ 
+    float D = length(fpos.xz/fpos.w);
+    
+    if(D>fend) discard;
+    
+    float fog = clamp((fend-D)/(fend-fbeg),0.0,1.0);
+        
+    vec3 col = mix(uFogCol,uShadowCol,fog);
+ 
+    gl_FragColor = vec4(col,1.0);    
+}
+</script>
+
+<script id="solid-vs" type="x-shader/x-vertex">
+
+attribute vec2 texcoord0;
+
+varying vec2 sample;
+
+uniform mat4 uMVPMatrix;
+uniform mat3 uTexMatrix;
+    
+void main()
+{
+ vec4 pos = POSITION;
+ 
+ vec4 wpos = STATE0(pos); wpos = ROTATE(wpos);   
+ 
+ //colorkey alpha test
+ sample = vec2(uTexMatrix*TEXCOORD0); 
+ 
+ gl_Position = uMVPMatrix*wpos;
+}
+</script>
+
+<script id="solid-fs" type="x-shader/x-fragment">
+
+varying vec2 sample;
+
+uniform sampler2D sampler; 
+
+uniform vec4 uSolidCol;
+
+void main()
+{
+ //must do colorkey alpha test 
+ vec4 rgba = texture2D(sampler,sample);
+ if(rgba.a-0.3<0.0) discard; 
+    
+ gl_FragColor = uSolidCol; 
+}
+</script>
+
+<script type="text/javascript">
+    
+		function webGLDemo()
+		{
+		 		webGLStart("demo");
+		 		
+		 		//Home debugging mode...
+		 		if(window.location.href.substr(0,8)=='file:///')
+		 		{
+      canvas.colorKey[3] = 0.0;		 		
+		 		 //canvas.backFace[3] = 0.0;
+		 		 
+		 		 //webGLRequest('tex0','o175.png','png');
+		 		 //webGLRequest('tex1','c_water.png','png');
+		 		 //webGLRequest('tex0','set11_2.txr.json','json');
+		 		 //webGLRequest('tex1','set11_1.txr.json','json');		 		 
+		 		 webGLRequest('model','toad.mdl.json','json'); //0020.msm.json
+		 		 //webGLRequest('model','o175.mdo.json','json');
+      webGLDisplay('model'); 
+		 		 //webGLRequest('piece','dummy.prf.json','json');
+		 		 //webGLDisplay('piece');		 		 
+		 		 webGLRefresh();
+		 		 
+		 		 webGLClean(); //drop any unfreferenced memory
+		 		}
+		 		else if(window.location.href.search('http://www.swordofmoonlight.net/canvas.php')==0)
+		 		{
+		 		 webGLStart("/jsom/test/");
+		 		 webGLRequest('tex0','o175.png','png');
+		 		 webGLRequest('tex1','c_water.png','png');
+		 		 webGLRequest('model','o175.mdo.json.gz','json');
+		 		 webGLDisplay('model');
+		 		 webGLRefresh();
+		 		}
+		}
+		
+		function canvas_php_inc(e,field,lo,hi,leftright)
+		{
+    		var keynum;
+		    if(window.event) {// IE 
+		        keynum = e.keyCode
+		    } else if(e.which) {// Netscape/Firefox/Opera 
+		        keynum = e.which
+		    }
+		    if (keynum == (leftright?37:38)) {
+		        field.value = Math.min(parseInt(field.value)+1,hi);
+		        if(field.onchange) field.onchange();
+		        return false;
+		    } else if (keynum == (leftright?39:40)) {
+		        field.value = Math.max(parseInt(field.value)-1,lo);
+		        if(field.onchange) field.onchange();
+		        return false;
+		    }
+		    return true;
+		}
+    
+</script>
+
+</head>
+<body class="x" onload="javascript: canvas.js_init(); if(self==top) webGLDemo(); //debug ">
+
+<div id="canvas-ctrl-help" class="ctrl" style="display:none;
+            position:absolute; z-index:3; right:20px; bottom:20px; 
+            min-width:250px; max-width:100%; min-height:250px; max-height:100%;            
+            outline:1px solid white; background:rgba(0,12,12,0.7);
+            padding:0.5ex; font-size:1.2em;  text-align:justify;">
+<select id="canvas-ctrl-help-topic" dir="rtl" onchange="javascript:
+{
+ if(this.value=='x') document.getElementById('canvas-ctrl-help').style.display = 'none';
+}"><option selected="selected">Help Overview&nbsp;</option>
+<option value="x">X&nbsp;</option></select>
+</div><!-- canvas-ctrl-help -->
+ 
+<div class="ctrl" style="position:absolute; right:0; bottom:0; z-index:2; padding:6px; text-align:right;">
+<div style="display:inline-block; text-align:center;">
+ <div class="reset">
+ <input name="canvas-ctrl-d" title="save and load presets" onclick="javascript: canvas.js_d('rec');" style="margin: 0.2ex -1ex;" type="radio">
+ </div>
+ <div class="reset" title="5" onclick="javascript:canvas.js_dl(5);">50<br>50</div>
+ <div class="reset alt" title="4" onclick="javascript:canvas.js_dl(4);">75<br>00</div>
+ <div class="reset" title="3" onclick="javascript:canvas.js_dl(3);">25<br>60</div>
+ <div class="reset alt" title="2" onclick="javascript:canvas.js_dl(2);">50<br>50</div>
+ <div class="reset" title="1" onclick="javascript:canvas.js_dl(1);">50<br>50</div>
+</div>
+ <p style="margin-bottom:-0.2em; font-size:0.7em;">
+  <label title="disable supersampling" onclick="javascript:canvas.js_x(1)">1x</label>
+ </p><p style="margin-bottom:0.3em; font-size:0.8em">
+  <label title="enable 2x supersampling" onclick="javascript:canvas.js_x(2)">2x</label>
+ </p><!-- notice: uppercase X -->
+  <label class="easy-click unicode" onclick="javascript:canvas.js_X()">X</label> 
+</div>
+
+<div id="canvas-v" width="100%" height="100%" style="width:100%; height:100%;" onclick="javascript:canvas.js_v(event)">
+<div id="canvas-sans-webgl" style="display:none; color:#ccc">Browser support for <a style="color:#fff" href="http://en.wikipedia.org/wiki/WebGL">WebGL</a> is unavailable</div>  
+<!-- id="the-canvas" should be obsolete: use document.getElementsByTagName('canvas') if necessary. -->
+<canvas id="the-canvas" style="position:absolute; right:0; width:100%; height:100%;" width="1261" height="737"></canvas> 
+ 
+<div id="canvas-ctrl" class="ctrl" style="position:absolute; bottom:0; right:0; z-index:2; margin:1ex 2em; text-align:right;">
+
+<div id="canvas-ctrl-1-5">
+
+<!-- 25/60 is hardcoded for Sword of Moonlight objects (needs some work) -->
+<input id="canvas-ctrl-y" value="25" title="percent" size="2" maxlength="3" style="margin-bottom: 0.2em; display: inline-block; text-align: right;" onchange="javascript: canvas.js_xy('y',this.value)" onkeydown="javascript: return canvas_php_inc(event,this,0,100)" type="text"><br>
+<span style="display:inline-block; height:100%; vertical-align:baseline">
+ <input id="canvas-ctrl-x" value="60" title="percent" maxlength="3" size="2" style="position: relative; bottom: 0.2em; text-align: right;" onchange="javascript: canvas.js_xy('x',this.value)" onkeydown="javascript: return canvas_php_inc(event,this,0,100)" type="text">
+ </span>
+<div id="canvas-ctrl-xy" style="width: 120px; height: 120px; overflow: scroll; resize: both; display: inline-block;">
+ <div id="canvas-ctrl-move" style="width:200%; height:200%; cursor:move;"></div>
+ </div>
+ 
+</div><!-- canvas-ctrl-1-5 -->
+
+
+
+
+<div id="canvas-ctrl-rec" style="display:none">
+<div style="text-align:right; position:relative; min-height:120px;">
+<div style="min-width: 120px; padding:0.5ex; border: 1px dotted white; text-align: right; position: absolute; right: 0px; bottom: 0.5ex;">
+<table style="min-width: 120px; table-layout: auto;" cellspacing="0">
+<tbody><tr><td class="tight" style="width: 12ex; vertical-align: top;">
+<div style="text-align:left; line-height:1.3">
+<select id="canvas-ctrl-rec-select-box" dir="rtl" style="margin: 0.3ex 0 0.5ex;" onchange="javascript: 
+{
+ var rec = document.getElementById('canvas-ctrl-rec-select');
+ 
+ if(this.value=='help')
+ {
+  this.value = rec.className; //restore  
+  document.getElementById('canvas-ctrl-help').style.display = '';
+  document.getElementById('canvas-ctrl-help-topic').selectedIndex = 0;  
+ }
+ else rec.className = this.value;
+}">
+<option value="presets">&nbsp;Presets&nbsp;</option>
+<option value="defaults">&nbsp;Defaults&nbsp;</option>
+<option value="memory" selected="selected">&nbsp;Memory&nbsp;</option>
+<option value="backup">&nbsp;Backup&nbsp;</option>
+<option value="camera">&nbsp;Camera&nbsp;</option>
+<option value="help">&nbsp;Help&nbsp;</option>
+</select><br>
+<small>
+
+<div id="canvas-ctrl-rec-select" class="memory">
+<div id="canvas-ctrl-rec-presets" class="hidden presets">
+
+</div>
+<div id="canvas-ctrl-rec-defaults" class="hidden defaults">
+
+</div>
+<div id="canvas-ctrl-rec-memory" class="hidden memory">
+Save Slots<br>
+<nobr><input checked="checked" name="canvas-ctrl-rec-slot" type="radio"> 1: <input type="text"></nobr><br>
+<nobr><input name="canvas-ctrl-rec-slot" type="radio"> 2: <input type="text"></nobr><br>
+<nobr><input name="canvas-ctrl-rec-slot" type="radio"> 3: <input type="text"></nobr><br>
+<nobr><input name="canvas-ctrl-rec-slot" type="radio"> 4: <input type="text"></nobr><br>
+
+</div>
+<div id="canvas-ctrl-rec-backup" class="hidden backup">
+
+</div>
+<div id="canvas-ctrl-rec-camera" class="hidden camera">
+
+</div><!-- canvas-ctrl-rec-camera -->
+</div><!-- canvas-ctrl-rec-select -->
+
+</small>
+</div>
+</td><td style="vertical-align: bottom;" class="tight">
+<input style="cursor: pointer; font-weight: bold; font-variant: small-caps; margin-left: -1em;" value="●rec" type="button">
+<br>
+<div style="float:right; text-align:left; border-left:1px solid white;">
+<nobr>—5<input class="reset" type="checkbox"></nobr><br>
+<nobr>—4<input class="reset" type="checkbox"></nobr><br>
+<nobr>—3<input class="reset" checked="checked" type="checkbox"></nobr><br>
+<nobr>—2<input class="reset" checked="checked" type="checkbox"></nobr><br>
+<nobr>—1<input class="reset" checked="checked" type="checkbox"></nobr><br>
+</div>
+</td></tr>
+</tbody></table>
+<div style="text-align:left"><nobr>&nbsp;L
+ save <input name="canvas-ctrl-rec-dir" type="radio">
+ load <input name="canvas-ctrl-rec-dir" checked="checked" type="radio"></nobr>
+</div>
+</div>
+</div>
+</div><!-- canvas-ctrl-rec -->
+
+
+
+
+<div style="font-size:smaller">
+<label title="loop track"><small>G</small> 
+<input id="canvas-ctrl-loop" type="checkbox" onclick="javascript:canvas.js_play(false);"></label>
+<label title="play track">play 
+<input id="canvas-ctrl-play" type="checkbox" onclick="javascript:canvas.js_play(this.checked);"></label>
+<label title="mute sound">mute 
+<input id="canvas-ctrl-mute" checked="checked" disabled="disabled" type="checkbox"></label>
+<label title="sound: frequency/volume">5 
+ <input name="canvas-ctrl-d" onclick="javascript:canvas.js_d(5)" disabled="disabled" type="radio"></label>
+<label title="the 4th dimension: track time/speed">4 
+ <input name="canvas-ctrl-d" onclick="javascript:canvas.js_d(4)" type="radio"></label>
+<label title="three-dimensional: turn (right-left/top-bottom)">3 
+ <input name="canvas-ctrl-d" checked="checked" onclick="javascript:canvas.js_d(3)" type="radio"></label>
+<label title="two-dimensional: pan (horizonal/vertical)">2 
+ <input name="canvas-ctrl-d" onclick="javascript:canvas.js_d(2)" type="radio"></label>
+<label title="one-dimensional: up direction/zoom">1 
+ <input name="canvas-ctrl-d" onclick="javascript:canvas.js_d(1)" type="radio"></label>
+<div>track # 
+<span id="canvas-ctrl-tracks"><label class="track" title="1: 360°">1 
+<input id="canvas-ctrl-track-0" name="canvas-ctrl-t" checked="checked" 
+       type="radio" value="0" onclick="javascript:canvas.js_play();">
+</label>
+</span></div>
+</div>
+</div><!-- canvas-ctrl -->
+</div><!-- canvas-v -->
+
+
+</body></html>

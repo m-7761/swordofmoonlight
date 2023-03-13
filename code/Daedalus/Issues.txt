@@ -1,0 +1,21 @@
+
+Collada-DOM
+daeTArray is craptastic
+
+MaskSubmeshHelper 
+*guarantee (ScenePreprocessor) all meshes have unique names
+FindDegenerates
+*mark emptied pure degenerated meshes
+*elsewhere/at the end mark all faceless meshes
+*if removing, mark for later scrubbing of unused mesh features
+*POSITION comparison is fascile, requires global store of truly unique positions
+FindInstances
+*AGAIN, need global per mesh data structure that if equal is an instance
+ImproveCacheLocality
+*polygons? doesn't appear to support polygons (should also ignore lines/points)
+PretransformVertices
+*seems likes a job for MergeMeshesHelper?
+OptimizeMeshes
+*ignores instanced meshes. Probably just laziness?
+SplitByBoneCountProcess
+*faces should be clustered so to be optimally contiguous

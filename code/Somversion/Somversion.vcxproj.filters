@@ -1,0 +1,67 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="resources">
+      <UniqueIdentifier>{93e48d1d-9948-4a34-9a43-f91160f863ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sources">
+      <UniqueIdentifier>{2a916a9b-4449-44d8-9a1c-8670b5ae39d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{fc53a040-ceeb-4f4a-a7cf-c869aca242c1}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Icon.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Somversion.bmp">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Somversion.rc2">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Subversion.bmp">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Subversion.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Somversion.inl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Somversion.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Somversion.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\lib\swordofmoonlight.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Somversion.h" />
+    <ClInclude Include="Somversion.hpp" />
+    <ClInclude Include="Somversion.pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Somcache.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somdialog.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somdownload.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somtext.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\Swordofmoonlight.cpp">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Somversion.cpp" />
+    <ClCompile Include="Somversion.pch.cpp" />
+  </ItemGroup>
+</Project>

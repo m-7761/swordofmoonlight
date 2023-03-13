@@ -1,0 +1,78 @@
+JSOM is a project to convert Sword of Moonlight's files into a JSON schema that is first and foremost applicable to WebGL. WebGL is an emerging 3D graphics standard for the WWW. In a nutshell; OpenGL ES + ECMAScript = WebGL.
+
+Typical build/install scenario for the project:
+
+gcc -DNDEBUG -Wno-multichar src/*.cpp src/*.c lib/*.cpp -I. -lstdc++ -lz -lcrypto -lpng -o jsom 
+
+Where lib is either hard copy or symbolic link to the "Sword of Moonlight Library" project; which should be in a folder called lib somwhere nearby.
+
+Canvas.html implements a renderer based upon the JSOM schema. You can find a more uptodate version at http://www.swordofmoonlight.net/canvas.php. Just save it as a "webpage complete" document. Though chances are it could be incompatible with the source code in the src (and lib) folder. 
+
+If a complete object reference for JSOM schema exists, it will be found at http://en.swordofmoonlight.org/wiki/JSOM. The schema itself is not based on Sword of Moonlight. It just came to be due to the need for a schema. The title is just for posterity sake. JSOM stands for JSON Sword of Moonlight Object Model. It is technically a recursive acronym purely by happenstance -- though the model itself happens to be very recursive in nature. 
+
+There are a few contributions from public code (unchanged) harvested from the web:
+
+libjson: Copyright (C) 2009 Vincent Hanquez <vincent@snarc.org>
+bmp2png: Copyright (C) 1999-2005 MIYASAKA Masaru <alkaid@coral.ocn.ne.jp> 
+gl-matrix.js: Copyright (c) 2011 Brandon Jones
+rgbcolor.js: Stoyan Stefanov <sstoo@gmail.com>
+jquery.js: "needs no introduction"
+
+Sword of Moonlight: Copyright (C) From Software; http://www.fromsoftware.jp
+
+$ ./jsom --help
+
+Usage: jsom [OPERATION] [OPTIONS] [INPUT FILE]
+
+The JSOM program converts a Sword of Moonlight input file or stream
+into a JSON schema intended to be useful for WebGL applications. If not
+specified the OPERATION is taken from the INPUT FILE extension. External
+data such as textures and vertex buffer objects are cached in the current
+directory by default. Images are taken as textures to be converted to PNG
+format images consistent with Sword of Moonlight's 5bit black colorkey.
+
+OPERATION
+
+     One of the following:
+     '--prt' Sword of Moonlight .prt file format
+     '--prf' Sword of Moonlight .prf file format
+     '--msm' Sword of Moonlight .msm file format
+     '--mdo' Sword of Moonlight .mdo file format
+     '--mdl' Sword of Moonlight .mdl file format
+     '--txr' Sword of Moonlight .txr file format
+     '--bmp' Microsoft Windows .bmp image format
+
+INPUT FILE
+
+     The input file's format must match the current operation
+
+     If INPUT FILE is '-', stdin is read
+
+OPTIONS
+
+'-f, --file F'
+     The output file or device F (default "-", meaning stdout)
+
+'-C, --directory DIR' Change to directory DIR
+
+'-z, --gzip' Compression. JSON output is filtered through gzip
+
+     File extensions for external JSON will be json.gz
+
+'-h, --help' Display this help and exit
+
+'--overwrite' External files are forcibly overwritten
+
+'--overwrite-if-newer F' Conditional overwrite
+
+     Overwrite occurs if existing external file is older than F
+
+'--no-external-json' Do not externalize any of the JSON output
+
+'--external-prefix P' Prepend P to external file names.
+
+'-V, --version' Output version information and exit
+
+'-v, --verbose' Verbose output
+
+     If not writing to stdout, non-extenal JSON is printed

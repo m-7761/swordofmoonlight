@@ -1,0 +1,319 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "PalEdit.res.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Japanese resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_JPN)
+#ifdef _WIN32
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
+#pragma code_page(932)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "PalEdit.res.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#include ""PalEdit.rc2\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Japanese resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Neutral (Sys. Default) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEUSD)
+#ifdef _WIN32
+LANGUAGE LANG_NEUTRAL, SUBLANG_SYS_DEFAULT
+#pragma code_page(932)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_MAIN DIALOGEX 60, 60, 280, 281
+STYLE DS_ABSALIGN | DS_SETFONT | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_CLIENTEDGE
+CAPTION "PalEdit"
+MENU IDR_MAIN_MENU
+FONT 8, "ÇlÇr ÉSÉVÉbÉN", 400, 0, 0x80
+BEGIN
+    CONTROL         "",IDC_TABS,"SysTabControl32",WS_TABSTOP,0,0,267,268,WS_EX_ACCEPTFILES
+    CONTROL         "",IDC_TEXTURE,"Static",SS_BLACKFRAME | SS_NOTIFY | NOT WS_VISIBLE,9,25,20,20,WS_EX_ACCEPTFILES
+END
+
+IDD_PALETTE DIALOGEX 0, 0, 169, 279
+STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_TOOLWINDOW | WS_EX_WINDOWEDGE | WS_EX_CONTROLPARENT
+CAPTION "PalEdit Palette View"
+FONT 8, "ÇlÇr ÉSÉVÉbÉN", 400, 0, 0x80
+BEGIN
+END
+
+IDD_MODEL DIALOGEX 0, 0, 269, 279
+STYLE DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_TOOLWINDOW | WS_EX_CONTROLPARENT
+CAPTION "PalEdit Model View"
+FONT 8, "ÇlÇr ÉSÉVÉbÉN", 400, 0, 0x80
+BEGIN
+    CONTROL         "",IDC_PICTURE,"Static",SS_OWNERDRAW | SS_SUNKEN,7,7,255,265,WS_EX_CLIENTEDGE
+END
+
+IDD_STATUS DIALOGEX 0, 0, 186, 70
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "PalEdit Status"
+FONT 8, "Microsoft Sans Serif", 400, 0, 0x0
+BEGIN
+    PUSHBUTTON      "Cancel",IDCANCEL,129,51,50,14
+    LTEXT           "Static",IDC_STATUSMSG,7,6,172,40,SS_NOPREFIX | SS_SUNKEN,WS_EX_STATICEDGE
+    CONTROL         "",IDC_PROGRESS,"msctls_progress32",WS_BORDER,7,51,116,14
+END
+
+IDD_TEXTURE DIALOGEX 0, 0, 186, 93
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD
+EXSTYLE WS_EX_ACCEPTFILES | WS_EX_CONTROLPARENT
+FONT 8, "ÇlÇr ÉSÉVÉbÉN", 400, 0, 0x80
+BEGIN
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_PALETTE, DIALOG
+    BEGIN
+        RIGHTMARGIN, 167
+    END
+
+    IDD_MODEL, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 262
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 272
+    END
+
+    IDD_STATUS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 6
+        BOTTOMMARGIN, 65
+    END
+
+    IDD_TEXTURE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 86
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MAIN_MENU MENU 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Import...",                  ID_FILE_IMPORT
+        MENUITEM SEPARATOR
+        MENUITEM "&Open...",                    ID_FILE_OPEN, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "Save Tab &As...",             ID_FILE_SAVE_AS, GRAYED
+        MENUITEM "&Save Tab \tCtrl+S",          ID_FILE_SAVE, GRAYED
+        MENUITEM "Save A&ll Tabs  \tCtrl+Shift+S", ID_FILE_SAVE_ALL, GRAYED
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit \tAlt+F4",              ID_FILE_EXIT
+    END
+    POPUP "&Edit"
+    BEGIN
+        MENUITEM "Undo \tCtrl+Z",               ID_EDIT_UNDO
+        MENUITEM "Redo \tCtrl+Shift+Z",         ID_EDIT_REDO
+        MENUITEM SEPARATOR
+        MENUITEM "Cut \tCtrl+X",                ID_EDIT_CUT
+        MENUITEM "Copy \tCtrl+C",               ID_EDIT_COPY
+        MENUITEM "Paste \tCtrl+V",              ID_EDIT_PASTE
+        MENUITEM SEPARATOR
+        POPUP "&Model"
+        BEGIN
+            MENUITEM "UV &Map \tM",                 ID_MODEL_UVMAP, GRAYED
+            MENUITEM "&Lighting \tL",               ID_MODEL_LIGHTING, GRAYED
+        END
+        MENUITEM "Save...",                     ID_EDIT_SAVEMODEL, GRAYED
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Palette",                    ID_VIEW_PALETTE, CHECKED
+        MENUITEM "&Model",                      ID_VIEW_MODEL, CHECKED
+    END
+    POPUP "&Tools"
+    BEGIN
+        MENUITEM "&Dump...",                    ID_TOOLS_DUMP, GRAYED
+        MENUITEM "&Preview",                    ID_TOOLS_PREVIEW
+        MENUITEM SEPARATOR
+        POPUP "&Theme"
+        BEGIN
+            MENUITEM "&Moonlight",                  ID_THEME_MOONLIGHT
+            MENUITEM "&Explorer",                   ID_THEME_EXPLORER
+        END
+    END
+    POPUP "&Window"
+    BEGIN
+        MENUITEM "&Sticky \tY",                 ID_WINDOW_STICKY, CHECKED
+        MENUITEM "Clipboard \tC",               ID_WINDOW_CLIPBOARD
+        MENUITEM SEPARATOR
+        POPUP "&Open"
+        BEGIN
+            MENUITEM "&Palette",                    ID_WINDOW_PALETTE
+            MENUITEM "&Model",                      ID_WINDOW_MODEL
+        END
+        MENUITEM "&Cascade ",                   ID_WINDOW_CASCADE
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About PalEdit",              ID_HELP_ABOUT, GRAYED
+        MENUITEM "&Librarian",                  40098, GRAYED
+    END
+END
+
+IDR_TABS_MENU MENU 
+BEGIN
+    POPUP "#0 Default"
+    BEGIN
+        POPUP "&Layouts"
+        BEGIN
+            MENUITEM "&Next  \tSpace",              ID_LAYOUTS_NEXT
+            MENUITEM "&Previous \tShift+Space",     ID_LAYOUTS_PREV
+            MENUITEM SEPARATOR
+            MENUITEM "&1 \tNum 1",                  ID_LAYOUTS_1
+            MENUITEM "&2 \tNum 2",                  ID_LAYOUTS_2
+            MENUITEM "&3 \tNum 3",                  ID_LAYOUTS_3
+            MENUITEM "&4 \tNum 4",                  ID_LAYOUTS_4
+            MENUITEM "&5 \tNum 5",                  ID_LAYOUTS_5
+            MENUITEM "&6 \tNum 6",                  ID_LAYOUTS_6
+            MENUITEM "&7 \tNum 7",                  ID_LAYOUTS_7
+            MENUITEM "&8 \tNum 8",                  ID_LAYOUTS_8
+            MENUITEM "&9 \tNum 9",                  ID_LAYOUTS_9
+            MENUITEM SEPARATOR
+            MENUITEM "&Default \tNum 7",            ID_LAYOUTS_7
+        END
+        MENUITEM SEPARATOR
+        MENUITEM "&Folder\tF",                  ID_FILE_FOLDER
+        MENUITEM "Properties \tP",              ID_FILE_PROPERTIES
+        MENUITEM SEPARATOR
+        MENUITEM "&Reassign \tF5",              ID_FILE_REASSIGN
+        MENUITEM SEPARATOR
+        MENUITEM "&Close Tab",                  ID_FILE_CLOSE, GRAYED
+    END
+END
+
+#endif    // Neutral (Sys. Default) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ICON1               ICON                    "PalEdit.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDR_ACCELERATOR ACCELERATORS 
+BEGIN
+    "Z",            ID_EDIT_REDO,           VIRTKEY, SHIFT, CONTROL, NOINVERT
+    "Z",            ID_EDIT_UNDO,           VIRTKEY, CONTROL, NOINVERT
+    "P",            ID_FILE_PROPERTIES,     VIRTKEY, NOINVERT
+    VK_F5,          ID_FILE_REASSIGN,       VIRTKEY, NOINVERT
+    "S",            ID_FILE_SAVE,           VIRTKEY, CONTROL, NOINVERT
+    "L",            ID_FILE_SAVE_ALL,       VIRTKEY, SHIFT, CONTROL, NOINVERT
+    "A",            ID_HELP_ABOUT,          VIRTKEY, NOINVERT
+    VK_NUMPAD1,     ID_LAYOUTS_1,           VIRTKEY, NOINVERT
+    VK_NUMPAD2,     ID_LAYOUTS_2,           VIRTKEY, NOINVERT
+    VK_NUMPAD3,     ID_LAYOUTS_3,           VIRTKEY, NOINVERT
+    VK_NUMPAD4,     ID_LAYOUTS_4,           VIRTKEY, NOINVERT
+    VK_NUMPAD5,     ID_LAYOUTS_5,           VIRTKEY, NOINVERT
+    VK_NUMPAD6,     ID_LAYOUTS_6,           VIRTKEY, NOINVERT
+    VK_NUMPAD7,     ID_LAYOUTS_7,           VIRTKEY, NOINVERT
+    VK_NUMPAD8,     ID_LAYOUTS_8,           VIRTKEY, NOINVERT
+    VK_NUMPAD9,     ID_LAYOUTS_9,           VIRTKEY, NOINVERT
+    VK_SPACE,       ID_LAYOUTS_NEXT,        VIRTKEY, NOINVERT
+    VK_SPACE,       ID_LAYOUTS_PREV,        VIRTKEY, SHIFT, NOINVERT
+    "L",            ID_MODEL_LIGHTING,      VIRTKEY, NOINVERT
+    "M",            ID_MODEL_UVMAP,         VIRTKEY, NOINVERT
+    "C",            ID_WINDOW_CLIPBOARD,    VIRTKEY, NOINVERT
+    "Y",            ID_WINDOW_STICKY,       VIRTKEY, NOINVERT
+    "F",            ID_FILE_FOLDER,         VIRTKEY, NOINVERT
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#include "PalEdit.rc2"
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

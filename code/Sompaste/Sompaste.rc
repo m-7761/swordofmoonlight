@@ -1,0 +1,257 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "Sompaste.res.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Japanese resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_JPN)
+#ifdef _WIN32
+LANGUAGE LANG_JAPANESE, SUBLANG_DEFAULT
+#pragma code_page(932)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "Sompaste.res.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#include ""Sompaste.rc2""\r\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Japanese resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_PROPERTIES, DIALOG
+    BEGIN
+        RIGHTMARGIN, 221
+        BOTTOMMARGIN, 233
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_PROPERTIES DIALOGEX 30, 30, 222, 240
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CENTERMOUSE | WS_POPUP | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_CONTROLPARENT
+CAPTION "Properties"
+FONT 8, "MS Shell Dlg", 400, 0, 0x0
+BEGIN
+    CONTROL         "",IDC_TABS,"SysTabControl32",TCS_MULTILINE | WS_GROUP | WS_TABSTOP,4,5,214,213
+    DEFPUSHBUTTON   "OK",IDOK,59,222,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,113,222,50,14
+    PUSHBUTTON      "Apply",ID_APPLY_NOW,168,222,50,14,WS_DISABLED
+END
+
+IDD_CLIPBOARD DIALOGEX 0, 0, 264, 157
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_ACCEPTFILES | WS_EX_CLIENTEDGE | WS_EX_APPWINDOW
+CAPTION "Sompaste.dll - Clipboard"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_TABS,"SysTabControl32",0x0,0,0,263,156
+END
+
+IDD_FOLDER DIALOGEX 0, 0, 206, 199
+STYLE DS_SETFONT | DS_FIXEDSYS | DS_CONTROL | WS_CHILD | WS_VISIBLE | WS_SYSMENU
+EXSTYLE WS_EX_CONTROLPARENT
+MENU IDR_FOLDER_MENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LISTVIEW,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_EDITLABELS | LVS_NOSORTHEADER | WS_TABSTOP,4,10,198,132,WS_EX_ACCEPTFILES | WS_EX_CLIENTEDGE
+    PUSHBUTTON      "Use",IDC_USE,4,147,50,14,WS_DISABLED
+    PUSHBUTTON      "Add",IDC_ADD,58,147,50,14,WS_DISABLED
+    PUSHBUTTON      "Remove",IDC_REMOVE,152,147,50,14,WS_DISABLED
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_MOONLIGHT           ICON                    "Moonlight.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_CLIPBOARD_MENU MENU 
+BEGIN
+    POPUP "DEFAULT"
+    BEGIN
+        POPUP "&File"
+        BEGIN
+            MENUITEM "&Insert...",                  ID_FILE_OPEN
+        END
+        POPUP "&Edit"
+        BEGIN
+            POPUP "As"
+            BEGIN
+                MENUITEM "Print",                       ID_EDIT_AS_PRINT
+                MENUITEM "Document",                    ID_EDIT_AS_DOCUMENT, CHECKED
+                MENUITEM "Web Page",                    ID_EDIT_AS_WEBPAGE, GRAYED
+            END
+            MENUITEM SEPARATOR
+            MENUITEM "&Crop \tCtrl+Shift+X",        ID_EDIT_CROP
+            MENUITEM "&Clip \tCtrl+Shift+C",        ID_EDIT_CLIP
+            MENUITEM SEPARATOR
+            MENUITEM "Select &All \tCtrl+A",        ID_EDIT_SELECTALL
+            MENUITEM SEPARATOR
+            MENUITEM "&Undo \tCtrl+Z",              ID_EDIT_UNDO
+            MENUITEM "&Redo \tCtrl+Shift+Z",        ID_EDIT_REDO
+            MENUITEM SEPARATOR
+            MENUITEM "&Cut \tCtrl+X",               ID_EDIT_CUT
+            MENUITEM "&Copy \tCtrl+C",              ID_EDIT_COPY
+            MENUITEM "&Paste \tCtrl+V",             ID_EDIT_PASTE
+        END
+        MENUITEM SEPARATOR
+        POPUP "&Zoom"
+        BEGIN
+            MENUITEM "&1x",                         ID_ZOOM_1X
+            MENUITEM "&2x",                         ID_ZOOM_2X
+            MENUITEM "&4x",                         ID_ZOOM_4X
+            MENUITEM "&8x",                         ID_ZOOM_8X
+            POPUP "More"
+            BEGIN
+                MENUITEM "&3x",                         ID_ZOOM_3X
+                MENUITEM "&4x",                         ID_ZOOM_4X
+                MENUITEM "&5x",                         ID_ZOOM_5X
+                MENUITEM "&6x",                         ID_ZOOM_6X
+                MENUITEM "&7x",                         ID_ZOOM_7X
+                MENUITEM "&8x",                         ID_ZOOM_8X
+                MENUITEM "&9x",                         ID_ZOOM_9X
+                MENUITEM "1&0x",                        ID_ZOOM_10X
+                MENUITEM "1&1x",                        ID_ZOOM_11X
+                MENUITEM "1&2x",                        ID_ZOOM_12X
+                MENUITEM "1&3x",                        ID_ZOOM_13X
+                MENUITEM "1&4x",                        ID_ZOOM_14X
+                MENUITEM "1&5x",                        ID_ZOOM_15X
+                MENUITEM "1&6x",                        ID_ZOOM_16X
+            END
+        END
+        POPUP "&Text"
+        BEGIN
+            MENUITEM "&Rotate \tCtrl+Shift+R",      ID_TEXT_ROTATE
+            MENUITEM "&0° \t",                      ID_EPR_0
+            MENUITEM "&90°",                        ID_EPR_90
+            MENUITEM "&180°",                       ID_EPR_180
+            MENUITEM "&270°",                       ID_EPR_270
+            MENUITEM "&Mongolian",                  ID_EPR_SE
+            MENUITEM "&Default",                    ID_EPR_0
+        END
+        MENUITEM SEPARATOR
+        POPUP "&Choose"
+        BEGIN
+            MENUITEM "&Font...",                    ID_CHOOSE_FONT
+            MENUITEM "&Background",                 ID_CHOOSE_BACKGROUND
+        END
+        POPUP "&Theme"
+        BEGIN
+            MENUITEM "&Background",                 ID_DEFAULT_BACKGROUND
+        END
+    END
+END
+
+IDR_FOLDER_MENU MENU 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Find...",                    ID_FILE_OPEN, GRAYED
+        MENUITEM SEPARATOR
+        POPUP "&Places"
+        BEGIN
+            MENUITEM "&* \t.",                      ID_c_0
+            MENUITEM "&mdl; mdo \t..\\model",       ID_PLACES_1
+            MENUITEM "&msm \t..\\msm",              ID_PLACES_2
+            MENUITEM "&pal; txr \t..\\texture",     ID_PLACES_3
+            MENUITEM "&bmp \t .\\bmp",              ID_PLACES_4
+            MENUITEM SEPARATOR
+            MENUITEM "&New Place...",               ID_PLACES_NEW, GRAYED
+        END
+    END
+    POPUP "&Tools"
+    BEGIN
+        MENUITEM "&Folders",                    ID_FILE_FOLDERS, GRAYED
+    END
+    MENUITEM "&Help",                       ID_HELP40283, GRAYED
+END
+
+IDR_FOLDER_POPUP MENU 
+BEGIN
+    POPUP "CONTEXT"
+    BEGIN
+        MENUITEM "&Select/Edit",                ID_SELECT
+        MENUITEM SEPARATOR
+        MENUITEM "&Open folder location \t\\",  ID_OPEN_LOCATION
+        MENUITEM SEPARATOR
+        MENUITEM "&X \tDelete",                 ID_DELETE
+    END
+END
+
+#endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#include "Sompaste.rc2"
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
