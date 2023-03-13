@@ -1,0 +1,968 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="libraries">
+      <UniqueIdentifier>{74921b76-7e46-4184-bcf5-810a9bed0bb9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{f8d018df-08ec-4e8c-8cf8-49a8570da33e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="COLLADA">
+      <UniqueIdentifier>{afb279b4-238e-47c1-8e13-488de7657902}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="..\..\Collada-DOM\dom\build\vc10-1.5\libcollada15dom22-s.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\build\vc10-1.5-d\libcollada15dom22-sd.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_filesystem.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_filesystem-d.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_system.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_system-d.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\minizip\win32\lib\minizip.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\minizip\win32\lib\minizip-d.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcre.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcrecpp.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcrecppd.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcred.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\libxml2\win32\lib\zlib.lib">
+      <Filter>libraries</Filter>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\libxml2-new\lib\libxml2-vc100-mt.lib">
+      <Filter>libraries</Filter>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="PreServe.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Daedalus.h" />
+    <ClInclude Include="Daedalus.%28c%29.h" />
+    <ClInclude Include="getopt.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\accessor_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\animation_clip_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\animation_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\articulated_system_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\asset_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\axis_constraint_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\axis_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bind_joint_axis_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bind_kinematics_model_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bind_material_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bool_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\box_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\brep_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\camera_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\capsule_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_param_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_pass_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_setparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_user_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\channel_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\circle_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\COLLADA.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_bool_or_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_float_or_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_float2_or_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_int_or_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_sidref_or_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cone_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\controller_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\convex_mesh_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\curve_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\curves_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cylinder_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\domConstants.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\edges_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\effect_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\ellipse_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\ellipsoid_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\extra_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\faces_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\float_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\force_field_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_setparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_technique_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_annotate_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_annotate_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_clearcolor_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_cleardepth_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_clearstencil_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_code_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_colortarget_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_color_or_texture_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_float_or_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_transparent_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_depthtarget_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_include_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_newparam_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_profile_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_rendertarget_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler_states_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler1D_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler2D_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler3D_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_samplerCUBE_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_samplerDEPTH_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_samplerRECT_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_setparam_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sources_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_stenciltarget_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_target_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\geometry_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gl_pipeline_settings_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_param_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_pipeline_settings_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_sampler_states_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_sampler_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_argument_alpha_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_argument_rgb_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_command_alpha_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_command_rgb_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_command_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texenv_command_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texture_constant_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texture_pipeline_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_pass_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_pipeline_settings_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_program_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_shader_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_value_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_program_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_shader_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_value_group.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\http_www_collada_org_2008_03_COLLADASchema.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\hyperbola_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\idref_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\image_mips_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\image_source_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\image_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\input_global_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\input_local_offset_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\input_local_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_articulated_system_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_camera_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_controller_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_effect_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_force_field_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_formula_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_geometry_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_image_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_joint_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_kinematics_model_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_kinematics_scene_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_light_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_material_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_node_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_physics_material_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_physics_model_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_rigid_body_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_rigid_constraint_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_with_extra_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\int_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\joint_limits_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\joint_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_axis_info_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_bind_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_connect_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_frame_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_index_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_limits_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_model_technique_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_model_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_newparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_scene_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_setparam_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_technique_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_animation_clips_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_animations_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_articulated_systems_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_cameras_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_controllers_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_effects_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_force_fields_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_formulas_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_geometries_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_images_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_joints_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_kinematics_models_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_kinematics_scenes_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_lights_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_materials_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_nodes_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_physics_materials_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_physics_models_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_physics_scenes_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_visual_scenes_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\light_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\limits_sub_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\line_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\lines_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\linestrips_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\link_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\lookat_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\material_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\matrix_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\mesh_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\minmax_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\morph_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_axis_info_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_effector_info_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_technique_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\name_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\node_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\nurbs_surface_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\nurbs_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\orient_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\origin_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\p_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\parabola_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\param_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\pcurves_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\physics_material_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\physics_model_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\physics_scene_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\plane_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\polygons_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\polylist_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_bridge_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_cg_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_common_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_gles_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_gles2_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_glsl_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\rigid_body_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\rigid_constraint_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\rotate_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\sampler_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\scale_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\shells_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\sidref_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\skew_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\skin_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\solids_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\source_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\sphere_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\spline_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\surface_curves_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\surface_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\surfaces_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\swept_surface_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\targetable_float_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\targetable_float3_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\targetable_float4_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\technique_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\token_array_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\torus_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\translate_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\triangles_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\trifans_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\tristrips_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\vertices_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\visual_scene_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\wires_type.h">
+      <Filter>COLLADA</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Daedalus.cpp" />
+    <ClCompile Include="Daedalus.pch.cpp" />
+    <ClCompile Include="getopt.c" />
+    <ClCompile Include="CollaDAPP.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-CalcTangentsProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-ComputeUVMappingProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-ConvertToLHProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-DeboneProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-FindDegenerates.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-FindInstancesProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-FindInvalidDataProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-FixNormalsStep.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-GenNormalsProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-ImproveCacheLocality.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-JoinVerticesProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-LimitBoneWeightsProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-MakeVerboseFormat.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-OptimizeMeshes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-PretransformVertices.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-RemoveRedundantMaterials.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-RemoveVCProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-ScenePreprocessor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-SimplifySceneProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-SortByPTypeProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-SpatialSort.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-SplitLargeMeshes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-TextureTransform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-TriangulateProcess.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="post-ValidateDataStructure.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PreServe.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Collada.pch.cpp" />
+    <ClCompile Include="post-OptimizeGraph.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Issues.txt" />
+    <None Include="PreServe.inl">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-animation.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-bivector.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-bone.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-camera.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-face.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-face2.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-key.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-light.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-list.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-material.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-materiality.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-matrix.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-mesh.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-mesh2.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-morph.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-morphimation.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-node.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-pre.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-quaternion.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-scene.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-server.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-skinimation.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-string.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-texture.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="pre-vector.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="post-MakeSubmeshHelper.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="post-MergeMeshesHelper.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="post.hpp">
+      <Filter>Header Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="NatvisFile.natvis" />
+  </ItemGroup>
+</Project>

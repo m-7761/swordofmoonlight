@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="resources">
+      <UniqueIdentifier>{bb7dbc71-e3a9-4284-aba4-f0f50b81a6f7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Sompaint_D3D9.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Sompaint_D3D9.rc2">
+      <Filter>resources</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Sompaint_D3D9.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Sompaint_D3D9.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Sompaint_D3D9.cpp" />
+  </ItemGroup>
+</Project>

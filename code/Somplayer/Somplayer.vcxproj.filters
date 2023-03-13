@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="resources">
+      <UniqueIdentifier>{10e64f28-4a66-4281-b40e-88c364b02f52}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="headers">
+      <UniqueIdentifier>{7a474e99-0ca3-430b-81cc-031fea8da2d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sources">
+      <UniqueIdentifier>{47205e7d-27a2-489c-99d3-2aff43f60f1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Somtexture.pch">
+      <UniqueIdentifier>{000f700d-4ffb-49b0-80a6-2aabad60e792}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lib">
+      <UniqueIdentifier>{d91d8b50-0c04-4c86-bed1-c10fe9dd20dc}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="04b_0069.bmp">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Somplayer.rc2">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Somenviron.inl">
+      <Filter>headers</Filter>
+    </None>
+    <None Include="Somgraphic.inl">
+      <Filter>headers</Filter>
+    </None>
+    <None Include="Somshader.inl">
+      <Filter>headers</Filter>
+    </None>
+    <None Include="Somtexture.inl">
+      <Filter>headers</Filter>
+    </None>
+    <None Include="Somplayer.inl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Somplayer.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Somplayer.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+    <ClInclude Include="Somclient.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somconsole.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somcontrol.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somdisplay.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somenviron.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somgraphic.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Sominstant.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somregis.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somscribe.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somshader.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somspeaker.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somtexture.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somthread.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somtrainer.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somvector.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Somwindows.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\lib\swordofmoonlight.h">
+      <Filter>lib</Filter>
+    </ClInclude>
+    <ClInclude Include="Somtexture.pch.h">
+      <Filter>Somtexture.pch</Filter>
+    </ClInclude>
+    <ClInclude Include="Somplayer.h" />
+    <ClInclude Include="Somplayer.pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Somclient.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somconsole.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somcontrol.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Sommctrl.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somscribe.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somthumb.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Somwindows.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\Swordofmoonlight.cpp">
+      <Filter>lib</Filter>
+    </ClCompile>
+    <ClCompile Include="Somenviron.cpp">
+      <Filter>Somtexture.pch</Filter>
+    </ClCompile>
+    <ClCompile Include="Somgraphic.cpp">
+      <Filter>Somtexture.pch</Filter>
+    </ClCompile>
+    <ClCompile Include="Somshader.cpp">
+      <Filter>Somtexture.pch</Filter>
+    </ClCompile>
+    <ClCompile Include="Somtexture.cpp">
+      <Filter>Somtexture.pch</Filter>
+    </ClCompile>
+    <ClCompile Include="Somplayer.cpp" />
+    <ClCompile Include="Somplayer.pch.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuildStep Include="Somplayer.def" />
+  </ItemGroup>
+</Project>

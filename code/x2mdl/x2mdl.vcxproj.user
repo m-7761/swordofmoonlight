@@ -1,0 +1,31 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LocalDebuggerCommandArguments>--file-extension=msm --prefix-texture=bmp/ yko30.mm3d</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\Users\Michael\Sword of Moonlight\data\map\model</LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommand>$(OutDir)x2mdl.exe</LocalDebuggerCommand>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug DLL (x2mdl)|Win32'">
+    <LocalDebuggerCommandArguments>
+    </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>
+    </LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+    <LocalDebuggerCommand>$(TargetPath)</LocalDebuggerCommand>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LocalDebuggerCommandArguments>
+    </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>
+    </LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release DLL (x2mdl)|Win32'">
+    <LocalDebuggerCommandArguments>
+    </LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>
+    </LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+</Project>

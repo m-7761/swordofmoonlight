@@ -1,0 +1,9 @@
+;LIBRARY	"Somplayer"
+										
+EXPORTS
+		DllInstall			 PRIVATE 
+		DllRegisterServer	 PRIVATE 	
+		DllUnregisterServer	 PRIVATE 
+		DllGetClassObject	 PRIVATE 
+		DllCanUnloadNow		 PRIVATE
+		

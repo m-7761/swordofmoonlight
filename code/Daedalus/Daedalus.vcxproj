@@ -1,0 +1,526 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{4F6FAE62-A87F-4A0F-A966-B6C4B5FD9BCD}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>Daedalus</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="Collada-DOM_external-deps.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="Collada-DOM_external-deps.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>$(DX9_SDK)\include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(DX9_SDK)\include;../../Collada-DOM/dom/include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeaderFile>Daedalus.(c).h</PrecompiledHeaderFile>
+      <AdditionalOptions>/Zm300 /D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE %(AdditionalOptions)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <StringPooling>true</StringPooling>
+      <FunctionLevelLinking>false</FunctionLevelLinking>
+      <MultiProcessorCompilation>false</MultiProcessorCompilation>
+      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>C:\Users\Michael\Projects\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ColladaDOM.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/NODEFAULTLIB:msvcrt.lib %(AdditionalOptions)</AdditionalOptions>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/D_CRT_SECURE_NO_DEPRECATE /D_CRT_NONSTDC_NO_DEPRECATE %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>..\..\Collada-DOM\dom\build\vc10-1.5;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libcollada15dom22-s.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Library Include="..\..\Collada-DOM\dom\build\vc10-1.5-d\libcollada15dom22-sd.lib">
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\build\vc10-1.5\libcollada15dom22-s.lib">
+      <FileType>Document</FileType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_filesystem-d.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_filesystem.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_system-d.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\boost\lib\vc10\libboost_system.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\libxml2-new\lib\libxml2-vc100-mt.lib" />
+    <Library Include="..\..\Collada-DOM\dom\external-libs\libxml2\win32\lib\zlib.lib" />
+    <Library Include="..\..\Collada-DOM\dom\external-libs\minizip\win32\lib\minizip-d.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\minizip\win32\lib\minizip.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcre.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcrecpp.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcrecppd.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+    <Library Include="..\..\Collada-DOM\dom\external-libs\pcre\lib\vc10\pcred.lib">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </Library>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Collada.pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+      </PrecompiledHeaderFile>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ClCompile Include="CollaDAPP.cpp" />
+    <ClCompile Include="Daedalus.cpp" />
+    <ClCompile Include="Daedalus.pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <ShowIncludes Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ShowIncludes>
+    </ClCompile>
+    <ClCompile Include="getopt.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="post-CalcTangentsProcess.cpp" />
+    <ClCompile Include="post-ComputeUVMappingProcess.cpp" />
+    <ClCompile Include="post-ConvertToLHProcess.cpp" />
+    <ClCompile Include="post-DeboneProcess.cpp" />
+    <ClCompile Include="post-FindDegenerates.cpp" />
+    <ClCompile Include="post-FindInstancesProcess.cpp" />
+    <ClCompile Include="post-FindInvalidDataProcess.cpp" />
+    <ClCompile Include="post-FixNormalsStep.cpp" />
+    <ClCompile Include="post-GenNormalsProcess.cpp" />
+    <ClCompile Include="post-ImproveCacheLocality.cpp" />
+    <ClCompile Include="post-JoinVerticesProcess.cpp" />
+    <ClCompile Include="post-LimitBoneWeightsProcess.cpp" />
+    <ClCompile Include="post-MakeVerboseFormat.cpp" />
+    <ClCompile Include="post-OptimizeGraph.cpp" />
+    <ClCompile Include="post-OptimizeMeshes.cpp" />
+    <ClCompile Include="post-PretransformVertices.cpp" />
+    <ClCompile Include="post-RemoveRedundantMaterials.cpp" />
+    <ClCompile Include="post-RemoveVCProcess.cpp" />
+    <ClCompile Include="post-ScenePreprocessor.cpp" />
+    <ClCompile Include="post-SimplifySceneProcess.cpp" />
+    <ClCompile Include="post-SortByPTypeProcess.cpp" />
+    <ClCompile Include="post-SpatialSort.cpp" />
+    <ClCompile Include="post-SplitLargeMeshes.cpp" />
+    <ClCompile Include="post-TextureTransform.cpp" />
+    <ClCompile Include="post-TriangulateProcess.cpp" />
+    <ClCompile Include="post-ValidateDataStructure.cpp" />
+    <ClCompile Include="PreServe.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="pre-face2.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-materiality.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-morphimation.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-list.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-animation.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-light.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-bivector.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\accessor_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\animation_clip_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\animation_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\articulated_system_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\asset_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\axis_constraint_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\axis_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bind_joint_axis_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bind_kinematics_model_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bind_material_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\bool_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\box_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\brep_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\camera_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\capsule_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_param_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_pass_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_setparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cg_user_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\channel_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\circle_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\COLLADA.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_bool_or_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_float2_or_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_float_or_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_int_or_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\common_sidref_or_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cone_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\controller_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\convex_mesh_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\curves_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\curve_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\cylinder_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\domConstants.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\edges_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\effect_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\ellipse_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\ellipsoid_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\extra_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\faces_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\float_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\force_field_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_setparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_technique_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\formula_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_annotate_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_annotate_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_clearcolor_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_cleardepth_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_clearstencil_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_code_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_colortarget_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_color_or_texture_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_float_or_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_common_transparent_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_depthtarget_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_include_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_newparam_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_profile_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_rendertarget_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler1D_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler2D_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler3D_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_samplerCUBE_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_samplerDEPTH_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_samplerRECT_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler_states_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sampler_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_setparam_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_sources_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_stenciltarget_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\fx_target_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\geometry_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_pass_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_pipeline_settings_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_program_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_shader_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles2_value_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_param_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_pipeline_settings_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_sampler_states_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_sampler_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_argument_alpha_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_argument_rgb_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_command_alpha_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_command_rgb_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texcombiner_command_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texenv_command_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texture_constant_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gles_texture_pipeline_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_program_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_shader_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\glsl_value_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\gl_pipeline_settings_group.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\http_www_collada_org_2008_03_COLLADASchema.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\hyperbola_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\idref_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\image_mips_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\image_source_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\image_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\input_global_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\input_local_offset_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\input_local_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_articulated_system_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_camera_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_controller_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_effect_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_force_field_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_formula_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_geometry_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_image_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_joint_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_kinematics_model_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_kinematics_scene_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_light_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_material_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_node_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_physics_material_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_physics_model_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_rigid_body_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_rigid_constraint_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\instance_with_extra_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\int_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\joint_limits_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\joint_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_axis_info_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_bind_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_connect_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_frame_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_index_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_limits_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_model_technique_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_model_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_newparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_scene_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_setparam_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_technique_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\kinematics_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_animations_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_animation_clips_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_articulated_systems_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_cameras_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_controllers_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_effects_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_force_fields_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_formulas_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_geometries_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_images_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_joints_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_kinematics_models_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_kinematics_scenes_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_lights_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_materials_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_nodes_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_physics_materials_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_physics_models_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_physics_scenes_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\library_visual_scenes_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\light_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\limits_sub_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\linestrips_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\lines_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\line_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\link_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\lookat_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\material_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\matrix_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\mesh_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\minmax_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\morph_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_axis_info_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_effector_info_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_technique_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\motion_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\name_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\node_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\nurbs_surface_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\nurbs_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\orient_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\origin_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\parabola_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\param_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\pcurves_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\physics_material_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\physics_model_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\physics_scene_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\plane_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\polygons_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\polylist_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_bridge_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_cg_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_common_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_gles2_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_gles_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\profile_glsl_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\p_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\rigid_body_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\rigid_constraint_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\rotate_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\sampler_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\scale_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\shells_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\sidref_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\skew_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\skin_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\solids_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\source_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\sphere_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\spline_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\surfaces_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\surface_curves_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\surface_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\swept_surface_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\targetable_float3_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\targetable_float4_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\targetable_float_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\technique_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\token_array_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\torus_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\translate_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\triangles_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\trifans_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\tristrips_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\vertices_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\visual_scene_type.h" />
+    <ClInclude Include="..\..\Collada-DOM\dom\codeGen\generated-3\COLLADA\wires_type.h" />
+    <ClInclude Include="Daedalus.h" />
+    <ClInclude Include="Daedalus.%28c%29.h" />
+    <None Include="post-MergeMeshesHelper.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="post-MakeSubmeshHelper.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="post.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-bone.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-camera.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-pre.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-skinimation.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-vector.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-face.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-key.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-material.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-matrix.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-mesh.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-mesh2.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-morph.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-node.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-quaternion.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-scene.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-server.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-string.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <None Include="pre-texture.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+    <ClInclude Include="PreServe.h" />
+    <ClInclude Include="getopt.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Issues.txt" />
+    <None Include="PreServe.inl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="NatvisFile.natvis">
+      <SubType>Designer</SubType>
+    </Natvis>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

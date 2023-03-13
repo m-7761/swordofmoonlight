@@ -1,0 +1,58 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="resources">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Exit.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Icon.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Som.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM_EDIT.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM_EX.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM_EX.rc2">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM_MAIN.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM_MAP.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM_PRM.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM_SYS.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="Splash.bmp">
+      <Filter>resources</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SOM_EX.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="SOM_EX.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+    <ClInclude Include="SOM_EX.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SOM_EX.cpp" />
+  </ItemGroup>
+</Project>

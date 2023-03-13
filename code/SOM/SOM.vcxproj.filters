@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="libraries">
+      <UniqueIdentifier>{04e53220-9ddc-45eb-abab-c969c4771731}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="libraries\debug">
+      <UniqueIdentifier>{ca17d3cf-db14-4aa2-9ede-7928317bf0ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="resources">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Som.ico">
+      <Filter>resources</Filter>
+    </None>
+    <None Include="SOM.rc2">
+      <Filter>resources</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SOM.rc">
+      <Filter>resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="SOM.res.h">
+      <Filter>resources</Filter>
+    </ClInclude>
+    <ClInclude Include="SOM.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="SOM.cpp" />
+  </ItemGroup>
+</Project>

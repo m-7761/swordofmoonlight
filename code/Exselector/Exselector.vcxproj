@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.props" Condition="Exists('packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.props')" />
+  <Import Project="packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.props" Condition="Exists('packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.props')" />
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release (ANGLE)|Win32">
+      <Configuration>Release (ANGLE)</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{76A5E2A1-C885-4C73-94BA-0B4F4065BC16}</ProjectGuid>
+    <RootNamespace>Ddbug</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0.22000.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>NotSet</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <CharacterSet>NotSet</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v141</PlatformToolset>
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.40219.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SOM_SRC)\Exselector\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SOM_SRC)\Exselector\$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</LinkIncremental>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SOM_SRC)\Exselector\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">$(SOM_SRC)\Exselector\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SOM_SRC)\Exselector\$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">$(SOM_SRC)\Exselector\$(Configuration)\</IntDir>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkIncremental>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">false</LinkIncremental>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'" />
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalOptions>/I "$(SOM_SDK)" %(AdditionalOptions)</AdditionalOptions>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(WIDGETS95)/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIDGETS_95_DLLEXPORT;WIN32;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>Exselector.pch.h</PrecompiledHeaderFile>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <Link>
+      <AdditionalOptions>/LIBPATH:"$(SOM_SDK)\lib" /LIBPATH:"$(SOM_SDK)\imp" %(AdditionalOptions)</AdditionalOptions>
+      <OutputFile>$(SOM_SRC)\Exselector\$(Configuration)\Exselector.dll</OutputFile>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <DelayLoadDLLs>ws2_32.dll;openxr_loader.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <SubSystem>Windows</SubSystem>
+      <SupportUnloadOfDelayLoadedDLL>true</SupportUnloadOfDelayLoadedDLL>
+      <TargetMachine>MachineX86</TargetMachine>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <AdditionalDependencies>widgets95-sd.lib;wxbase31ud.lib;wxjpegd.lib;wxpngd.lib;wxtiffd.lib;wxzlibd.lib;wxmsw31ud_html.lib;wxmsw31ud_gl.lib;wxmsw31ud_core.lib;obj/angle_common.lib;obj/angle_gpu_info_util.lib;obj/angle_image_util.lib;obj/libEGL_static.lib;obj/libGLESv2_static.lib;obj/libANGLE_static.lib;opengl32.lib;obj/translator_gl_d3d_only.lib;Setupapi.lib;hidapi.lib;JoyShockLibrary.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(WXWIDGETS)/lib/vc_lib;$(WIDGETS95)/bin/Win32;JoyShockLibrary/JoyShockLibrary/$(Configuration);JoyShockLibrary/$(Configuration);$(ANGLE_INC_PATH)/../out/Static;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <OptimizeReferences>false</OptimizeReferences>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy /y "$(SOM_SRC)\Exselector\$(Configuration)\Exselector.dll" "$(SOM_SVN)\tool\Exselector.dll"
+
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalOptions>/I "$(SOM_SDK)" %(AdditionalOptions)</AdditionalOptions>
+      <Optimization>Disabled</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <AdditionalIncludeDirectories>$(WIDGETS95)/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIDGETS_95_DLLEXPORT;WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>Exselector.pch.h</PrecompiledHeaderFile>
+      <WarningLevel>Level1</WarningLevel>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+    </ClCompile>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <Link>
+      <AdditionalOptions>/LIBPATH:"$(SOM_SDK)/lib" /LIBPATH:"$(SOM_SDK)/imp" %(AdditionalOptions)</AdditionalOptions>
+      <OutputFile>$(SOM_SRC)\Exselector\$(Configuration)\Exselector.dll</OutputFile>
+      <Version>
+      </Version>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <DelayLoadDLLs>Ws2_32.dll;openxr_loader.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <SupportUnloadOfDelayLoadedDLL>true</SupportUnloadOfDelayLoadedDLL>
+      <TargetMachine>MachineX86</TargetMachine>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <AdditionalDependencies>widgets95-s.lib;wxbase31u.lib;wxjpeg.lib;wxpng.lib;wxtiff.lib;wxzlib.lib;wxmsw31u_html.lib;wxmsw31u_gl.lib;wxmsw31u_core.lib;opengl32.lib;Setupapi.lib;hidapi.lib;JoyShockLibrary.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(WXWIDGETS)/lib/vc_lib;$(WIDGETS95)/bin/Win32;JoyShockLibrary/JoyShockLibrary/$(Configuration);JoyShockLibrary/$(Configuration);$(ANGLE_INC_PATH)/../out/Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy /y "$(SOM_SRC)\Exselector\$(Configuration)\Exselector.dll" "$(SOM_SVN)\tool\Exselector.dll"
+
+
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">
+    <ClCompile>
+      <AdditionalOptions>/I "$(SOM_SDK)" %(AdditionalOptions)</AdditionalOptions>
+      <Optimization>Disabled</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <AdditionalIncludeDirectories>$(WIDGETS95)/include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIDGETS_95_DLLEXPORT;WIN32;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>Exselector.pch.h</PrecompiledHeaderFile>
+      <WarningLevel>Level1</WarningLevel>
+      <DebugInformationFormat>None</DebugInformationFormat>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+    </ClCompile>
+    <ResourceCompile>
+      <Culture>0x0411</Culture>
+    </ResourceCompile>
+    <Link>
+      <AdditionalOptions>/LIBPATH:"$(SOM_SDK)/lib" /LIBPATH:"$(SOM_SDK)/imp" %(AdditionalOptions)</AdditionalOptions>
+      <OutputFile>$(SOM_SRC)\Exselector\$(Configuration)\Exselector.dll</OutputFile>
+      <Version>
+      </Version>
+      <ModuleDefinitionFile>
+      </ModuleDefinitionFile>
+      <DelayLoadDLLs>Ws2_32.dll;openxr_loader.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <SupportUnloadOfDelayLoadedDLL>true</SupportUnloadOfDelayLoadedDLL>
+      <TargetMachine>MachineX86</TargetMachine>
+      <RandomizedBaseAddress>false</RandomizedBaseAddress>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <AdditionalDependencies>widgets95-s.lib;wxbase31u.lib;wxjpeg.lib;wxpng.lib;wxtiff.lib;wxzlib.lib;wxmsw31u_html.lib;wxmsw31u_gl.lib;wxmsw31u_core.lib;obj/angle_common.lib;obj/angle_gpu_info_util.lib;obj/angle_image_util.lib;obj/libEGL_static.lib;obj/libGLESv2_static.lib;obj/libANGLE_static.lib;opengl32.lib;obj/translator_gl_d3d_only.lib;Setupapi.lib;hidapi.lib;JoyShockLibrary.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(WXWIDGETS)/lib/vc_lib;$(WIDGETS95)/bin/Win32;JoyShockLibrary/JoyShockLibrary/$(Configuration);JoyShockLibrary/$(Configuration);$(ANGLE_INC_PATH)/../out/Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy /y "$(SOM_SRC)\Exselector\$(Configuration)\Exselector.dll" "$(SOM_SVN)\tool\Exselector.dll"
+
+
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <None Include="Exselector.ico" />
+    <None Include="Exselector.rc2" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Exselector.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Exselector.hpp" />
+    <ClInclude Include="Exselector.res.h" />
+    <ClInclude Include="..\lib\swordofmoonlight.h" />
+    <ClInclude Include="Exselector.h" />
+    <ClInclude Include="Exselector.pch.h" />
+    <ClInclude Include="src\nanovg.pch.h" />
+    <ClInclude Include="src\nanovg\fontstash.h" />
+    <ClInclude Include="src\nanovg\nanovg.h" />
+    <ClInclude Include="src\nanovg\nanovg_gl.h" />
+    <ClInclude Include="src\nanovg\nanovg_gl_utils.h" />
+    <ClInclude Include="src\nanovg\stb_image.h" />
+    <ClInclude Include="src\nanovg\stb_rect_pack.h" />
+    <ClInclude Include="src\nanovg\stb_truetype.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\lib\Swordofmoonlight.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+      </PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+      </PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">
+      </PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="Exselector.cpp" />
+    <ClCompile Include="Exselector.pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Exselector.pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Exselector.pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">Exselector.pch.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="src\nanovg\nanovg.c">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">../nanovg.pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)nanovg.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">../nanovg.pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">../nanovg.pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)nanovg.pch</PrecompiledHeaderOutputFile>
+      <PrecompiledHeaderOutputFile Condition="'$(Configuration)|$(Platform)'=='Release (ANGLE)|Win32'">$(IntDir)nanovg.pch</PrecompiledHeaderOutputFile>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="src\nanovg\LICENSE.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.targets" Condition="Exists('packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.targets')" />
+    <Import Project="packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.targets" Condition="Exists('packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.targets')" />
+  </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.props'))" />
+    <Error Condition="!Exists('packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\OpenXR.Headers.1.0.10.2\build\native\OpenXR.Headers.targets'))" />
+    <Error Condition="!Exists('packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.props'))" />
+    <Error Condition="!Exists('packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\OpenXR.Loader.1.0.10.2\build\native\OpenXR.Loader.targets'))" />
+  </Target>
+</Project>

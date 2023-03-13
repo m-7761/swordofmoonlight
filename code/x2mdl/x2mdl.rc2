@@ -1,0 +1,53 @@
+
+
+#define X2MDL_INCLUDED
+#include "x2mdl.h"
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION X2MDL_VERSION
+ PRODUCTVERSION X2MDL_VERSION
+ FILEFLAGSMASK 0x17L
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x4L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "Comments", "http://www.swordofmoonlight.net/"
+            VALUE "CompanyName", "Swordofmoonlight.net"
+			VALUE "FileDescription", "x2mdl (Sword of Moonlight)"
+            VALUE "FileVersion", X2MDL_VSTRING
+            VALUE "InternalName", "x2mdl.dll"
+            VALUE "LegalCopyright", "Copyright (C) 2021-2022"
+            VALUE "OriginalFilename", "x2mdl.dll"
+            VALUE "ProductName", "Exselector"
+            VALUE "ProductVersion", X2MDL_VSTRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
