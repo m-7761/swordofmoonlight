@@ -1491,11 +1491,11 @@ extern void som_status_map_xy(int dx, int dy)
 			else xyz[1] = p->f[1];
 			//find heighest object top?
 			float _[3];
-			for(int i=SOM::L.ai3_size;i-->0;i++)
+			for(int i=SOM::L.ai3_size;i-->0;)
 			if(((BYTE(__cdecl*)(FLOAT*,FLOAT,FLOAT,DWORD,DWORD,FLOAT*,FLOAT*))0x40DFF0)
 			(xyz,h,r,i,0,_,_))
 			{
-				auto &ai = SOM::L.ai[i];
+				auto &ai = SOM::L.ai3[i];
 				float y = ai[SOM::AI::y3];
 				float h = ai[SOM::AI::height3];				
 				xyz[1] = max(xyz[1],y+h+0.001f);

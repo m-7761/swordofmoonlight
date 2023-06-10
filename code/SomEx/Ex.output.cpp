@@ -764,9 +764,9 @@ extern int EX::displaying_output_font(const EX::Font **in, HDC hdc, DWORD how, R
 	}
 	else goto hack;
 
-	while(len>0)
+	for(bool midline=false;len>0;)
 	{					  
-		g = p->select(txt2,len);		
+		g = p->select(txt2,len,midline);
 		sel = p->glyphs[g].selected;
 		
 		//2020: adding synthetic space between fonts
@@ -780,11 +780,15 @@ extern int EX::displaying_output_font(const EX::Font **in, HDC hdc, DWORD how, R
 		hack: //hybrid RT_RIGHT fix
 		
 		//2018: if font changes on a \n, removing the partial line
-		if(p->glyphs[g].nselected) 		
-		if(sel<len||creturn!=margin)
+		if(p->glyphs[g].nselected)
 		{
-			while(txt2[sel-1]!='\n') sel--;			
+			if(sel<len||creturn!=margin)
+			{
+				while(txt2[sel-1]!='\n') sel--;			
+			}
+			midline = txt2[sel-1]!='\n';
 		}
+		else midline = true;
 				
 		if(txt==txt2) //hack
 		{

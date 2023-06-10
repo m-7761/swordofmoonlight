@@ -113,7 +113,8 @@ extern wchar_t SomEx_exe[16] = {}; //Som.h
 extern const wchar_t *EX::exe() 
 {
 	if(*SomEx_exe) return SomEx_exe; 
-	if(SOM::game) return SOM::Game::title();			
+	if(SOM::game) return SOM::Game::title();
+	assert(0);
 	return L"Ex (untitled)";
 }
 extern const wchar_t *EX::log()
@@ -383,7 +384,7 @@ extern int EX::is_needed_to_initialize()
 	SOM::cursorY = SOM::config("cursorY",0);
 	SOM::cursorZ = SOM::config("cursorZ",0);
 	SOM::capture = SOM::config("capture",0);
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	//2022: no longer working (January) (maybe just
 	//a temporary Windows 10 bug?) (is this function
 	//only called once?)
@@ -392,7 +393,7 @@ extern int EX::is_needed_to_initialize()
 	{
 		//TESTING: this shows the up arrow... I wish
 		//it would timeout
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		SOM::f10();
 	}
 
@@ -501,9 +502,10 @@ tool: //things meaningful to tools starts here
 	
 	if(SOM::game) //tools are _dx6 for now
 	{
-		if(9==EX::directx()) //NEW
+		switch(EX::directx()) //NEW
 		{
-			DDRAW::target = gl?gl:'dx9c';
+		case 9: DDRAW::target = gl?gl:'dx9c'; break;
+		case 7: DDRAW::target = EX::debug?'dx7a':'dx9c'; break;
 		}
 	}
 	else if(SOM::tool) 
@@ -846,7 +848,8 @@ static bool SomEx(bool reload=false)
 	if(SOM::image()) //early out 
 	{			
 		//SomEx_tool here includes som_db.exe
-		SOM::retail = argc<=1||!SomEx_tool(argv[0],ext);
+		//SOM::retail = argc<=1||!SomEx_tool(argv[0],ext);
+		SOM::retail = !SomEx_tool(argv[0],ext);
 
 		/*KEEP 
 		// 
@@ -1414,7 +1417,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	{	
 	case DLL_PROCESS_ATTACH: 
 
-		_set_error_mode(_OUT_TO_MSGBOX);
+				_set_error_mode(_OUT_TO_MSGBOX);
 
 #ifdef _DEBUG //compiler
 
@@ -1431,8 +1434,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 		extern void som_mocap_speedometer(float[3]);
 		EX::speedometer = som_mocap_speedometer;
 
+		//breakpoints/asserts aren't working
+		//here anymore???
 		if(!SomEx()) Sword_of_Moonlight(0);
-		
+
 		break;
 
 	case DLL_PROCESS_DETACH: 

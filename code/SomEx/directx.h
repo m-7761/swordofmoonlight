@@ -12,8 +12,11 @@
 #include <iomanip>
 #include <fstream>
 
+#ifdef _DEBUG
 #include <map> //dx_d3d9c_stereoVD_t
 #include <vector> //dx_d3d9x_flushaders
+#include <algorithm>
+#endif
 
 #define WIN32_LEAN_AND_MEAN
 #define _CRT_SECURE_NO_DEPRECATE //for faster builds 

@@ -1235,7 +1235,7 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 //a full investigation even though I'm going to publish v1.2.2.14 anyway
 //NOTE: surmounting_staging solves this problem okay in a roundabout way
 //#error fix me
-int todolist[SOMEX_VNUMBER<=0x1020402UL]; //I think this can be removed?
+int todolist[SOMEX_VNUMBER<=0x1020406UL]; //I think this can be removed?
 #endif
 			//REMINDER: it's too messy to try to rule out crawlspaces
 			//return false;

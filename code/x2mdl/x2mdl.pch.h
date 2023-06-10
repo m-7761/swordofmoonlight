@@ -2,6 +2,8 @@
 #ifndef X2MDL_PCH_INCLUDED
 #define X2MDL_PCH_INCLUDED
 
+#define UNICODE
+
 #include <assert.h>
 #include <stdio.h>
 #include <iostream>
@@ -37,7 +39,11 @@
 
 #pragma comment(lib,"assimp.lib")
 
-extern const aiScene *X;
+//REMOVE US
+#define X2MDL_TEXTURE_MAX 256
+#define X2MDL_TEXTURE_TPF 0x02 //16bit
+
+extern const aiScene *X,*Y;
 
 #ifndef _CONSOLE
 struct x2mdl_dll

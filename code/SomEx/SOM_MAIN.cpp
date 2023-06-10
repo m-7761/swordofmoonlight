@@ -1690,7 +1690,9 @@ extern INT_PTR CALLBACK SOM_MAIN_151(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 		case IDYES:	if(SOM_MAIN_save()) break;
 
 			if(IDOK==SOM_MAIN_warning("MAIN201",MB_OKCANCEL|MB_DEFBUTTON2))
-			break;
+			break; 
+			
+			MessageBeep(-1); return 1; //2023
 
 		case IDCANCEL: return IDCANCEL; 		
 		}
@@ -2324,6 +2326,12 @@ static LRESULT CALLBACK SOM_MAIN_commonproc(HWND hWnd, UINT uMsg, WPARAM wParam,
 {
 	switch(uMsg)
 	{
+	case WM_ACTIVATE:
+
+		uMsg = uMsg; //breakpoint
+
+		break;
+
 	case WM_ACTIVATEAPP: 
 		
 		if(wParam) SOM_MAIN_readytoserveview(); 
@@ -6112,7 +6120,7 @@ static INT_PTR CALLBACK SOM_MAIN_153(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			case +1083: vk = VK_DOWN; break; case -1083: vk = VK_UP; break;
 			case -1084: vk = VK_LEFT; break; case +1085: vk = VK_RIGHT; break;
 			}			
-			assert(0);
+		//	assert(0); //??? //2023
 			//should this be 0xff80? //is it suppressing or adding?
 			som_tool_VK_CONTROL = 1; SendMessage(tv,WM_KEYDOWN,vk,0);
 			som_tool_VK_CONTROL = 0; 
@@ -6258,7 +6266,7 @@ static INT_PTR CALLBACK SOM_MAIN_153(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 		case 12321: case 1211: case 1212: 
 		{
 			//TODO: use SOM_MAIN_copy (notes in record)
-			int todolist[SOMEX_VNUMBER<=0x1020402UL];
+			int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 			//REMOVE ME??
 			sel = SOM_MAIN_tree[param][tv];
@@ -7011,7 +7019,7 @@ static INT_PTR CALLBACK SOM_MAIN_154(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			ListView_SortItems(lv,SOM_MAIN_sortbyText,aspect[0]);
 			else //this solution is for one release only
 			{
-			int todolist[SOMEX_VNUMBER<=0x1020402UL];			
+			int todolist[SOMEX_VNUMBER<=0x1020406UL];			
 			EXML::Attribs lp = EXML::attribs(aspect.c_str()); 
 			switch(lp)
 			{
@@ -10142,7 +10150,7 @@ inline int SOM_MAIN_skipspace(const char* &u, int &s)
 static bool SOM_MAIN_po(const char *p, const char *eof, int msgfmt)
 {		
 	//todo: SOM_MAIN_skipspace
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 	const char bom[4] = "\xef\xbb\xbf";
 	if(eof-p>=3&&!strncmp(p,bom,3)) p+=3;

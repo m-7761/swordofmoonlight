@@ -185,6 +185,8 @@ SOM::shoved = 0, SOM::bopped = 0;
 
 extern int SOM::tilt = 0; //mouse
 
+extern SOM::TextureAtlasRec SOM::TextureAtlas[1024][2] = {};
+
 //TODO
 //think probably this is 0x19AA978
 //004183F8 68 78 A9 9A 01       push        19AA978h
@@ -2101,7 +2103,7 @@ static DWORD __cdecl som_state_42bca0() //42AE60
 				{
 					//42bca0 detects the closest object, and perhaps inert objects
 					//should be given lower priority (this isn't event activation)
-					int todolist[SOMEX_VNUMBER<=0x1020402UL];
+					int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 					switch(type[1])
 					{
@@ -2479,6 +2481,10 @@ static void __cdecl som_state_409af0(DWORD event, DWORD *stack) //Map
 	}
 	else if(1) //implement 3d (warp) from scratch?
 	{
+		const evt::code3d_t &eax = *(evt::code3d_t*)*stack;
+	
+		*stack+=eax.x18; //2023  
+
 		int mask = warp->settingmask;
 
 		//NOTE: map changes update SOM::L.pcstate2 to the 
@@ -3948,7 +3954,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	//TODO: these could change dynamically so
 	//that they should be reset on the event
 	//cycle
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	SOM::L.shape = pc->player_character_shape; //0.25			
 	SOM::L.hitbox = pc->player_character_shape2; //0.25
 	SOM::L.hitbox2 = pc->player_character_shape3; //0.25
@@ -4295,7 +4301,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	{
 		*range = pc->player_character_radius-1.5f;
 		//44ce30 does event test (return to this)
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		//2020: it's possible this is doing nothing
 		//since I changed do_fix_boxed_events after
 		//learning 42bca0 tests from  the center of

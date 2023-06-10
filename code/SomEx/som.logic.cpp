@@ -137,7 +137,7 @@ static BYTE __cdecl som_logic_409080(DWORD event) //square
 	//if(~e->ext_zr_flags&2)
 	//return ((BYTE(__cdecl*)(DWORD))0x409080)(event);
 
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	float d[3]; memcpy(d,SOM::xyz,sizeof(d));
 	for(int i=3;i-->0;) d[i]-=p[i];
 
@@ -815,7 +815,7 @@ const float *sdr, const float height, float xyzuvw[3], bool flying)
 		//add enough to clear the MHM
 		//tolerance, assuming gravity
 		//is Earth like
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		float t = clip.falling+0.02f;
 		float d1 = 0.5f*g*(t*t); 
 		t+=step;
@@ -1466,7 +1466,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	{
 		//FIX ME
 		//I feel like this should be unspawning?!
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 		//"retroactive" mode?
 		float *sp = &ai[SOM::AI::_xyzuvw];				
@@ -2047,9 +2047,9 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 		if(st<6||st>11 //note: == should be fine
 		||prm[318]<=(BYTE)ai[SOM::AI::attack_recovery])
 		{
-			//FUN_004418b0_get_cyan_CP_delta(&mdl,cp,0xffffffff);
+			//FUN_004418b0_get_cyan_CP_delta(&mdl,cp,~0);
 			extern BYTE __cdecl som_MDL_4418b0(SOM::MDL&,float*,DWORD);
-			som_MDL_4418b0(mdl,cp,0xffffffff);				
+			som_MDL_4418b0(mdl,cp,~0);				
 			//EXTENSION
 			//if(st>=1&&st<=3&&mdl.ext.f2) //UNFINISHED			
 			if(mdl.ext.anim_read_head2) //TODO: skeleton
@@ -2059,7 +2059,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 					float cp2[3];
 					std::swap(mdl.ext.e2,mdl.c);
 					std::swap(mdl.ext.f2,mdl.d);				
-					som_MDL_4418b0(mdl,cp2,0xffffffff);
+					som_MDL_4418b0(mdl,cp2,~0);
 					std::swap(mdl.ext.e2,mdl.c);
 					std::swap(mdl.ext.f2,mdl.d);
 					//this visibly shifts back/forth every frame
@@ -2084,6 +2084,11 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 
 	auto &clip = mdl.ext.clip; //EXPERIMENTAL
 
+	#ifdef NDEBUG
+//	#error restore me
+	#endif
+	int no_clip = 0;//EX::debug;
+
 	//TESTING (INCONCLUSIVE)
 	//WHY WAS THIS DONE AFTER? IS THIS THE VIOLENT KICK BUG???
 	//NOTE: KICK BUG EXISTS IN EMU MODE
@@ -2092,7 +2097,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	{
 		//TODO: fall while dying (even if flying)
 		//FUN_004079d0_clip_enemy_and_checkpoint(&ai,cp);
-		if(!SOM::emu)
+		if(!SOM::emu&&!no_clip)
 		{
 			//FIX ME: som_logic_4079d0 modifies cp!!
 			float d = Somvector::map(cp).length<3>();
@@ -2226,7 +2231,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 		if(before_or_after) goto before_or_after2;
 	}
 
-	if(SOM::emu)
+	if(no_clip||SOM::emu)
 	{
 		memcpy(mdl.xyzuvw,xyzuvw,3*sizeof(float));
 		mdl.xyzuvw[1]+=0.01f;

@@ -1,8 +1,10 @@
 
 #ifndef X2MDL_VERSION
-#define X2MDL_VERSION 1,0,0,4
-#define X2MDL_VSTRING "1, 0, 0, 4"
-#define X2MDL_WSTRING L"1, 0, 0, 4"
+#define X2MDL_VERSION 1,0,1,2
+#define SOMEX_VNUMBER 0x1000102UL
+#define X2MDL_VSTRING "1, 0, 1, 2"
+#define X2MDL_WSTRING L"1, 0, 1, 2"
+#define X2MDL_UPTODATE 2023,6,5 //x2mdl.dll
 #endif
 
 #ifndef X2MDL_INCLUDED
@@ -32,6 +34,7 @@ namespace x2mdl_h
 		_msm=64,
 		_mhm=128,
 		_txr=256, //SFX
+		_ico=512,
 		_runtime_mask = _mdl|_mdo|_msm|_mhm|_txr,
 		_art_shift = 23,
 		_art = 1<<_art_shift,

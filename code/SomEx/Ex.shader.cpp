@@ -208,7 +208,7 @@ const DWORD *EX::assembling_shader(const char *spasm, int target)
 		size_t copy = out->GetBufferSize();
 		return (DWORD*)memcpy(new char[copy],out->GetBufferPointer(),copy);
 	}
-	const char *debug = err?(const char*)err->GetBufferPointer():0;
+	const char *debug = err?(const char*)err->GetBufferPointer():0; if(err) err->Release();
 	EX_BREAKPOINT(som_shader_assemble)
 	return 0;
 }
@@ -361,8 +361,9 @@ const char *code, const wchar_t *file)
 
 		EX_BREAKPOINT(som_shader_compile)
 
-		return 0;
+		if(err) err->Release(); return 0;
 	}
+	if(err) err->Release(); //PARANOIA?
 		
 	ok = D3DXDisassembleShader((DWORD*)obj->GetBufferPointer(),0,0,&spasm);
 

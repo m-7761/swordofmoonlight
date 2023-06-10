@@ -503,7 +503,7 @@ err: assert(0);
 	return 0;
 }
 
-int EX::Font::select(const wchar_t *in, int sz)const
+int EX::Font::select(const wchar_t *in, int sz, bool midline)const
 {
 	if(sz<0) //TODO: right justification
 	{
@@ -531,8 +531,7 @@ int EX::Font::select(const wchar_t *in, int sz)const
 	{
 		const wchar_t *rz = glyphs[et].selection;
 				
-		while(*rz)
-		if(*in>=rz[0]&&*in<=rz[1])
+		while(*rz) if(*in>=rz[0]&&*in<=rz[1])
 		{
 			if(out==-1)
 			{
@@ -550,7 +549,9 @@ int EX::Font::select(const wchar_t *in, int sz)const
 			{
 			case '\n': //NEW
 
-				glyphs[out].nselected++; break;
+				glyphs[out].nselected++;
+				
+				if(midline) goto out; break;
 			}
 
 			et = -2; break; //hack
@@ -558,7 +559,5 @@ int EX::Font::select(const wchar_t *in, int sz)const
 		else rz+=2; //2018: was rz++
 	}
 
-	assert(out>-1);
-
-	return out; 
+	out: assert(out>-1); return out; 
 }

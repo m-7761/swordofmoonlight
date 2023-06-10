@@ -271,7 +271,7 @@ namespace INI
 #define EX_INI_BUTTON(val) EX::INI::constructionset_t<int,val>
 #define EX_INI_OPTION(val) EX::INI::constructionset_t<bool,val>
 #define EX_INI_FOURCC(val) EX::INI::constructionset_t<DWORD,val>
-#define EX_INI_FIGURE(val) EX::INI::constructionset_t<float,val*100000>
+#define EX_INI_FIGURE(val) EX::INI::constructionset_t<float,int(val*100000)>
 #define EX_INI_BUFFER(ptr) EX::INI::constructionset_t<const ptr*,0,1>
 #define EX_INI_PRINTF(t,n) EX::INI::constructionset_t<t,0,n?n:MAX_PATH>\
 G(__LINE__/*__COUNTER__*/); EX::INI::constructionset_f<t,0,n?n:MAX_PATH>
@@ -809,7 +809,8 @@ EX_INI_SECTION(Editor)
 	do_subdivide_polygons,	
 	do_not_dither,
 	do_not_stipple,
-	do_not_smooth;
+	do_not_smooth,
+	do_not_generate_icons; //UNDOCUMENTED
 	
 	//2020: the tool/SOM_EX.ini file was setting this
 	//but it's not useful if that file isn't present
@@ -821,6 +822,9 @@ EX_INI_SECTION(Editor)
 	EX_INI_FIGURE(0.0) tile_elevation_increment; //DOCUMENT ME
 
 	EX_INI_NUMBER(0,0,INF) tile_illumination_bitmap; //DOCUMENT ME
+
+	//0~1 multiplies, -2~0 dims, 1~2 brightens
+	EX_INI_FIGURE(0) map_icon_brightness; //UNDOCUMENTED
 
 	EX_INI_FOURCC(0xff000000) default_pixel_value;
 	EX_INI_FOURCC(0xff0000be) default_pixel_value2;
@@ -1052,7 +1056,9 @@ EX_INI_SECTION(Option)
 	//should do_sounds be a
 	//Bugfix extension?
 	//TODO: kf2_hud?
-	do_kf2,do_nwse,do_reverb; //DOCUMENT US
+	do_kf2,do_nwse,do_reverb, //DOCUMENT US
+
+	do_alphasort; //2023 (UNDOCUMENTED)
 };
 EX_INI_SECTION(Output)
 {

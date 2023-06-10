@@ -51,7 +51,7 @@ extern HMENU &workshop_mode2_15_submenu = (HMENU&)som_tool_stack[9];
 extern BYTE workshop_mode;
 
 extern HWND som_tool_workshop = 0;
-extern bool som_tool_workshop_exe(int);
+extern bool workshop_exe(int);
 
 extern HWND som_tool_dialog(HWND=0);
 static RECT som_tool_dialogunits = {};
@@ -856,8 +856,8 @@ SOM::Tool::Tool()
 		LoadImageA = som_map_LoadImageA;
 		ImageList_LoadImageA = som_map_ImageList_LoadImageA;
 		}
-		else if(SOM::tool==SOM_SYS.exe)
-		WriteFile = SOM_SYS_WriteFile;
+	//	else if(SOM::tool==SOM_SYS.exe)
+	//	WriteFile = SOM_SYS_WriteFile;
 
 		//Too soon to initialize EX::INI::Editor //2018
 		//if(2000!=EX::INI::Editor()->time_machine_mode)	
@@ -1407,9 +1407,13 @@ static bool som_tool_zcopy(const wchar_t *dst, const wchar_t *text, const wchar_
 
 			HANDLE f = CreateFileW(dst,GENERIC_WRITE,0,0,CREATE_ALWAYS,0,0);
 			
-			zip::inflate_t swap = {0,0};
-			for(DWORD wr;(wr=zip::inflate(unzip,swap))&&WriteFile(f,swap,wr,&wr,0););												
+			//stack overflow in SOM_MAIN?
+			//zip::inflate_t swap = {0,0};
+			zip::inflate_t *swap = new zip::inflate_t();
+			//for(DWORD wr;(wr=zip::inflate(unzip,swap))&&WriteFile(f,swap,wr,&wr,0););
+			for(DWORD wr;(wr=zip::inflate(unzip,*swap))&&WriteFile(f,*swap,wr,&wr,0););
 			CloseHandle(f);
+			delete swap; //2023
 
 			DWORD fs = 
 			//must reopen the timestamp is not overwritten by CloseHandle
@@ -1462,11 +1466,10 @@ extern void SOM::xtool(wchar_t dst[MAX_PATH], const wchar_t *src)
 			}
 			else swprintf_s(dst,MAX_PATH,L"%ls\\%ls",text,tool); //unzipped
 
-			if(*dst&&PathFileExistsW(dst)) 
-			return;
+			if(*dst&&PathFileExistsW(dst)) return;
 		}
 	}		
-	if(!PrtsEdit_etc)
+//	if(!PrtsEdit_etc) //2023
 	swprintf_s(dst,MAX_PATH,L"%ls\\%ls",Sompaste->get(L".NET"),tool);		
 }
 
@@ -6615,7 +6618,7 @@ static DWORD som_tool_gettingmessage_wait = 0;
 //som_tool_NCDESTROY is for slower computers or maybe
 //even older versions of Windows? (At least 7 if so)
 //where IsWindow is unreliable within WM_INITDIALOG
-static void som_tool_NCDESTROY(HWND hw) 
+extern void som_tool_stack_post_NCDESTROY(HWND hw) 
 {
 	int i,j;
 	for(i=j=0;som_tool_stack[i];i++)	
@@ -7243,6 +7246,21 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		//unfortunately escapes to the non-existent
 		//menu bar. But why open just then to escape?
 		if(wParam==SC_KEYMENU&&lParam!=' ') return 0;
+
+		switch(wParam)
+		{	
+		//case SC_RESTORE:; //assert(0);
+		case SC_MAXIMIZE: case SC_MINIMIZE:
+			
+			if(SOM::tool==SOM_MAP.exe) //2023
+			{
+				SetWindowStyle(hWnd,WS_MINIMIZEBOX|WS_MAXIMIZEBOX,
+				wParam==SC_MAXIMIZE?WS_MINIMIZEBOX:WS_MAXIMIZEBOX);
+				extern void SOM_MAP_minmax(); SOM_MAP_minmax();
+				return 0;
+			}
+			break;
+		}
 		break;
 
 	case WM_COMMAND:  
@@ -7592,7 +7610,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				switch(wParam)
 				{
 				case 1005: workshop:					
-					if(som_tool_workshop_exe(hlp)) return 0;
+					if(workshop_exe(hlp)) return 0;
 					break;
 
 				//1002: profile separators?			
@@ -7718,7 +7736,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			case IDOK: case MAKEWPARAM(1239,LBN_DBLCLK):
 			
 				//2018: MOVED FROM som_tool_CreateFileA
-				extern void SOM_MAP_201_open(); SOM_MAP_201_open();
+				extern int SOM_MAP_201_open(int=1); SOM_MAP_201_open();
 				windowsex_enable<1225>(som_tool,0);
 				//NEW: Ben Connolly bugfix     //undo
 				break;
@@ -8902,9 +8920,17 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 
 	case WM_DESTROY:
 
-		if(hWnd==som_tool
-		||SOM::tool==SOM_PRM.exe&&hWnd==som_tool_stack[1])
-		som_tool_workshop_exe(0);
+		if(hWnd==som_tool)
+		{
+			if(SOM::tool==SOM_PRM.exe&&hWnd==som_tool_stack[1])
+			workshop_exe(0);
+
+			//2023: SOM_MAP big editor isn't getting this message
+			if(40000==GetWindowContextHelpId(som_tool))
+			{
+				PostMessage(0,WM_QUIT,0,0);
+			}
+		}
 		break;
 
 	case WM_NCDESTROY:
@@ -8915,7 +8941,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		//REMOVE ME?
 		//must manually clear out of som_tool_stack on some systems
 		//(not sure if it's slow machines, or old Windows versions)
-		som_tool_NCDESTROY(hWnd);
+		som_tool_stack_post_NCDESTROY(hWnd);
 
 		switch(hlp)
 		{
@@ -9675,7 +9701,7 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 			//UNFINISHED
 			//I need to reduce the Kraken size so it
 			//can move in its cave
-			int todolist[SOMEX_VNUMBER<=0x1020402UL];			
+			int todolist[SOMEX_VNUMBER<=0x1020406UL];			
 			if(EX::debug) //2021: add 1 decimal place
 			{
 				//this works but requires reprogramming to save it
@@ -10407,7 +10433,7 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE A, LPCDLGTEMPLA
     WCHAR typeface[stringLen];*/
 	}DLGTEMPLATEEXA;
 	DLGTEMPLATEEXA *peek = (DLGTEMPLATEEXA*)B; //testing*/
-		
+
 	bool recenter = false; //REMOVE ME?
 
 	//FFFF0001: DIALOGEX w/ helpID
@@ -10795,7 +10821,7 @@ static BOOL WINAPI som_tool_SetWindowTextA(HWND A, LPCSTR C)
 					short i = atoi(C+1);
 					assert(i>=0);					
 					const wchar_t *p = som_map_profile(i);
-					//REPURPOSING: save for som_tool_workshop_exe
+					//REPURPOSING: save for workshop_exe
 					//REPURPOSING: som_files_wrote too (2022)
 					extern WORD workshop_category;  
 					workshop_category = som_map_workshop_number(p); 
@@ -11881,6 +11907,12 @@ size_t som_prm::blob_type = som_prm::item;
 
 std::vector<wchar_t> som_prm::blob;
 
+static som_tool_xdata_t &som_tool_xdata_2023()
+{
+	//som_tool_zcopy's use of inflate_t was causing
+	//a stack-overflow scenario, so take no chances
+	static auto *x = new som_tool_xdata_t; return *x; //MEMORY LEAK
+}
 som_prm::group som_prm::operator()(size_t sort)
 {		
 	if(!blob.empty()) 
@@ -11909,7 +11941,8 @@ som_prm::group som_prm::operator()(size_t sort)
 	swprintf(query,L"%ls/*",directory);
 	size_t n = Sompaste->database(0,query,0,0);
 	
-	som_tool_xdata_t x;
+	//som_tool_xdata_t x;
+	auto &x = som_tool_xdata_2023();
 	wchar_t xquery[MAX_PATH] = L"", *xcat = 
 	xquery+swprintf(xquery,L"data/%ls/prof/",directory);
 	int xcat_s = xcat<=xquery?0:xquery+MAX_PATH-xcat;
@@ -12967,7 +13000,7 @@ static bool som_tool_mapcomp(const wchar_t *w) //helper
 	return true;
 }			 
 
-//2018: making available to som_tool_workshop_exe 
+//2018: making available to workshop_exe 
 extern int som_tool_profile(wchar_t* &io, int minor, int major=-1)
 {
 	const wchar_t *prof = 0; //returned as courtesy 
@@ -13669,6 +13702,7 @@ static BOOL WINAPI som_tool_DeleteFileA(LPCSTR A)
 	if(!out)
 	{
 		assert(0);
+		if(EX::debug) //2023
 		SOM::Tool.MessageBoxA(0,A,"Debugging: inside DeleteFileA",MB_OK);
 	}	
 	return out;
@@ -13684,6 +13718,7 @@ static DWORD WINAPI som_tool_GetFullPathNameA(LPCSTR A,DWORD B,LPSTR C,LPSTR *D)
 	if(!out)
 	{
 		assert(0);
+		if(EX::debug) //2023
 		SOM::Tool.MessageBoxA(0,A,"Debugging: inside GetFullPathNameA",MB_OK);
 	}
 	return out;
@@ -13709,6 +13744,7 @@ static DWORD WINAPI som_tool_GetFileAttributesA(LPCSTR A)
 	{
 		if(EX::INI::Output()->missing_whitelist(A)) return out;
 
+		if(EX::debug) //2023
 		if(SOM::tool!=SOM_RUN.exe) //\\.\Secdrv ???
 		SOM::Tool.MessageBoxA(0,A,"Debugging: inside GetFileAttributesA",MB_OK);
 	}
@@ -13753,6 +13789,7 @@ static BOOL WINAPI som_tool_GetDiskFreeSpaceA(LPCSTR A,LPDWORD B,LPDWORD C,LPDWO
 	if(!out)
 	{
 		assert(0);
+		if(EX::debug) //2023
 		SOM::Tool.MessageBoxA(0,A,"Debugging: inside GetDiskFreeSpaceA",MB_OK);
 	}
 	return out;
@@ -13812,6 +13849,7 @@ static BOOL WINAPI som_tool_GetVolumeInformationA(LPCSTR A,LPSTR B,DWORD C,LPDWO
 	if(!out)
 	{
 		assert(0);
+		if(EX::debug) //2023
 		SOM::Tool.MessageBoxA(0,A,"Debugging: inside GetVolumeInformationA",MB_OK);
 	}
 	return out;
@@ -14078,7 +14116,8 @@ static bool som_tool_prt(int z, DWORD at, DWORD sz, BYTE *tile)
 		assert(0); return false;
 	}
 	
-	som_tool_xdata_t xtile; //REMOVE ME?
+	//som_tool_xdata_t xtile; //REMOVE ME?
+	auto &xtile = som_tool_xdata_2023();
 	static wchar_t x[MAX_PATH] = L"data\\map\\parts\\"; //15
 	if(som_tool_xdata(wcscpy(x+15,som_tool_reading_mode[z])-15,xtile))
 	((char*)memcpy(tile+100,xtile+100,30))[30] = '\0';
@@ -14141,7 +14180,8 @@ static bool som_tool_prf(int z, DWORD at, DWORD sz, BYTE *name)
 		assert(at<=146&&at+sz>=146+126);
 
 		//ATTACK DESCRIPTIONS
-		som_tool_xdata_t xprof; //REMOVE ME?
+		//som_tool_xdata_t xprof; //REMOVE ME?
+		auto &xprof = som_tool_xdata_2023();
 		wchar_t x[MAX_PATH] = L"data\\enemy\\prof\\"; //16
 		//REMINDER: names on the back are left blank
 		//126->1: the final entries can be cut off :(
@@ -14278,7 +14318,7 @@ extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022
 	memcpy(p->description,tile+100,127);
 
 	//TODO: still need to update icons (this is experimental)
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	//40f8dc has code for inserting an icon... it would take 
 	//a bit of work to implement it (it's probably worthwhile
 	//to reprogram 40f8dc because it's potentially very slow)
@@ -15993,6 +16033,16 @@ extern HBRUSH som_tool_erasebrush(HWND hwnd, HDC dc)
 		FindResource(0,MAKEINTRESOURCE(200),RT_BITMAP);
 		if(!found) bitmap = 131;
 	}
+	if(bitmap==129&&SOM::tool==SOM_MAP.exe) //2023
+	{
+		extern int SOM_MAP_midminmax[];
+		if(SOM_MAP_midminmax[11])
+		{
+			static void *found = //was using 131 before
+			FindResource(0,MAKEINTRESOURCE(130),RT_BITMAP);
+			if(found) bitmap = 130;
+		}
+	}
 	HBRUSH *p = 0; //adapated from som_tool_erasebkgnd
 	//static HBITMAP bg200 = 0; //originally SOM_MAP's tile
 	//HBRUSH &bg200 = som_tool_200; //using //CommCtrls 6.0 transparency 
@@ -16004,7 +16054,7 @@ extern HBRUSH som_tool_erasebrush(HWND hwnd, HDC dc)
 	//NEW: these are taken from som_tool_background
 	#define CASE(_) case _: { static HBRUSH h = 0; p = &h; break; }
 	CASE(162)CASE(142)CASE(154)CASE(158)CASE(156)CASE(157)CASE(155)
-	CASE(164)CASE(163)/***162*/CASE(136)CASE(129)CASE(208)CASE(153)
+	CASE(164)CASE(163)/***162*/CASE(136)CASE(129)CASE(130)CASE(208)CASE(153)
 	/***155*//***151*//***156*//***154*//***157*//***158*/CASE(152)
 	CASE(131)CASE(151)CASE(200) //these are taken from above
 	#undef CASE

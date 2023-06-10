@@ -700,7 +700,7 @@ static int som_hacks_vs_(int)
 
 		DDRAW::vshadersGL_include = SOM::VS<>::header(SOM::Shader::classic);
 
-	//	DDRAW::vshadersGL[4] = SOM::VS<>::shader(SOM::Shader::classic_fog);		
+		DDRAW::vshadersGL[4] = SOM::VS<>::shader(SOM::Shader::classic_fog);		
 		DDRAW::vshadersGL[1] = SOM::VS<>::shader(SOM::Shader::classic_blit);
 		DDRAW::vshadersGL[2] = SOM::VS<>::shader(SOM::Shader::classic_unlit);
 		DDRAW::vshadersGL[5] = SOM::VS<>::shader(SOM::Shader::classic_sprite);
@@ -726,10 +726,10 @@ static int som_hacks_vs_(int)
 		}
 
 		//this is getting ridiculous
-		char *blit,*unlit,*blended,*blendN=0,*sprite,*shadow=0,*backdrop,*effects; 
+		char *fog,*blit,*unlit,*blended,*blendN=0,*sprite,*shadow=0,*backdrop,*effects; 
 
 		//fog is identical to unlit
-		//fog      = SOM::VS<N>::compile(SOM::Shader::classic_fog);
+		fog      = SOM::VS<N>::compile(SOM::Shader::classic_fog);
 		blit     = SOM::VS<N>::compile(SOM::Shader::classic_blit);
 		unlit    = SOM::VS<N>::compile(SOM::Shader::classic_unlit);
 		sprite   = SOM::VS<N>::compile(SOM::Shader::classic_sprite);
@@ -743,13 +743,13 @@ static int som_hacks_vs_(int)
 		blendN   = SOM::VS<N>::compile(SOM::Shader::classic_blended,8);
 
 		int out = 0; if(SOM::game) out = 
-		blit&&unlit&&blended&&sprite/*&&shadow*/&&backdrop&&effects?N:0;
+		fog&&blit&&unlit&&blended&&sprite/*&&shadow*/&&backdrop&&effects?N:0;
 		else if(SOM::tool&&blended) out = N;
 		if(out)
 		{
-		SOM::VS<N>::configure(8,blit,unlit,blended,blendN,sprite,shadow,backdrop,effects);
+		SOM::VS<N>::configure(9,fog,blit,unlit,blended,blendN,sprite,shadow,backdrop,effects);
 
-		//if(fog) EXLOG_LEVEL(1) << "FOG\n" << fog << "#####\n";
+		if(fog) EXLOG_LEVEL(1) << "FOG\n" << fog << "#####\n";
 		if(blit) EXLOG_LEVEL(1) << "BLIT\n" << blit << "#####\n";
 		if(unlit) EXLOG_LEVEL(1) << "UNLIT\n" << unlit << "#####\n";
 		if(sprite) EXLOG_LEVEL(1) << "SPRITE\n" << sprite << "#####\n";
@@ -759,7 +759,7 @@ static int som_hacks_vs_(int)
 		if(effects) EXLOG_LEVEL(1) << "EFFECTS\n" << effects << "#####\n";
 
 		//what about DDRAW::vshaders9[0]?
-		//DDRAW::vshaders9[4] = SOM::VS<N>::assemble(fog);
+		DDRAW::vshaders9[4] = SOM::VS<N>::assemble(fog);
 		DDRAW::vshaders9[1] = SOM::VS<N>::assemble(blit);
 		DDRAW::vshaders9[2] = SOM::VS<N>::assemble(unlit);
 		DDRAW::vshaders9[5] = SOM::VS<N>::assemble(sprite);
@@ -771,7 +771,7 @@ static int som_hacks_vs_(int)
 		DDRAW::vshaders9[6] = SOM::VS<N>::assemble(backdrop);			
 		DDRAW::vshaders9[16] = SOM::VS<N>::assemble(effects);
 		}
-		SOM::VS<N>::release(8,blit,unlit,blended,blendN,sprite,shadow,backdrop,effects);
+		SOM::VS<N>::release(9,fog,blit,unlit,blended,blendN,sprite,shadow,backdrop,effects);
 		return out;
 	}
 	return N;
@@ -1012,7 +1012,7 @@ static int som_hacks_ps_(int)
 		else if(SOM::tool&&blended) out = N;
 		if(out)
 		{
-		SOM::PS<N>::configure(9,blit,unlit,blended,fog,sprite,shadow,volume,backdrop,effects);
+		SOM::PS<N>::configure(9,fog,blit,unlit,blended,sprite,shadow,volume,backdrop,effects);
 
 		if(fog) EXLOG_LEVEL(1) << "FOG\n" << fog << "#####\n";
 		if(blit) EXLOG_LEVEL(1) << "BLIT\n" << blit << "#####\n";
@@ -1249,7 +1249,7 @@ static void *som_hacks_CreateSurface4(HRESULT*hr, DDRAW::IDirectDraw4*in, DX::LP
 			x->dwWidth = x->dwHeight = 256*
 			EX::INI::Editor()->texture_subsamples;
 
-			int todolist[SOMEX_VNUMBER<=0x1020402UL];
+			int todolist[SOMEX_VNUMBER<=0x1020406UL];
 			//NOTE: this still covers 0~7 for 32-bit textures, it's
 			//always been that way... can't think why it should be
 			//so. 2021: I've changed the colorkey to 0~0 except for
@@ -3015,11 +3015,12 @@ extern float SOM::reset_projection(float zoom2, float zf)
 	return zoom2; //stereo?
 }
 extern float som_hacks_skyconstants[4]={}; //som.scene.cpp
+extern float som_hacks_volconstants[4]={}; //2023
 static void *som_hacks_BeginScene(HRESULT*,DDRAW::IDirect3DDevice7*)
 {	
 	if(!SOM::field) return 0; //2022
 
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	/*2022: this is causing a glitch on the first frame after 
 	//changing maps???
 	//NOTE: som_hacks_onflip had some code to ignore the first
@@ -3522,6 +3523,8 @@ extern float som_hacks_inventory[4][4] =
 static const DX::LPD3DMATRIX som_hacks_identity = (DX::LPD3DMATRIX)0x45F520;
 extern void som_hacks_recenter_item(DX::LPD3DMATRIX y)
 {
+	if(DDRAW::inStereo) return; //test
+
 	//the profile center/tilt (menu/store only)
 	//004231C3 D9 47 40             fld         dword ptr [edi+40h]
 	//004231D6 66 8B 47 44          mov         ax,word ptr [edi+44h]
@@ -5125,7 +5128,14 @@ static void *som_hacks_DrawPrimitive(HRESULT*hr,DDRAW::IDirect3DDevice7*in,DX::D
 				//DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_CLEAR_HACK,som_hacks_Clear);
 			}
 
-			DWORD bt = EX::INI::Adjust()->blackened_tint;
+			DWORD bt = ad->blackened_tint;
+
+			extern bool som_state_reading_text;
+			if(0==(bt&0xFF000000)&&som_state_reading_text) //2023
+			{
+				bt = ad->blackened_tint2;
+			}
+
 			if(bt&0xFF000000) for(int i=0;i<4;i++) p[i].color = bt; 
 			else w = 0; //short-circuit
 		}
@@ -5133,7 +5143,7 @@ static void *som_hacks_DrawPrimitive(HRESULT*hr,DDRAW::IDirect3DDevice7*in,DX::D
 		{
 			SOM::doubleblack = SOM::frame;
 			som_hacks_fade = SOM::frame-6; //NEW
-			DWORD bt2 = EX::INI::Adjust()->blackened_tint2;
+			DWORD bt2 = ad->blackened_tint2;
 			//xr: it doesn't make of a difference in VR
 			//and is expensive to draw
 			if(bt2&0xFF000000&&!DDRAW::xr)
@@ -5366,6 +5376,7 @@ static void som_hacks_switch_lamps(const float *center, float radius, float heig
 	som_hacks_lamps_switch[3] = sphere;
 	som_hacks_lamps_switch[4] = sphere;
 }
+extern DWORD som_hacks_primode = 0;
 static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice7*&in, va_list va, void *vb)
 {
 	void *out = 0;
@@ -5389,7 +5400,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		//TODO
 		//instead of 50, raise the item up higher, and pull it forward as necessary
 		//to approximate 50, both WRT SOM::zoom and VR mode
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		//NOTE: 50 is the original value, but using 62 (kf2) just to scale down some
 		//since 1m is a little bit in your face... in VR mode I think the value gets
 		//overriden... 1m is chosen for VR. this branch is in case an extension puts
@@ -5418,10 +5429,6 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		in->SetTransform(DX::D3DTRANSFORMSTATE_VIEW,(DX::D3DMATRIX*)som_hacks_inventory);						
 	}
 
-	//2023: REMOVE ME
-	//HACK: som.bsp.cpp uses this to pack sprites into the unlit format
-	DWORD s = *((DWORD**)va)[6]; *((DWORD**)va)[6] = 0; 
-
 	//2017: trying to simplify clamping of menu elements
 	if(som_hacks_texture_addressu!=DX::D3DTADDRESS_WRAP)
 	in->SetTextureStageState(0,DX::D3DTSS_ADDRESS,DX::D3DTADDRESS_WRAP);
@@ -5438,9 +5445,11 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		}
 		//else //if(fog<1.0f)
 		{
-			if(s==1) //2023: sprite?
+			if(som_hacks_primode)
 			{
-				DDRAW::vs = 5; //2023: sprite?
+				//DDRAW::vs = 4; //2023: fog?
+				//DDRAW::vs = 5; //2023: sprite?
+				DDRAW::vs = som_hacks_primode; 				
 			}
 			else if(som_hacks_alphaop!=DX::D3DTOP_DISABLE) 
 			{	
@@ -5456,7 +5465,10 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 				DDRAW::ps = DDRAW::vs;
 			}
 			else if(2<=som_scene_volume) //== (som.bsp.cpp)
-			{	
+			{
+				//FIX ME: ps may happen to be 4 now but it shouldn't be
+				//(som.bsp.cpp)
+
 				bool q; if(DDRAW::ps!=4) //depth-write or volume render?
 				{
 					DDRAW::ps = 4; //depth-write //fog shader
@@ -5615,7 +5627,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 				if(!hr&&som_hacks_shader_model //legacy
 				 &&!som_hacks_alphablendenable) //skyfloor
 				{
-					int todolist[SOMEX_VNUMBER<=0x1020402UL]; //and fog powers?
+					int todolist[SOMEX_VNUMBER<=0x1020406UL]; //and fog powers?
 					if(EX::INI::Option()->do_alphafog)
 				//	if(EX::INI::Detail()->alphafog_skyflood_constant>0) //blend?
 					som_hacks_fab_alphablendenable();	
@@ -5624,7 +5636,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 			else if(!hr) //assuming unlit swing model (bug)
 			{
 				//assert(0); //2022: should be obsolete
-				int todolist[SOMEX_VNUMBER<=0x1020402UL];
+				int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 				in->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,1); 
 
@@ -6013,39 +6025,45 @@ static void *som_hacks_CreateVertexBuffer(HRESULT*hr,DDRAW::IDirect3D7*in,DX::LP
 		assert(!*y); y = 0; return 0; //short-circuit
 	}
 
+	bool mpx = y==(void*)0x59892C;
+
 	if(!hr)
 	{
 		//som.scene.cpp has to remove DDLOCK_DISCARDCONTENTS
 		//from the MSM buffer because it's partially locked
-		if(y!=(void*)0x59892C) x->dwCaps|=D3DVBCAPS_WRITEONLY;
+		if(!mpx) x->dwCaps|=D3DVBCAPS_WRITEONLY;
 		else x->dwCaps = 0; //YUCK: restore
 				
 		//YUCK: restore 4096 for remaining buffers
 		if(x->dwFVF!=274)
 		{
-			x->dwNumVertices = 4096; return 0;
+			x->dwNumVertices = 4096; 
+			
+			return mpx?som_hacks_CreateVertexBuffer:0;
 		}
 	}
+	else if(mpx) //2023
+	{
+		som_scene::ubuffers[0] = *y;
+		for(int i=som_scene::vbuffersN;i-->1;)
+		in->CreateVertexBuffer(x,som_scene::ubuffers+i,0);
 
-	extern DWORD som_scene_vbuffer_capacity; //EXTENSION?
-	extern const int som_scene_vbuffersN;
-	extern DDRAW::IDirect3DVertexBuffer7 *som_scene_vbuffers[];
-	auto *som_scene_vbuffers2022 = //SOM::L.vbuffer
-	(DX::IDirect3DVertexBuffer7**)som_scene_vbuffers;
+		return 0;
+	}
 
 	//TODO: make this 4096 even if these extensions
 	//aren't in order
-	if(!som_scene_vbuffer_capacity) return 0;
+//	if(!som_scene::vbuffer_size) return 0;
 
 	if(!hr)
 	{
-		x->dwNumVertices = som_scene_vbuffer_capacity;
+		x->dwNumVertices = som_scene::vbuffer_size;
 	}
-	else if(!*hr&&!som_scene_vbuffers2022[0]) //RECURSIVE
+	else if(!*hr&&!som_scene::vbuffers[0]) //RECURSIVE
 	{
-		som_scene_vbuffers2022[0] = *y;
-		for(int i=som_scene_vbuffersN;i-->1;)
-		in->CreateVertexBuffer(x,som_scene_vbuffers2022+i,0);
+		som_scene::vbuffers[0] = *y;
+		for(int i=som_scene::vbuffersN;i-->1;)
+		in->CreateVertexBuffer(x,som_scene::vbuffers+i,0);
 	}
 
 	return som_hacks_CreateVertexBuffer;
@@ -6153,7 +6171,7 @@ static void *som_hacks_mipmaps_pixel_art_power_of_two(const DX::DDSURFACEDESC2 *
 
 	//this needs a lot more work, but it should 
 	//be getting moved into x2mdl.dll shortly
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	//
 	// 2022: this is mode 3 below that's designed
 	// to deemphasize diagonal pixels
@@ -7580,7 +7598,7 @@ static bool som_hacks_onflip()
 	extern SOM::TextureFIFO *som_MPX_textures;
 	for(;;)
 	{
-		WORD t = som_MPX_textures->remove_front();
+		DWORD t = som_MPX_textures->remove_front();
 		if(t>=1024||SOM::L.textures[t].update_texture(0))
 		break;
 	}
@@ -7628,7 +7646,7 @@ static bool som_hacks_onflip()
 		
 	#ifdef NDEBUG
 	//#error fixed? investigated?
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	#endif
 //2018: ASSUMING matte is not required here
 //2017: something like this was done before, but
@@ -7654,7 +7672,7 @@ if(SOM::newmap>=SOM::frame-2) return false;
 	//matte
 	#ifdef NDEBUG
 	//#error WGL_NV_DX_interop2 can't draw in onFlip
-	int todolist2[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist2[SOMEX_VNUMBER<=0x1020406UL];
 	#endif
 	if(!DDRAW::inStereo&&!DDRAW::WGL_NV_DX_interop2)
 	{

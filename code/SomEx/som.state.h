@@ -639,6 +639,25 @@ namespace SOM
 		bool update_texture(int),uptodate(); //som.MPX.cpp
 	};
 	typedef Texture Textures[1024];
+	
+	//2023: because depth sorting transparent polygons
+	//ends up scanning back-to-front almost like drawing
+	//a 2D image there tends to be a lot of draw calls
+	//using an "atlas" is the only way to reduce these 
+	//calls apart from putting more attributes into the
+	//vertex stream
+	struct TextureAtlasRec
+	{
+		//x/y is scale, s/t is origin		
+		float s,t,x,y;
+		
+		DDRAW::IDirectDrawSurface7 *texture;
+
+		BYTE pending;
+	};
+	//2023: [1] is transparency and
+	//[0] for is static map geometry
+	extern TextureAtlasRec TextureAtlas[1024][2];
 
 	extern struct VT
 	{
@@ -1572,6 +1591,10 @@ namespace SOM
 
 		//FYI argc/argv are name of C's "main" function parameters
 		State<0x1d6a2b4,DWORD> argc; State<0x1d6a2b8,char**> argv;
+
+	//  0x01d6c000 is write access violation
+	//	State<01d67960,WORD[]> mpx_client_vbuffer;
+	// 
 	}L;
 
 	namespace PC
@@ -1932,14 +1955,16 @@ namespace SOM
 	extern struct Motions //som.mocap.cpp 
 	{	
 		unsigned tick,diff,frame; float step; //other
-
+		
 		bool cling; float ceiling; //inputs	 		
+
+		float hz_30,l_hz_30; //2023: refreshrate
 
 		float floor_object,ceiling_object; //for sound effects
 
 		unsigned swung_tick,swung_id; //arm_ms_windup2
 
-		Motions(int=0){ /*reset_config();*/ } //extern
+		Motions(int=0):hz_30(){ /*reset_config();*/ }
 		void reset_config(),ready_config(DWORD ticks, BYTE *keys);
 		float place_camera //returns sky base point along vertical axis
 		(float(&analogcam)[4][4],float(&steadycam)[4][4],float swing[6]=0);				

@@ -271,6 +271,17 @@ static struct SOM_MAP_app : SOM_CWinApp //196B header? CWinApp is 192B?
 
 	DWORD unknown0_0; //part of CWinApp?
 
+	//0x466fe2
+	static SOM_CWnd *CWnd(HWND win)
+	{
+		return ((SOM_CWnd*(__stdcall*)(HWND))0x468441)(win);
+	}
+	static void ***CWnd_stack_ptr(SOM_CWnd *cw) //vtable?
+	{
+		//SOM_MAP.exe 466fed
+		return ((void***(__cdecl*)(DWORD,void*))0x46aec2)(0x480568,cw);
+	}
+
 //NOTE: historically 4921ac came first
 }&SOM_MAP_4920e8 = *(SOM_MAP_app*)0x4920E8; //CONTIGUOUS...
 static struct SOM_MAP_4921ac 
