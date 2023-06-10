@@ -216,6 +216,9 @@
     <ClCompile Include="som.clipc.cpp">
       <Filter>Som sources</Filter>
     </ClCompile>
+    <ClCompile Include="som.bsp.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ex.cursor.h">
@@ -349,9 +352,6 @@
     <ClInclude Include="SomEx.ini.h" />
     <ClInclude Include="windowsex.h" />
     <ClInclude Include="Ex.h" />
-    <ClInclude Include="som.tool.hpp">
-      <Filter>Som sources</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Sword of Moonlight\PSVR\NoloDeviceSDK-master\NoloClient\NoloClientAPI\Nolo_DeviceType.h">
       <Filter>references</Filter>
     </ClInclude>
@@ -363,6 +363,9 @@
     </ClInclude>
     <ClInclude Include="som.shader.hpp">
       <Filter>Som sources</Filter>
+    </ClInclude>
+    <ClInclude Include="som.tool.hpp">
+      <Filter>Som headers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

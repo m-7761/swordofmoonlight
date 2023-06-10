@@ -175,6 +175,7 @@ static const char *classic[2] = //GLSL
 		#endif
 
 	//}In;
+	#define FOG_INPUT CLASSIC_INPUT(In_pos,vec3(0.0),vec4(0.0),In_uv0)\n
 	#define LIT_INPUT CLASSIC_INPUT(In_pos,In_lit,vec4(0.0),In_uv0)\n
 	#define UNLIT_INPUT CLASSIC_INPUT(In_pos,vec3(0.0),In_col.bgra,In_uv0)\n
 	#if SHADER_INDEX!=7 //SHADOW
@@ -383,8 +384,10 @@ static const char *classic[2] = //GLSL
 		vec4 colFunction; //3
 		vec4 _pad_1_psF[3]; //4-6 PADDING
 		vec2 colCorrect; //7
-		vec4 colColorkey; //8
-		vec4 _pad_2_psF[15]; //9-23 PADDING
+		vec4 colColorkey; //8		
+		vec4 _pad_2_psF; //9 PADDING
+		vec4 volRegister; //10
+		vec4 _pad_3_psF[13]; //11-23 PADDING
 		vec4 fogFactors; //24
 		vec3 fogColor; //25
 		vec4 colColorize; //26
@@ -877,9 +880,22 @@ static const char *classic_fog[2] = //GLSL
 {	
 	GLSL(void main() //VS
 	{
-		#error fog is pixel shader only
+		CLASSIC_INPUT In = FOG_INPUT; //const
+
+		CLASSIC_OUTPUT Out;
+
+		//Out.pos = mul(x4mWVP,In.pos);
+		classic_stereo_pos(In.pos)
+	//	Out.col = vec4(0.0);
+		Out.uv0 = In.uv0.xy;
+
+//	classic_z  		
+	classic_stereo(true)
+	classic_aa
+
+		OUTPUT(Out); //return Out; 
 	}),
-	GLSL(void main() //UNUSED fog() FRAGMENT SHADER
+	GLSL(void main() //fog() FRAGMENT SHADER
 	{
 		CLASSIC_INPUT In = INPUT;
 
@@ -991,8 +1007,8 @@ static const char *classic_volume[2] = //GLSL
 
 		//pos*=abs(tex2D(sam1,vp+0.0001f).x);
 		pos*=abs(tex2D(sam1,vp).x);
-		float depth = skyRegister.z;
-		float power = skyRegister.w;		
+		float depth = volRegister.z; //skyRegister
+		float power = volRegister.w; //skyRegister
 		float alpha = pow(length(pos-In.fog.xyz)*depth,power);
 
 		//REMINDER: this is repurposing psColorkey

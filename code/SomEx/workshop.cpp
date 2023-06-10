@@ -4206,9 +4206,9 @@ PrtsEdit_3x3:
 		}
 		break;		  
 
-	case WM_DESTROY: //som_tool_workshop_exe support
+	case WM_DESTROY: //workshop_exe support
 
-		//som_tool_workshop_exe is using WM_DESTROY to end its
+		//workshop_exe is using WM_DESTROY to end its
 		//session. I don't know if doing so destroys the process
 		//but, DestroyWindow only works on the window's own thread
 		//(NOTE: WM_CLOSE is hiding, not closing with workshop_tool)
@@ -6170,7 +6170,7 @@ extern BOOL APIENTRY workshop_GetSaveFileNameA(LPOPENFILENAMEA a)
 
 //HACK: this ensures that failure in the workshop tool doesn't leave the
 //container in a disabled state
-static VOID CALLBACK som_tool_workshop_timer(HWND,UINT,UINT_PTR id,DWORD)
+static VOID CALLBACK workshop_timer(HWND,UINT,UINT_PTR id,DWORD)
 {
 	extern HWND som_tool_workshop;
 	if(IsWindowEnabled(som_tool)||!IsWindow(som_tool_workshop))
@@ -6180,8 +6180,10 @@ static VOID CALLBACK som_tool_workshop_timer(HWND,UINT,UINT_PTR id,DWORD)
 }
 
 extern HWND som_tool_workshop;
-extern bool som_tool_workshop_exe(int hlp)
-{	
+extern bool workshop_exe(int hlp)
+{
+	//MessageBeep(-1);
+
 	//HACK: open built-in SOM_PRM viewer 
 	//2021: debug only until som_art.cpp
 	//works for this path
@@ -6205,7 +6207,7 @@ extern bool som_tool_workshop_exe(int hlp)
 	//if the first attempt is unsuccessful
 	if(workshop_cursor) return false;
 
-	if(!hlp)
+	if(!hlp) //destroy?
 	{
 		if(!som_tool_workshop) 
 		return false;
@@ -6275,7 +6277,7 @@ extern bool som_tool_workshop_exe(int hlp)
 			//may want to not disable if the window is a tool
 			//window (always on top)
 			EnableWindow(som_tool,0);
-			SetTimer(0,0,1000,som_tool_workshop_timer);
+			SetTimer(0,0,1000,workshop_timer);
 
 			//FLICKERS
 			//once the windows were mutually disabled (!) on
@@ -6304,7 +6306,9 @@ extern bool som_tool_workshop_exe(int hlp)
 	case 35100: shop = "EneEdit"; break;
 	case 36100: shop = "NpcEdit"; break;
 	case 40000: shop = "PrtsEdit"; break;
-	default: assert(0); return false;
+	default: //assert(0); return false;
+
+		shop = "UNKNOWN"; break; //2023
 	}	
 
 	SetEnvironmentVariableW(L".WS",ws);
@@ -6313,6 +6317,10 @@ extern bool som_tool_workshop_exe(int hlp)
 
 	if(!SOM::exe(ws)) 
 	{
+		wchar_t buf[256];
+		swprintf(buf,L"Couldn't open app %d: \n\n%s",hlp,ws);
+		MessageBoxW(som_tool,buf,EX::exe(),MB_OK|MB_ICONHAND);
+
 		workshop_cursor = 1; return false;
 	}
 	
@@ -6637,7 +6645,7 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 	bool arm60 = other||60==SOM::arm[0];	
 
 	//REMOVE ME
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	//UNFINISHED: this needs to be able to change on the fly
 	extern float som_MDL_arm_fps; //0.06f	
 	int armX = 1+(int) 

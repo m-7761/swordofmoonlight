@@ -13,10 +13,7 @@
 
 #include "x2mdl.h" //x2mdl_h //2021
 
-#define X2MDL_TEXTURE_MAX 256
-#define X2MDL_TEXTURE_TPF 0x02 //16bit
-
-const aiScene *X = nullptr;
+const aiScene *X = nullptr, *Y = nullptr;
 
 /*I don't understand this
 the player's model matrix
@@ -81,7 +78,7 @@ LRESULT CALLBACK DummyWinProc(HWND,UINT,WPARAM,LPARAM)
 };
 HWND MakeHiddenWindow()
 {
-	WNDCLASSEX dummy;
+	WNDCLASSEXA dummy;
 
 	memset(&dummy,0x00,sizeof(WNDCLASSEX));
 	
@@ -91,9 +88,9 @@ HWND MakeHiddenWindow()
 				   
 	dummy.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
 
-	RegisterClassEx(&dummy);
+	RegisterClassExA(&dummy);
 
-	HWND wohs = CreateWindow("dummy","X2MDL (offscreen)",0,-1,-1,-1,-1,0,0,0,0);
+	HWND wohs = CreateWindowA("dummy","X2MDL (offscreen)",0,-1,-1,-1,-1,0,0,0,0);
 
 	if(!wohs) exit_status = 1;
 	
@@ -283,6 +280,7 @@ tmd_1034 = false,
 mm3d = false,
 mdo = false, mdl = false,
 msm = false, mhm = false;
+int ico = 0;
 int binlookup(const aiString &lookup, aiString **sorted, int sz)
 {
 	int cmp, first = 0, last = sz-1, stop = -1;
@@ -416,6 +414,7 @@ float materials2[cpmaterialsN][4];
 const wchar_t *texnames_ext = 0;
 std::unordered_map<std::string,int> texmap;
 std::vector<std::wstring> texnames; //x2mm3d/mdo/etc.
+std::vector<IDirect3DTexture9*> icotextures;
 
 //YUCK: x2mdo needs this to be global
 int snapshot = 0;
@@ -436,6 +435,9 @@ void x2mm3d_convert_points(aiMesh*,aiNode*);
 void x2mdl_pt2tri(short*,short*,short*,short*);
 bool x2mdo_txr(int,int,int,void*,const wchar_t*);
 void x2mdl_animate(aiAnimation*,aiMatrix4x4*,float);
+void x2mdo_split_XY();
+
+extern bool x2msm_ico(int,WCHAR*,IDirect3DDevice9*,IDirect3DSurface9*,IDirect3DSurface9*);
 
 extern HWND X2MDL_MODAL = 0;
 #ifdef _CONSOLE
@@ -477,7 +479,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			//atoms via strings. only RegisterClass can make
 			//such atoms
 			char cn[32];
-			if(GetClassName(hwnd,cn,sizeof(cn)))
+			if(GetClassNameA(hwnd,cn,sizeof(cn)))
 			if(!strcmp(cn,"msctls_progress32"))
 			{
 				dll.progress = hwnd;
@@ -559,6 +561,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		L"  but this option may be useful as a starting point.\n"
 		L"--tmd-1034=1024 trims fringes from King's Field II level geometry tiles\n";
 		L"--msm-subdivide fully tessellates input MSM files prior to a conversion\n";
+		L"--ico=[Number] generate N x N size icon for SOM_MAP or other use\n";
 		return 0;
 	}
 	#endif
@@ -566,6 +569,8 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 	#ifndef _CONSOLE
 	mdl = mdo = true; if(in==argc-1) //x2mdl.dll?
 	{
+		ico = 0;
+
 		//2022: how to switch to MSM/MHM output???
 		switch(argv[0][3])
 		{
@@ -575,6 +580,8 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 
 		case 's': msm = true; mhm = mdl = mdo = false; 
 			
+			ico = 20; //20 //40 is too blurry I think
+
 			assert(!wcscmp(argv[0],L"x2msm.dll")); break;
 		}
 	}
@@ -674,10 +681,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 	#endif
 	 	
 	static bool d3d_available = false;
-
-	static HWND fake = MakeHiddenWindow(); //dll
-	
-	const D3DFORMAT rtf = D3DFMT_X8R8G8B8; //some drivers only do 888
+			
+//	const D3DFORMAT rtf = D3DFMT_X8R8G8B8; //some drivers only do 888
+	const D3DFORMAT rtf = D3DFMT_A8R8G8B8; //some drivers only do 888
 
 	//TODO: I'd like to remove this completely to improve
 	//performance with x2mdl.dll, however there is a small
@@ -685,73 +691,11 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 	//it converted to 16bpp for MDL (TIM)
 	static IDirect3D9 *pd3D9 = 0; 
 	static IDirect3DDevice9 *pd3Dd9 = 0;
-	static PDIRECT3DSURFACE9 rt = 0, rs = 0; //render target
-	if(!pd3D9) //2021: dll?
-	{
-		exit_reason = i18n_direct3dfailure;
+	static IDirect3DSurface9 *rt = 0, *rs = 0, *ms = 0; //render target
+	static IDirect3DStateBlock9 *sb = 0;
+	static IDirect3DSurface9 *ds = 0;
 
-		pd3D9 = Direct3DCreate9(D3D_SDK_VERSION);
-
-		if(!pd3D9) goto d3d_failure;
-
-		std::wcout << "Status: Direct3D9 interface loaded\n";
-
-		//IDirect3DDevice9 *pd3Dd9 = 0;
-
-		D3DPRESENT_PARAMETERS null = 
-		{
-			X2MDL_TEXTURE_MAX, //256
-			X2MDL_TEXTURE_MAX,D3DFMT_X8R8G8B8,1, //256,256,D3DFMT_X1R5G5B5,0,
-			D3DMULTISAMPLE_NONE,0,
-			D3DSWAPEFFECT_DISCARD,fake,1,
-			0,D3DFMT_UNKNOWN, //1,D3DFMT_D16, //todo: enum/try 0		
-			0,0,D3DPRESENT_INTERVAL_IMMEDIATE
-		};
-		HRESULT hr = !D3D_OK;
-		/*#ifdef _CONSOLE
-		hr = pd3D9->CreateDevice //REMOVE ME???
-		(D3DADAPTER_DEFAULT,D3DDEVTYPE_REF, //D3DDEVTYPE_NULLREF
-		1?0:hwnd, //HANGS APPLICATION WITH DUMMY WINDOW???
-		D3DCREATE_SOFTWARE_VERTEXPROCESSING,&null,&pd3Dd9);
-		if(hr!=D3D_OK)
-		std::wcout << "Status: Reference device failed to load\n";
-		#endif
-		if(hr!=D3D_OK)*/
-		{
-			hr = pd3D9->CreateDevice
-			(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,
-			/*hwnd*/0, //HANGS APPLICATION WITH DUMMY WINDOW???
-			D3DCREATE_HARDWARE_VERTEXPROCESSING,&null,&pd3Dd9);
-		}
-		if(hr!=D3D_OK) goto d3d_failure;
-
-		std::wcout << "Status: Direct3DDevice9 interface loaded\n";
-
-		exit_reason = i18n_direct3dgeneralfailure;
-
-		if(hr!=D3D_OK) d3d_failure:
-		{
-			int yesno = MessageBoxW(X2MDL_MODAL,
-			L"Direct3D failed to initialize or experienced failure on one or more interfaces. \r\n" 
-			"Proceed without textures?",X2MDL_EXE,X2MDL_YESNO);
-			
-			if(yesno!=IDYES) goto _1;
-
-			std::wcerr << exit_reason;
-		}
-		else d3d_available = true;
-
-		if(d3d_available)
-		{
-			pd3Dd9->SetRenderState(D3DRS_CULLMODE,D3DCULL_NONE);
-			pd3Dd9->SetRenderState(D3DRS_ZENABLE,0);
-			pd3Dd9->SetRenderState(D3DRS_ALPHATESTENABLE,0);			
-			pd3Dd9->SetRenderState(D3DRS_LIGHTING,0);
-		}	
-	}
-	#ifndef _CONSOLE
-	dll.d3d9d = pd3Dd9; //let output convert textures
-	#endif
+	static HWND fake = MakeHiddenWindow(); //dll
 
 	#ifdef _CONSOLE
 	#define goto_0 goto _0;
@@ -838,6 +782,10 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 					return 0;
 				}
 			}
+			else if(!wcsncmp(o+1,L"ico=",4))
+			{
+				ico = _wtoi(o+5);
+			}
 			else if(!wcscmp(o+1,L"update-texture"))
 			{
 				update_texture = true;
@@ -880,6 +828,92 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 	else //2021: HUGE BLOCK (REFACTOR ME)
 	#endif
 	{	
+		//2023: Direct3D is setup here for ico
+
+		if(!pd3D9) //2021: dll?
+		{
+			exit_reason = i18n_direct3dfailure;
+
+			pd3D9 = Direct3DCreate9(D3D_SDK_VERSION);
+
+			if(!pd3D9) goto d3d_failure;
+
+			std::wcout << "Status: Direct3D9 interface loaded\n";
+
+			//IDirect3DDevice9 *pd3Dd9 = 0;
+
+			D3DPRESENT_PARAMETERS null = 
+			{
+				X2MDL_TEXTURE_MAX, //256
+				X2MDL_TEXTURE_MAX,D3DFMT_X8R8G8B8,1, //256,256,D3DFMT_X1R5G5B5,0,
+				D3DMULTISAMPLE_NONE,0,
+				D3DSWAPEFFECT_DISCARD,fake,1,
+				0,D3DFMT_UNKNOWN, //1,D3DFMT_D16, //todo: enum/try 0		
+				0,0,D3DPRESENT_INTERVAL_IMMEDIATE
+			};
+			HRESULT hr = !D3D_OK;
+			/*#ifdef _CONSOLE
+			hr = pd3D9->CreateDevice //REMOVE ME???
+			(D3DADAPTER_DEFAULT,D3DDEVTYPE_REF, //D3DDEVTYPE_NULLREF
+			1?0:hwnd, //HANGS APPLICATION WITH DUMMY WINDOW???
+			D3DCREATE_SOFTWARE_VERTEXPROCESSING,&null,&pd3Dd9);
+			if(hr!=D3D_OK)
+			std::wcout << "Status: Reference device failed to load\n";
+			#endif
+			if(hr!=D3D_OK)*/
+			{
+				hr = pd3D9->CreateDevice
+				(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,
+				/*hwnd*/0, //HANGS APPLICATION WITH DUMMY WINDOW???
+				D3DCREATE_HARDWARE_VERTEXPROCESSING,&null,&pd3Dd9);
+			}
+			if(hr!=D3D_OK) goto d3d_failure;
+
+			if(!hr&&ico) for(int i=3;i-->0;) //x2msm_ico?
+			{
+				D3DFORMAT f; switch(i)
+				{
+				case 2: f = D3DFMT_D24X8; break;
+				case 1: f = D3DFMT_D24S8; break;
+				case 0: f = D3DFMT_D16; break;
+				}
+				if(!pd3Dd9->CreateDepthStencilSurface
+				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,f,D3DMULTISAMPLE_NONE,0,0,&ds,0))
+				{
+					pd3Dd9->SetDepthStencilSurface(ds); break;
+				}
+			}	
+
+			std::wcout << "Status: Direct3DDevice9 interface loaded\n";
+
+			exit_reason = i18n_direct3dgeneralfailure;
+
+			if(hr!=D3D_OK) d3d_failure:
+			{
+				int yesno = MessageBoxW(X2MDL_MODAL,
+				L"Direct3D failed to initialize or experienced failure on one or more interfaces. \r\n" 
+				"Proceed without textures?",X2MDL_EXE,X2MDL_YESNO);
+			
+				if(yesno!=IDYES) goto _1;
+
+				std::wcerr << exit_reason;
+			}
+			else d3d_available = true;
+
+			if(d3d_available)
+			{
+				pd3Dd9->SetRenderState(D3DRS_CULLMODE,D3DCULL_NONE);
+				pd3Dd9->SetRenderState(D3DRS_ZENABLE,0);
+				pd3Dd9->SetRenderState(D3DRS_ALPHATESTENABLE,0);			
+				pd3Dd9->SetRenderState(D3DRS_LIGHTING,0);
+			}	
+
+			pd3Dd9->CreateStateBlock(D3DSBT_ALL,&sb);
+		}
+		#ifndef _CONSOLE
+		dll.d3d9d = pd3Dd9; //let output convert textures
+		#endif
+
 		//options can reconfigure these
 		if(mm3d) //2021
 		{
@@ -956,7 +990,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			{
 				fseek(f,0,SEEK_END);
 				rd = ftell(f);
-				fseek(f,SEEK_SET,0);
+				fseek(f,0,SEEK_SET);
 
 				#ifdef _CONSOLE
 				if(!wcsicmp(ext,L".mo")) //King's Field II
@@ -1007,6 +1041,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		if(!X) goto_1; exit_reason = 0; 
 
 		std::wcout << "Hello: Converting " << input <<  "...\n" << std::flush;
+
+		//2022: split MDO/MDL+MHM
+		if(mdo) x2mdo_split_XY(); Y: 
 
 		/*EXPERIMENTAL
 		#ifdef _CONSOLE
@@ -1279,7 +1316,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 				{
 					std::string s;
 					bool rel = path[0]=='.'&&(path[1]=='/'||path[1]=='\\');
-					if(!rel&&PathIsRelative(path.c_str()))
+					if(!rel&&PathIsRelativeA(path.c_str()))
 					{
 						rel = true; s.assign("./").append(path);
 					}
@@ -2009,92 +2046,91 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 					//2022: trying to add a little transparency to MDL?
 					unsigned short abe = (1!=materials[mi][3])<<9&0x200;
 
+					//DELICATE MACHINERY (DUPLICATE)
+					//
+					// numpacks must precisely match this logic.
+					// 2022: actually I think it's fine as long
+					// as enough memory is allocated (see below)
+
+					bool p3 = p2||primitive2(cp2,mesh->mName.data);
+
+					bool cp = p3; if(!cp) //diffuse color?
+					{							
+						Color &c = controlpts[mi];
+
+						cp = c[3]!=0; memcpy(cp2,c,sizeof(c));
+					}
+
 					//2018: diffuse based control point?
 					//primitive(mesh,l) doesn't have enough to
 					//go on to detect this
-					if(j==0&&!t2d)
+					if(j==0&&!t2d)						
+					for(int l=0;l<mesh->mNumFaces;l++)
 					{
-						//DELICATE MACHINERY (DUPLICATE)
-						//
-						// numpacks must precisely match this logic.
-						// 2022: actually I think it's fine as long
-						// as enough memory is allocated (see below)
+						//TODO? is primitive needed?
+						if(!cp&&0!=primitive(mesh,l)) continue;
 
-						bool p3 = p2||primitive2(cp2,mesh->mName.data);
+						auto ni = mesh->mFaces[l].mNumIndices;
 
-						bool cp = p3; if(!cp) //diffuse color?
-						{							
-							Color &c = controlpts[mi];
-
-							cp = c[3]!=0; memcpy(cp2,c,sizeof(c));
-						}
-						
-						for(int l=0;l<mesh->mNumFaces;l++)
+						if(3!=ni)
 						{
-							//TODO? is primitive needed?
-							if(!cp&&0!=primitive(mesh,l)) continue;
+							//NEW: need to keep these for x2mm3d_gather_points
+							if(mm3d) continue; 
 
-							auto ni = mesh->mFaces[l].mNumIndices;
-
-							if(3!=ni)
-							{
-								//NEW: need to keep these for x2mm3d_gather_points
-								if(mm3d) continue; 
-
-								//NEW: ignore unnamed points (they run into errors)
-								if(!p3||ni!=1) continue;
-							}
-
-							unsigned int *q = mesh->mFaces[l].mIndices;
-
-							MDL::Pack::X00 &prim = curr->x00[currentprim];
-
-							if(cp||!mesh->mColors[0])
-							{
-								prim.r = cp2[0];
-								prim.g = cp2[1];
-								prim.b = cp2[2];
-								prim.c = 0x20;
-							}
-							else 
-							{
-								prim.r = int(mesh->mColors[0][q[0]].r*255+0.5f);
-								prim.g = int(mesh->mColors[0][q[0]].g*255+0.5f);
-								prim.b = int(mesh->mColors[0][q[0]].b*255+0.5f);
-								prim.c = 0x20;
-							}
-
-							if(!cyancp)
-							cyancp = prim.r==0&&prim.g==255&&prim.b==255;
-
-							//x2mdl_pt2tri?
-							// 
-							// TODO: need bivector to match x2mm3d_convert_points
-							// convention to roundtrip MM3D->MDL->MM3D 
-							//
-							if(3!=mesh->mFaces[l].mNumIndices)
-							prim.verts[0] = prim.verts[1] = 
-							prim.verts[2] = q[0]+vertexbase;
-							else for(int k=0;k<3;k++)
-							prim.verts[k] = q[2-k]+vertexbase;
-							prim.norms[0] = q[0]+vertexbase;
-							
-							#ifdef _CONSOLE
-							if(mm3d) 
-							{							
-								//prim.mm3d_norm = mm3d_n+q[0];
-
-								x2mm3d_mats.push_back
-								(std::make_pair(mi,(int)x2mm3d_mats.size()));
-							}
-							#endif
-
-							pt.faces++; //2022
-
-							currentprim++;
+							//NEW: ignore unnamed points (they run into errors)
+							if(!p3||ni!=1) continue;
 						}
+
+						unsigned int *q = mesh->mFaces[l].mIndices;
+
+						MDL::Pack::X00 &prim = curr->x00[currentprim];
+
+						if(cp||!mesh->mColors[0])
+						{
+							prim.r = cp2[0];
+							prim.g = cp2[1];
+							prim.b = cp2[2];
+							prim.c = 0x20;
+						}
+						else 
+						{
+							prim.r = int(mesh->mColors[0][q[0]].r*255+0.5f);
+							prim.g = int(mesh->mColors[0][q[0]].g*255+0.5f);
+							prim.b = int(mesh->mColors[0][q[0]].b*255+0.5f);
+							prim.c = 0x20;
+						}
+
+						if(!cyancp)
+						cyancp = prim.r==0&&prim.g==255&&prim.b==255;
+
+						//x2mdl_pt2tri?
+						// 
+						// TODO: need bivector to match x2mm3d_convert_points
+						// convention to roundtrip MM3D->MDL->MM3D 
+						//
+						if(3!=mesh->mFaces[l].mNumIndices)
+						prim.verts[0] = prim.verts[1] = 
+						prim.verts[2] = q[0]+vertexbase;
+						else for(int k=0;k<3;k++)
+						prim.verts[k] = q[2-k]+vertexbase;
+						prim.norms[0] = q[0]+vertexbase;
+							
+						#ifdef _CONSOLE
+						if(mm3d) 
+						{							
+							//prim.mm3d_norm = mm3d_n+q[0];
+
+							x2mm3d_mats.push_back
+							(std::make_pair(mi,(int)x2mm3d_mats.size()));
+						}
+						#endif
+
+						pt.faces++; //2022
+
+						currentprim++;						
 					}
-					if(j!=0) for(int l=0;l<mesh->mNumFaces;l++)
+					else if(j!=0&&!cp)
+					for(int l=0;l<mesh->mNumFaces;l++)
 					{
 						if(j!=primitive(mesh,l)) continue;
 
@@ -3541,6 +3577,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 
 		int currentskin = 0;
 
+		assert(icotextures.empty());
+		icotextures.clear(); //goto Y?
+
 		for(size_t i=0;i<texnames.size();i++)
 		{
 			//aiString path;
@@ -3698,7 +3737,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			UINT w = 1, h = 1;
 
 			//can avoid reading if not writing			
-			if(write||mdl.skins)
+			if(write||mdl.skins||ico)
 			if(d3d_available) if(embed)
 			{
 				w = embed->mWidth; h = embed->mHeight; if(!h) 
@@ -3725,26 +3764,33 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			if(mdl.skins)
 			if(w>X2MDL_TEXTURE_MAX||h>X2MDL_TEXTURE_MAX)
 			pool = D3DPOOL_DEFAULT;
+			if(ico)
+			pool = D3DPOOL_DEFAULT; //2023
 
-			if(write||mdl.skins) if(!embed)
+			if(write||mdl.skins||ico) if(!embed)
 			{	
 				auto hr = D3DXCreateTextureFromFileExW			
-				(pd3Dd9,file,w,h,!0, //2022
-				D3DUSAGE_DYNAMIC, //2022
+				(pd3Dd9,file,w,h,ico?!0:1, //2022
+				D3DUSAGE_DYNAMIC,//|D3DUSAGE_AUTOGENMIPMAP, //2022
 				D3DFMT_X8R8G8B8,pool,
-				D3DX_FILTER_NONE,D3DX_FILTER_NONE, //D3DX_DEFAULT,0 //2022
+				D3DX_FILTER_NONE,D3DX_FILTER_LINEAR, //D3DX_DEFAULT,0 //2022
 				0,0,0,&dt);
 				
+				icotextures.push_back(dt);
+
 				exit_reason = i18n_direct3dgeneralfailure;
 				if(hr) goto tex_failure;
 			}
 			else
 			{
 				auto hr = pd3Dd9->CreateTexture
-				(w,h,1,D3DUSAGE_DYNAMIC,D3DFMT_X8R8G8B8,pool,&dt,0);
-				if(!hr)
-				hr = dt->LockRect(0,&lock,0,0);
-				if(hr) goto tex_failure;
+				(w,h,ico?!0:1,D3DUSAGE_DYNAMIC|D3DUSAGE_AUTOGENMIPMAP,//|D3DUSAGE_AUTOGENMIPMAP,
+				D3DFMT_X8R8G8B8,pool,&dt,0);
+
+				icotextures.push_back(dt);
+
+				if(!hr) hr = dt->LockRect(0,&lock,0,0);
+				else goto tex_failure;
 					
 				assert(sizeof(int)==sizeof(char)*4);
 
@@ -3866,9 +3912,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 						//go unnoticed
 
 						if(!rt) //2022: defer?
-						{						
+						{
 							hr = pd3Dd9->CreateRenderTarget 
-							(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0);
+							(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0); 
 							if(!hr)
 							hr = pd3Dd9->CreateOffscreenPlainSurface
 							(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);
@@ -3975,7 +4021,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 				if(rs&&resample) rs->UnlockRect(); 
 				if(dt&&!resample) dt->UnlockRect(0);
 			}
-			if(dt) dt->Release();	
+		//	if(dt) dt->Release();	
 
 			currentskin++; continue;			
 			 			
@@ -3983,7 +4029,7 @@ tex_failure: //allow user to discard texture if desired
 
 			assert(!lock.Pitch); //2022
 
-			if(dt) dt->Release(); dt = 0; //2022
+		//	if(dt) dt->Release(); dt = 0; //2022
 
 			int yesno = MessageBoxW(X2MDL_MODAL,
 			L"A texture failed to load or otherwise could not be processed.\r\n Discard texture and proceed?",
@@ -4059,17 +4105,60 @@ tex_failure: //allow user to discard texture if desired
 				}
 			}
 		}
+
+		mdl.flush(); if(Y) //Y? (x2mdo_split_XY)
+		{
+			(void*&)X->mMaterials = 0; //can Assimp dup aiMaterial?
+
+			delete X; //aiReleaseImport(X);
+			
+			X = Y; Y = 0; //goto Y; //...
+		}
+		else if(msm&&ico)
+		{
+			wcscpy(PathFindExtensionW(mdl.name),L".msm"); //YUCK
+
+			if(1)
+			{
+				if(!rt) pd3Dd9->CreateRenderTarget //2022: defer?
+				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0);
+				if(!rs)
+				pd3Dd9->CreateOffscreenPlainSurface
+				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);					
+				x2msm_ico(ico,mdl.name,pd3Dd9,rt,rs);
+			}
+			else //black border problem
+			{
+				if(!ms) pd3Dd9->CreateRenderTarget
+				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_4_SAMPLES,0,0,&ms,0);		
+				x2msm_ico(ico,mdl.name,pd3Dd9,ms,0);
+			}
+
+			sb->Apply(); //D3DSBT_ALL
+		}
+
+		for(auto&dt:icotextures) dt->Release();
+		
+		icotextures.clear();
+
+			if(Y) goto Y;
 	}	
 
 _0:	//wchar_t ok; std::wcin >> ok; //debugging
-	
+		
+	for(auto&dt:icotextures) dt->Release();
+
+	if(Y) (void*&)Y->mMaterials = 0; //can Assimp dup aiMaterial?
+
 	// cleanup - calling 'aiReleaseImport' is important, as the library 
 	// keeps internal resources until the scene is freed again. Not 
 	// doing so can cause severe resource leaking.
 	if(X){ aiReleaseImport(X); X = 0; }
+//	if(Y){ aiReleaseImport(Y); Y = 0; }
+	if(Y){ delete Y; Y = 0; }
 
-	// We added a log stream to the library, it's our job to disable it
-	// again. This will definitely release the last resources allocated
+	// we added a log stream to the library, it's our job to disable it
+	// again. this will definitely release the last resources allocated
 	// by Assimp.
 	aiDetachAllLogStreams();
 
@@ -4559,9 +4648,19 @@ void MDL::File::flush()
 	consolidate(); //testing
 	#endif
 
-	if(msm) //2022
+	if(Y) //split mdo/mhm?
 	{
-		if(!x2msm(mhm)) //TESTING
+		if(!x2msm(true))
+		{
+			#ifndef _CONSOLE
+			if(x2mdo_makedir(name)) x2msm(mhm);
+			#endif
+		}
+		return;
+	}
+	else if(msm) //2022
+	{
+		if(!x2msm(mhm)) 
 		{
 			#ifndef _CONSOLE
 			if(x2mdo_makedir(name)) x2msm(mhm);
@@ -5874,10 +5973,18 @@ void x2mdl_dll::makelink(const wchar_t *dest)
 		//wcsncat(desc,L" (x2mdl.dll timestamped)",descN);
 		link->SetDescription(desc);
 
+		if(ico)
+		{
+			wchar_t icon[MAX_PATH];
+			wcscpy(icon,dest);
+			wcscpy(PathFindExtensionW(icon),L".ico");
+			link->SetIconLocation(icon,0);
+		}
+
 		wchar_t swap[32];
 		wcscpy(swap,ext);
 		wmemcpy(ext,L".lnk",5);
-		{
+		{			
 			link2->Save(input,false);
 
 			//thinking of this because GetOpenFileName is
@@ -5886,12 +5993,16 @@ void x2mdl_dll::makelink(const wchar_t *dest)
 			//
 			// TODO: maybe environment variable?
 			//
-			if(0)
-			SetFileAttributesW(input,FILE_ATTRIBUTE_HIDDEN);
+			if(0) SetFileAttributesW(input,FILE_ATTRIBUTE_HIDDEN);
+
+			//2023: X2MDL_UPTODATE?
+			FILETIME ct; SYSTEMTIME st;
+			GetSystemTime(&st);
+			SystemTimeToFileTime(&st,&ct);
 
 			HANDLE h2 = CreateFileW(input,GENERIC_WRITE,0,0,OPEN_EXISTING,0,0);
 			if(h2!=INVALID_HANDLE_VALUE)
-			if(!SetFileTime(h2,0,0,&ft))
+			if(!SetFileTime(h2,&ct,0,&ft))
 			{
 				DWORD err = GetLastError();
 				

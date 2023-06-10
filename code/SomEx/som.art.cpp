@@ -17,6 +17,9 @@ namespace DDRAW
 #include "som.tool.hpp"
 #include "../lib/swordofmoonlight.h"
 #include "../x2mdl/x2mdl.h"
+#if SOMEX_VNUMBER!=0x1000102UL
+#error need to copy Somimp/x2mdl.h into x2mdl/x2mdl.h
+#endif
 
 extern HWND som_tool_stack[16+1];
 extern wchar_t som_tool_text[MAX_PATH];
@@ -277,12 +280,21 @@ typedef struct //DEBUGGER
 {
 	char magic[4];
 	char guid[16];
-	DWORD idlist:1,path:1;
-	char _unspecified[52];
-	///idlist data goes here if present
+	DWORD idlist:1,filesys:1,desc:1,path:1,dir:1,cmdln:1,icon:1;
+	//https://ithreats.files.wordpress.com/2009/05/lnk_the_windows_shortcut_file_format.pdf
+	DWORD _file_attributes;
+	DWORD _time123[6]; //QWORD _time1,_t2,_t3; //alignment?
+	DWORD _file_length;
+	DWORD icon_number; //implement me?
+	DWORD _ShowWnd_value;
+	DWORD _hotkey;
+	DWORD _[2];
+	///idlist data goes here if present //76B so far
 	WORD idlist_sz;
+	//first idlist item... //VARIABLE LENGTH
 }som_art_lnk_start;
-static bool som_art_shortcut(wchar_t lnk[MAX_PATH]) //OPTIMIZING
+//static bool som_art_shortcut(WCHAR lnk[MAX_PATH], WCHAR ico[MAX_PATH])
+static bool som_art_shortcut(WCHAR lnk[MAX_PATH]) //OPTIMIZING
 {
 		//DUPLICATE x2mdl_shortcut
 
@@ -292,7 +304,7 @@ static bool som_art_shortcut(wchar_t lnk[MAX_PATH]) //OPTIMIZING
 	union
 	{
 		char buf[sizeof_buf];
-	//	wchar_t wbuf[sizeof_buf/2];
+		wchar_t wbuf[sizeof_buf/2];
 	};
 	int sz = fread(buf,1,sizeof_buf,f); fclose(f);
 
@@ -305,7 +317,7 @@ static bool som_art_shortcut(wchar_t lnk[MAX_PATH]) //OPTIMIZING
 	
 	auto &l = *(som_art_lnk_start*)buf;
 	//for some reason BMP->TXR links have path set to 0???
-	//if(sz<sizeof(l)||!l.path) return false;
+	//if(sz<sizeof(l)||!l.filesys) return false;
 	if(sz<sizeof(l)) return false;
 
 	int a = l.idlist?l.idlist_sz:-6;
@@ -314,33 +326,132 @@ static bool som_art_shortcut(wchar_t lnk[MAX_PATH]) //OPTIMIZING
 	if(l.idlist) //TESTING
 	{
 		//don't know why the codeproject source didn't just do this!
-		return SHGetPathFromIDListW((PCIDLIST_ABSOLUTE)(buf+78),lnk);		
+		SHGetPathFromIDListW((PCIDLIST_ABSOLUTE)(buf+78),lnk);		
+
+		return true; //if(!ico) return true;
 	}
-	else assert(0); return false;
+	else assert(0); 
 	
-	/*this reproduces the codeproject site's code
+	return false; //if(!ico) return false;
+
+	//Icon? //UNUSED
+	//
+	// this works but is untested with dir/cmdln
+	// however the icons are being generated from
+	// the MSM (art) file name with .ico extension
+	// the shortcuts have icons set for in Explorer
+	assert(0); WCHAR *ico; (void)ico;
+	
+	//this reproduces the codeproject site's code
 	//what I got was a string to "C:\Users\" even
 	//though my path was ANSI
-	DWORD &b = (DWORD&)buf[78+4+a];
+	DWORD &b = (DWORD&)buf[78+a];
+	/*File location info
+	0078 74 00 00 00 Structure length (b)
+	007C 1C 00 00 00 Offset past last item in structure
+	0080 03 00 00 00 Flags (Local volume, Network volume)
+	0084 1C 00 00 00 Offset of local volume table
+	0088 34 00 00 00 Offset of local path string
+	008C 40 00 00 00 Offset of network volume table
+	0090 5F 00 00 00 Offset of final path string
+		Local volume table
+		0094 18 00 00 00 Length of local volume table
+		0098 03 00 00 00 Fixed disk
+		009C D0 07 33 3A Volume serial number 3A33-07D0
+		00A0 10 00 00 00 Offset to volume label
+		00A4 44 52 49 56 45 20 ÅgDRIVE CÅh,0
+		43 00
+		00AC 43 3A 5C 57 49 4E ÅgC:\WINDOWS\Åh local path string
+		44 4F 57 53 5C 00
+		Network volume table
+		00B8 1F 00 00 00 Length of network volume table
+		00BC 02 00 00 00 ???
+		00C0 14 00 00 00 Offset of share name
+		00C4 00 00 00 00 ???
+		00C8 00 00 02 00 ???
+		00CC 5C 5C 4A 45 53 53 Åg\\JESSE\WDÅh,0 Share name
+		45 5C 57 44 00
+		00D7 44 65 73 6B 74 6F ÅgDesktop\best_773.midÅh,0
+		70 5C 62 65 73 74 Final path name
+		5F 37 37 33 2E 6D
+		69 64 00*/
 	if(buf+b>eof-4) return false;
-	DWORD &c = (DWORD&)buf[78+a+b];
-	if(buf+c>eof-4) return false;
 
-	char *str = buf+78+a+b+c;
-	char *e = str; while(e<eof&&*e) e++;
+		//NOT 0X00 TERMINATED!
 
-	if(str==e||e==eof||e-str>MAX_PATH-1) return false;
+	/*Description string
+	00EC 12 00 Length of string (c)
+	00EE 42 65 73 74 20 37 ÅgBest 773 midi fileÅh
+	37 33 20 6D 69 64
+	69 20 66 69 6C 65	
+	Relative path
+	0100 0E 00 Length of string (d)
+	0102 2E 5C 62 65 73 74 Åg.\best_773.midÅh
+	5F 37 37 33 2E 6D
+	69 64
+	Working directory
+	0114 12 00 Length of string (e)
+	0116 43 3A 5C 57 49 4E ÅgC:\WINDOWS\DesktopÅh
+	44 4F 57 53 5C 44
+	65 73 6B 74 6F 70
+	Command line arguments
+	0128 06 00 (f)
+	012A 2F 63 6C 6F 73 65 Åg/closeÅh
+	Icon file
+	0130 16 00 Length of string 
+	0132 43 3A 5C 57 49 4E ÅgC:\WINDOWS\Mplayer.exeÅh
+	44 4F 57 53 5C 4D
+	70 6C 61 79 65 72
+	2E 65 78 65
+	Ending stuff
+	0148 00 00 00 00 Length 0 - no more stuff
+	*/
+	if(ico) *ico = '\0'; if(ico&&l.icon)
+	{
+		WCHAR *p = (WCHAR*)(buf+82+a+b);
 
-	for(int i=0;str<=e;i++) wbuf[i] = *str++;
+		WCHAR *desc = 0, *path = 0, *dir = 0, *cmdln = 0, *icon = 0;
 
-	if(!GetLongPathNameW(wbuf,lnk,MAX_PATH)) wcscpy(lnk,wbuf);
+		if(l.desc){ desc = p; p+=p[-2]; }
+	//	if(l.path){ path = p; p+=p[-2]; }
+		if(l.path){ path = p; p+=p[-1]+1; }
+		if(l.dir){ dir = p; p+=p[-2]; }
+		if(l.cmdln){ cmdln = p; p+=p[-2]; }
+		if(l.icon){ icon = p; p+=p[-1]; }
+		
+		if(icon)
+		{
+			#ifdef NDEBUG
+		//	#error do on a loop (+are these ansi or wchar?)
+			#endif
+			if(icon+icon[-2]>(wchar_t*)eof) return false; //UNFINISHED
 
-	return true;*/
+			assert(l.icon_number==0);
+
+			//char *p = icon, *delim = icon+icon[-1];
+			///int i; for(i=0;p<=delim;i++) wbuf[i] = *p++; wbuf[i] = '\0';
+			//if(!GetLongPathNameW(wbuf,ico,MAX_PATH)) wcscpy(ico,wbuf);	
+			if(icon[-1]<MAX_PATH)
+			{
+				wmemcpy(ico,icon,icon[-1]); ico[icon[-1]] = '\0';
+			}
+			else assert(0);
+		}
+	}
+	return true;
 }
-extern int som_art_model(wchar_t *cat, wchar_t w[MAX_PATH])
+static bool som_art_X2MDL_UPTODATE(FILETIME &t2)
+{
+	SYSTEMTIME st;
+	FileTimeToSystemTime(&t2,&st);
+	WORD dt[3] = {X2MDL_UPTODATE};
+	return st.wYear>=dt[0]||st.wMonth>=dt[1]||st.wDay>=dt[2];
+}
+//extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH], WCHAR *ico)
+extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 {
 	int data = cat[1]==':'?5:0; //SOMEX_?
-	if(!wcsnicmp(cat+data,L"data\\",5)) cat+=data+5;
+	if(!wcsnicmp(cat+data,L"data\\",5)) cat+=data+5; //if(ico) *ico = 0;
 
 	//REMINDER: I started out using the first . and
 	//this had some problem that made me to use the
@@ -377,7 +488,7 @@ extern int som_art_model(wchar_t *cat, wchar_t w[MAX_PATH])
 	bool art = false, exact = false; 
 	bool nofollow = false; nofollow:
 
-	FILETIME t1,t2;		
+	FILETIME t1,t2,t3;		
 	wchar_t lnk[MAX_PATH]; do
 	if(~found.dwFileAttributes
 	&FILE_ATTRIBUTE_DIRECTORY)
@@ -398,6 +509,7 @@ extern int som_art_model(wchar_t *cat, wchar_t w[MAX_PATH])
 		
 			e|=_lnk;
 			t2 = found.ftLastWriteTime;
+			t3 = found.ftCreationTime; //icons
 			wmemcpy(lnk,w,i);
 			wmemcpy(lnk+i,found.cFileName,j+5);
 			continue;
@@ -411,6 +523,7 @@ extern int som_art_model(wchar_t *cat, wchar_t w[MAX_PATH])
 		//NOTE: this is so SFX will pick up textures
 		case '.txr': e|=_txr; continue;
 
+		case '.ico': e|=_ico; continue;
 		case '.msm': e|=_msm; continue;
 		case '.mhm': e|=_mhm; continue;
 		}
@@ -445,13 +558,18 @@ extern int som_art_model(wchar_t *cat, wchar_t w[MAX_PATH])
 		 ||e&_mdl&&!wcsicmp(o,L".mdl")
 		 ||e&_txr&&!wcsicmp(o,L".txr")
 		 ||e&_msm&&!wcsicmp(o,L".msm")
-		 ||e&_mhm&&!wcsicmp(o,L".mhm"))
+		 ||e&_mhm&&!wcsicmp(o,L".mhm")
+		 ||e&_ico&&!wcsicmp(o,L".ico"))
 		{
 			art = false;
 		}
 		if(!art)
 		{
-			e&=~_lnk; wcscpy(w+i+j,o);
+			wcscpy(w+i+j,o);
+		}
+		else if(e&_lnk&&!som_art_X2MDL_UPTODATE(t3)) //t2
+		{
+			e&=~_lnk; //2023: X2MDL_UPTODATE
 		}
 		else if(e&_lnk) //shortcut?
 		{
@@ -479,7 +597,7 @@ extern int som_art_model(wchar_t *cat, wchar_t w[MAX_PATH])
 			if(!ll->Load(lnk,STGM_READ))			
 			if(!l->GetPath(lnk,MAX_PATH,0,0))
 				#else
-			if(som_art_shortcut(lnk))
+			if(som_art_shortcut(lnk)) //ico
 				#endif
 			if(PathFileExistsW(lnk)) 
 			{
@@ -565,7 +683,7 @@ extern void som_art_model(som_argv_t &v, const char *d, const char m[32], som_ar
 
 	wchar_t copy[64+MAX_PATH], *w = copy+64;
 
-	int e = som_art_model(cat,w);
+	int e = som_art_model(cat,w); //,nullptr
 
 	if(e&(x2mdl_h::_art)&&~e&x2mdl_h::_lnk) copy:
 	{

@@ -190,4 +190,140 @@ inline const wchar_t *SOM::Game::file(const char *in)
 	return !out?SOM::Game::project(in,0):out; 
 }
 
+namespace DX
+{
+	struct IDirect3DVertexBuffer7;
+}
+namespace som_scene
+{
+	const int vbuffersN = 3;
+	const int vbuffer_size = 4096; //EXTENSION?
+	extern DX::IDirect3DVertexBuffer7 *ubuffers[vbuffersN];
+	extern DX::IDirect3DVertexBuffer7 *vbuffers[vbuffersN];
+}
+namespace som_scene_state //2022: formerly som.scene.cpp
+{
+	static DWORD
+	//44D0B0 increments this as it pushes a render state block onto a stack
+	//and then copies the current block into the following global state mem
+	//44d200 pops the state
+	//&?? = *(DWORD*)0x1D69DA0,
+	//&vb = *(DWORD*)0x1D69DA4, //SOM::L.vbuffer
+	&zwriteenable = *(DWORD*)0x1D6A248,
+	&alphaenable = *(DWORD*)0x1D6A24C,
+	&colorkeyenable = *(DWORD*)0x1D6A250,
+	&fogenable = *(DWORD*)0x1D6A254,
+	&srcblend = *(DWORD*)0x1D6A258,
+	&destblend = *(DWORD*)0x1D6A25C,
+	&tex0colorop = *(DWORD*)0x1D6A260,
+	&tex0colorarg1 = *(DWORD*)0x1D6A264,
+	&tex0colorarg2 = *(DWORD*)0x1D6A268,
+	&tex0alphaop = *(DWORD*)0x1D6A26C,
+	&tex0alphaarg1 = *(DWORD*)0x1D6A270,
+	&tex0alphaarg2 = *(DWORD*)0x1D6A274,
+	//gs11: unidentified
+	//&gs11 = *(DWORD*)0x1D6A278, //lighting? 44d8a5 (deferred?)
+	//I think this is 0 for tile drawing phases and 1 for 
+	//MDL/MDO drawing however Ghidra shows no write references
+	//push/pop_render_state changes it (meaningfully?)
+	//only 44d810 references it, but doesn't assign it???
+	&lighting_desired = *(DWORD*)0x1D6A278,
+	&lighting_current = *(DWORD*)0x1D6A27C,
+	&texture = *(DWORD*)0x1D6A280, 
+	&material = *(DWORD*)0x1D6A284;
+	static BYTE //1 if not identity matrix
+	&worldtransformed = *(BYTE*)0x1D6A288;
+
+	inline void push(){ ((BYTE(__cdecl*)())0x44D0B0)(); }
+	inline void pop(){ ((BYTE(__cdecl*)())0x44d200)(); }
+
+	extern void setss(DWORD); //som.bsp.cpp
+}
+typedef struct som_scene_element //104B
+{			
+	//2023: these should match som_MDL::vbuf
+	//modes
+	//0: never seen in wild, close to 1	
+	//1: DrawPrimitive (D3DFVF_LVERTEX?)
+	//2: DrawPrimitive (D3DFVF_TLVERTEX?)
+	//3: DrawIndexedPrimitiveVB (lock/unlock pattern)
+	//4: DrawIndexedPrimitiveVB (D3DFVF_LVERTEX?)
+	//lit enables light selection 
+	//EXTENSIONS
+	//npc is new/used for shadows
+	//vs is for do_red on (sorted) transparent elements
+	//2021: batch marks transparent and batched elements
+	//(ai is for debugging troubles)
+	//2021: tnl must be pretransformed prior to drawing
+	//this enables skinning and consolidating MDO chunks
+	//see som_MDL_447fc0_cpp	
+	//2022: sort is to not overload transparency sorting
+	DWORD mode:4,unused1:2,sort:1,tnl:1,vs:8,npc:2,unused2:3,ai:9,batch:1,lit:1;
+	union //a mess of flags
+	{
+		DWORD flags; struct
+		{
+		unsigned primtype:4, 
+		//unpacked by 44D853~44D8A2
+		//cop selects the colorop/etc model
+		//0044D958 FF 24 85 08 E1 44 00 jmp dword ptr [eax*4+44E108h]
+		//2021: 42e57f sets u31 to 0 (it's usually 1)
+		//MDL sets u12 to 1 or 2 (what sets fe? fog?)
+		//
+		// MDO sblend/dblend (2021)
+		// MDO has sblend equal to alpha*src and dblend
+		// may be 1*dst or (1-alpha)*dst
+		//
+		sblend:4,dblend:4,cop:4,u12:4,u16:7,fe:1,zwe:1,abe:1,cke:1,
+		u31:1; //is u16 unused? (44d521 sets u12, 44d510 sets u31)
+		};
+	};
+	
+	//the old approach did sorting at the chunk
+	//level. I don't know if the original x2mdo
+	//"intelligently" chunked into convex parts
+	//or not, but I doubt it
+	//the new approach stores a split-structure
+	//for generating additional triangles given
+	//a world transformed set of base triangles
+	union
+	{
+		//depth-sorting key (old)
+		//0044D68B D9 58 08 fstp dword ptr [eax+8]
+		FLOAT depth_44D5A0; 
+
+		struct som_BSP *bsp; //UNUSED
+	};
+
+	//material ISN'T CONSULTED BEFORE SetMaterial
+	//material ISN'T CONSULTED BEFORE SetMaterial
+	//material ISN'T CONSULTED BEFORE SetMaterial
+	//IDs: textures 0~1023, materials 0~65535???
+	//probably everything gets a unique material
+	WORD texture, material; //D3DMATERIAL7
+
+	//union
+	//MODES 1 &2 VERTEX DATA BEGINS HERE	
+
+	//0x10: 		
+	FLOAT worldxform[4][4];		
+	//0x50:	
+	//0044DED6 E83533FCFF call 00411210
+	//0044DC85 E88635FCFF call 00411210 (uses first vertex)
+	FLOAT lightselector[3]; 
+	//vertex/index
+	WORD vcount, icount;  
+	//0x60	
+	//VOID *vdata; WORD *idata;
+	struct v //guessing (32 bytes)
+	{
+		//NOTE: some MDLs are sprites but
+		//they happen to also be 32 bytes
+		//they have hpos[4],color,_,uv[2]
+		float pos[3],lit[3],uv[2];
+	};
+	v *vdata; WORD *idata;
+
+}*som_scene_elements[1024]; //256+512+128+128?	
+
 #endif //SOM_GAME_INCLUDED

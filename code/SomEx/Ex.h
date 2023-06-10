@@ -33,14 +33,15 @@
 #include <deque>
 #include <vector>
 #include <string>
-#include <algorithm>
 #include <functional> //function
 #include <hash_map> //unordered_map for Windows XP
 #include <bitset>
 #endif
+#include <algorithm> //min/max
 
 //#define NOMINMAX
-#define _WIN32_WINNT 0x0501
+//#define _WIN32_WINNT 0x0501
+#define _WIN32_WINNT 0x0600 //InitializeProcThreadAttributeList?
 #define WIN32_LEAN_AND_MEAN
 #define _CRT_SECURE_NO_DEPRECATE //for faster builds 								 
 #include <windows.h>

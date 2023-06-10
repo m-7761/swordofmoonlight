@@ -244,6 +244,8 @@ static void __cdecl som_game_4023c0() //2020
 
 	if(EX::INI::Bugfix()->do_fix_animation_sample_rate)
 	{
+		bool hz = SOM::motions.hz_30!=0; //debugging
+
 		//SOM's animation uses fixed time step logic. It could
 		//be improved by reimplementing the animation routines
 		//but there's no time for that in the immediate future
@@ -251,12 +253,12 @@ static void __cdecl som_game_4023c0() //2020
 		//this test is designed to treat 72fps like 60fps and to
 		//skip the third frames at 90fps since I suspect Direc3D
 		//will flip at native frame rate
-		if(som_game_4023c0_ms>=13)
+		if(hz||som_game_4023c0_ms>=13)
 		{
 			if(1!=SOM::recording) //2020: som.record.cpp still image?
 			{
 				//DICEY: I really don't want to rollover but it needs
-				//to meet 30fps somehow
+				//to meet 30fps somehow				
 				for(int i=som_game_4023c0_ms>=30?2:1;i-->0;) //~30fps?
 				{	
 					DWORD flash = SOM::L.damage_flash;
@@ -384,7 +386,7 @@ static DWORD __stdcall som_game_402070_timeGetTime() //2020
 	//JUST CANCEL OUT THIS FACILITY? Just do old school slow-motion below
 	//30fps? 4020ef
 	
-	if(t>33) //t = 33; //TODO: adaptive sync monitor?
+	if(t>33+1) //t = 33; //TODO: adaptive sync monitor?
 	{		
 		//impossible if fixing to DDRAW::refreshrate?
 		assert(0); t = 33;
@@ -398,6 +400,14 @@ static DWORD __stdcall som_game_402070_timeGetTime() //2020
 	//SOM::motions.step = t/1000.0f;
 	SOM::motions.step = s/1000;
 	SOM::motions.frame = SOM::frame;
+
+	float fps = EX::INI::Bugfix()->do_fix_animation_sample_rate?60:30;
+
+	if(SOM::motions.hz_30)
+	{
+		SOM::motions.hz_30 = DDRAW::refreshrate/fps;
+		SOM::motions.l_hz_30 = 1/SOM::motions.hz_30;
+	}
 
 	//0040219B 89 15 D0 0E 4C 00    mov         dword ptr ds:[4C0ED0h],edx
 	return t+*(DWORD*)0x4C0ED4;
@@ -451,7 +461,7 @@ static BOOL WINAPI som_game_WriteFile(HANDLE,LPCVOID,DWORD,LPDWORD,LPOVERLAPPED)
 static BOOL WINAPI som_game_CloseHandle(HANDLE hObject);
 
 //// BGM //////////	
-static HMMIO WINAPI som_game_mmioOpenA(LPSTR,LPMMIOINFO,DWORD);
+extern HMMIO WINAPI som_game_mmioOpenA(LPSTR,LPMMIOINFO,DWORD);
 static LONG WINAPI som_game_mmioRead(HMMIO,HPSTR,LONG);
 //static LONG WINAPI som_game_mmioSeek(HMMIO,LONG,int); 
 static MMRESULT WINAPI som_game_mmioDescend(HMMIO,LPMMCKINFO,const MMCKINFO*,UINT);
@@ -530,7 +540,7 @@ SOM::Game::Game()
 
 		#ifdef NDEBUG
 		//#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif
 
 			if(1||!EX::debug) //2021
@@ -1963,12 +1973,31 @@ bool SOM::Texture::update_texture(int force) //som.MPX.cpp
 {
 	assert(DDRAW::compat);
 
+	bool ret;
+
 	int cmp = force==4?3:-1;
 	if(!texture||0==(cmp&texture->query9->update_pending))
-	return false;
-	assert(ref_counter);
-	//NOTE: 4 always returns false for dx.d3d9X.cpp/OpenGL
-	return texture->updating_texture(force)||force&4;
+	{
+		ret = false; //return false;
+	}
+	else
+	{
+		assert(ref_counter);
+		//NOTE: 4 always returns false for dx.d3d9X.cpp/OpenGL
+		ret = texture->updating_texture(force)||force&4;
+	}
+	/*2023 //REMOVE ME?
+	{
+		DWORD t = this-SOM::L.textures; assert(t<1024); //HACK
+	
+		//2nd pass
+		auto &ta = SOM::TextureAtlas[t];
+		bool pending = ta[0].pending||ta[1].pending;
+		extern void som_MPX_atlas2(DWORD);
+		if(pending) som_MPX_atlas2(t); //2023
+	}*/
+
+	return ret;
 }
 bool SOM::Texture::uptodate() //som.MPX.cpp
 {
@@ -2859,8 +2888,8 @@ static MCIERROR WINAPI som_game_mciSendCommandA(MCIDEVICEID A, UINT B, DWORD_PTR
 	}
 	return ret;
 }
-static HMMIO som_game_mmioOpenA_BGM = 0; //2020
-static HMMIO WINAPI som_game_mmioOpenA(LPSTR A, LPMMIOINFO B, DWORD C)
+extern HMMIO som_game_mmioOpenA_BGM = 0; //2020
+extern HMMIO WINAPI som_game_mmioOpenA(LPSTR A, LPMMIOINFO B, DWORD C)
 {
 	//SOM_GAME_DETOUR_THREADMAIN
 	SOM_GAME_DETOUR_MULTITHREAD(mmioOpenA,A,B,C)
@@ -2960,7 +2989,6 @@ static HMMIO WINAPI som_game_mmioOpenA(LPSTR A, LPMMIOINFO B, DWORD C)
 
 	return 0;
 }
-
 static LONG WINAPI som_game_mmioRead(HMMIO A, HPSTR B, LONG C)
 {
 	//SOM_GAME_DETOUR_THREADMAIN
@@ -3090,6 +3118,9 @@ static MMRESULT WINAPI som_game_mmioClose(HMMIO A, UINT B)
 	//2017: found this commented out! Doesn't seem like it should be???
 	//USED? added assert(0);
 	//som_game_hmmios_x(A); //free it up
+
+	extern HMMIO som_MPX_mmioOpenA_BGM; 
+	if(A==som_MPX_mmioOpenA_BGM) return 0; //som_MPX_mmioOpenA_BGM_close
 
 	return SOM::Game.mmioClose(A,B);
 }
@@ -5299,7 +5330,7 @@ static void __cdecl som_game_410830(DWORD _1, DWORD _2)
 					//for some reason the items appear higher up than right
 					//in front of your face, the shorter distance the higher
 
-					ecx->f[13+i] = SOM::cam[i]+0.666f*SOM::pov[i]; //world space?			
+					ecx->f[13+i] = SOM::cam[i]+0.66666f*SOM::pov[i]; //world space?			
 				}
 				ecx->f[13+1]-=0.1f;
 			}
@@ -5809,7 +5840,7 @@ extern bool __cdecl som_game_42cf40()
 			if(it.nonempty&&!SOM::L.items_MDO_table[it.mdo][0])
 			{
 				//ISSUE WARNING
-				int todolist[SOMEX_VNUMBER<=0x1020402UL];
+				int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 				if(it.item<256) //try to repair?
 				{
@@ -7082,7 +7113,7 @@ extern void som_game_reprogram()
 		//close anyway, it just wastes time)
 		#ifdef NDEBUG
 //		#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif
 
 		//this routine tears down d3d/ddraw and zeroes a

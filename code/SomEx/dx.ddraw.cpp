@@ -4418,6 +4418,7 @@ HRESULT DDRAW::IDirectDrawSurface4::Blt(LPRECT x, DX::LPDIRECTDRAWSURFACE4 y, LP
 			DDRAW::DirectDraw7->WaitForVerticalBlank(DDWAITVB_BLOCKBEGIN,0);
 		}
 	}
+	else ticks_before_wait = DX::tick(); //EXPEREMENTAL
 
 	out = present?!DD_OK:DD_OK;
 

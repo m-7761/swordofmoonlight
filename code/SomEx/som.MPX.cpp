@@ -7,6 +7,8 @@ EX_TRANSLATION_UNIT
 #include <algorithm>
 #include <hash_map> //Windows XP
 
+#include "dx.ddraw.h"
+
 #include "SomEx.ini.h" //EX::INI::Joypad
 #include "Ex.input.h" //EX::Affects[1]
 
@@ -16,19 +18,6 @@ EX_TRANSLATION_UNIT
 #include "som.extra.h"
 
 #include "../lib/swordofmoonlight.h"
-
-namespace DDRAW
-{
-	extern int compat; 
-	extern bool doMultiThreaded;
-
-	class IDirectDraw7;
-
-	extern DDRAW::IDirectDraw7 *DirectDraw7;
-
-	extern int vsGlobalAmbient;
-	extern void vset9(float *f, int registers, int c);
-};
 
 enum{ som_MPX_448780_secured=-1024 };
 static void som_MPX_4498d0(SOM::Texture*);
@@ -419,9 +408,14 @@ namespace som_MPX_swap //2022
 		std::vector<npc> enemies;
 		std::vector<item> items;
 
+	//	struct atlas;
+	//	std::vector<void*> models; //REMOVE ME?
+	//	std::vector<atlas*> atlases[2];
+
 		BYTE *ambient2[7+1]; //EXTENSION
 
-		//UNIMPLEMENTED
+		HMMIO bgmmio; //HMMIO
+
 		//these are reserved for prioritizing stuff
 		//near the entrance, but there's no system
 		//for loading models on the fly right now
@@ -433,8 +427,10 @@ namespace som_MPX_swap //2022
 		size_t load,loaded;
 		bool load_canceled;		
 		void load_models_etc(),unload_models_etc();
+	//	void load_models_atlas(),load_mpx_atlas(WORD*,DWORD);
+		bool load_bgm(); //2023
 		bool load_finished(){ return !corridor_mask; }
-		void load_sky(int);
+		void load_sky(int);		
 
 		size_t instance_mat_estimate;
 		size_t instance_mem_estimate;
@@ -916,7 +912,7 @@ SOM::MT *SOM::MT::lookup(const char *v)
 								//to the same textures by treating single count
 								//files as redirects. the file name redirects to
 								//the name in the file
-								int todolist[SOMEX_VNUMBER<=0x1020402UL];
+								int todolist[SOMEX_VNUMBER<=0x1020406UL];
 								#endif 
 
 								/*this code would detect a redirect... for now
@@ -1215,7 +1211,7 @@ static BYTE __cdecl som_MPX_42a5f0(void *_1) //load object
 
 static void som_MPX_411a20_ambient2(const unsigned m)
 {
-	som_MPX_swap::mpx &map = (*som_MPX_swap::maps)[m];
+	auto &map = (*som_MPX_swap::maps)[m];
 
 	auto &mpx = *map.wip;
 	typedef SOM::MPX::Layer L;
@@ -1328,7 +1324,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 	FILE *f = EX::data(a+5,w)?_wfopen(w,L"rb"):0;
 	if(!f) return false;
 
-	som_MPX_swap::mpx &map = (*som_MPX_swap::maps)[m];
+	auto &map = (*som_MPX_swap::maps)[m];
 
 	assert(m<64&&!map.mem&&!map.wip);
 
@@ -1841,7 +1837,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 				//2022: it seems MapComp may not restrict chunks to
 				//the size of som_db.exe's buffer
 				#ifdef NDEBUG
-				int todolist[SOMEX_VNUMBER<=0x1020402UL];
+				int todolist[SOMEX_VNUMBER<=0x1020406UL];
 				#endif
 				//Moratheia's first map exceeds both
 				//assert(q->triangle_indicesN<=2688);
@@ -1917,7 +1913,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 		//not really som_db's style?
 		#ifdef NDEBUG
 		//#error log. MessageBox? 
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif 
 
 		assert(0); return false; //2022
@@ -2063,7 +2059,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 					//without KFII's unusual gamut
 					#ifdef NDEBUG					
 					//#error I almost forgot about this??? (2022)
-					int todolist[SOMEX_VNUMBER<=0x1020402UL];
+					int todolist[SOMEX_VNUMBER<=0x1020406UL];
 					#endif
 					for(int i=3;i-->0;) if(1) //KF2: less contrast?
 					{
@@ -2164,7 +2160,7 @@ static void som_MPX_prepare_for_42dd40_in_critical_section()
 	//risk degrading the frame rate (computing
 	//2 CPU frames in one) so instead textures
 	//in play need to be computed by hand here
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	//HACK: this prevents drawing to speed up load times
 	//I don't know if the overhead is worth it thereafter
 	//som_scene_update_texture is used to update textures
@@ -2220,7 +2216,7 @@ static void __cdecl som_MPX_448560()
 
 	EX::section raii(som_MPX_thread->cs);
 
-	som_MPX_textures->clear();
+//	som_MPX_textures->clear(); //som_MPX_atlas2?
 
 	((void(__cdecl*)())0x448560)();
 }
@@ -2476,6 +2472,7 @@ _(29)	was = EX::tick()-was; //DEBUGGING
 	{
 		map.load_canceled = false;
 		map.load_models_etc();
+	//	map.load_models_atlas();
 		som_MPX_push_back_textures_job();
 		mem = som_MPX_swap::mem;
 	}
@@ -2625,8 +2622,13 @@ _(19)
 
 			//NOTE: this is finishing up after som_MPX_job_1 
 			WORD &t = ((WORD*)tp)[i];
-			if(t==0xffff) t = (WORD)som_TXR_4485e0(a,0,0,0);
+			if(t==0xffff)
+			{
+				t = (WORD)som_TXR_4485e0(a,0,0,0);
+			}
 		}
+//		map.load_mpx_atlas((WORD*)tp,(DWORD)tc); //2023
+		
 _(20)
 		SOM::L.evt_file = map.evt;
 		SOM::L.events = (som_EVT*)(map.evt+4);
@@ -2698,7 +2700,7 @@ _(22)
 		//#error what are the exact criteria?		
 		//TODO: SOM::warp should cancel sounds
 		//if taking the 0== path below
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif
 		if(0==(dst.settingmask&16))
 		{
@@ -2874,7 +2876,7 @@ extern void som_MPX_once_per_frame() //som.game.cpp
 			auto &cmp = (*som_MPX_swap::maps)[i];
 
 			//maybe use the play clock for this?
-			int todolist[SOMEX_VNUMBER<=0x1020402UL];
+			int todolist[SOMEX_VNUMBER<=0x1020406UL];
 			if(cmp.wip)
 			if(now-cmp.last_tick>1000*60*3) //3 minutes?
 			{
@@ -2935,7 +2937,7 @@ static void som_MPX_job_1(som_MPX_swap::job j) //load
 		{
 			char *a = map.textures[i].cmp;
 			if(*a=='\0') continue;
-			
+
 			DWORD t = som_TXR_4485e0(a,0,0,0);
 			if(t==0xFFFFffff) continue;
 
@@ -2945,7 +2947,12 @@ static void som_MPX_job_1(som_MPX_swap::job j) //load
 
 			i++; break;
 		}
-		if(i==tc) break;
+		if(i==tc) //break;
+		{
+//			map.load_mpx_atlas((WORD*)tp,(DWORD)tc); //2023
+
+			break;
+		}
 	}
 
 	//NOTE: assuming highest priority //???
@@ -2954,6 +2961,17 @@ static void som_MPX_job_1(som_MPX_swap::job j) //load
 	//NOTE: this has its own critical sections
 	//that run in a loop so to be interuptable
 	map.load_models_etc();
+
+//	map.load_models_atlas(); //2023
+
+	extern HMMIO som_MPX_mmioOpenA_BGM_open(LPSTR);
+	{
+		EX::section raii(som_MPX_thread->cs);
+
+		char *bgm = &(*map.mem)[SOM::MPX::bgm];
+
+		map.bgmmio = som_MPX_mmioOpenA_BGM_open(bgm);
+	}
 
 		assert(map.corridor_mask);
 
@@ -3075,7 +3093,7 @@ void som_MPX_swap::mpx::load_sky(int m)
 		//it's loaded... the Standby Map event can
 		//be of use here
 		#ifdef NDEBUG
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif
 	//	for(int i=1;i<=4;i++)
 	//	som_MPX_load_sky(i);
@@ -3360,7 +3378,7 @@ void som_MPX_swap::mpx::load_models_etc()
 				SOM::MDL::data *mdl;
 				SOM::MDO::data *mdo;
 				void *cmp; 
-			};			
+			};
 
 			if(!(fast=0!=it->second))
 			{
@@ -3383,6 +3401,8 @@ void som_MPX_swap::mpx::load_models_etc()
 					cmp = som_MDO_445660(a);
 				}
 				assert(cmp==it->second);
+
+//				models.push_back(cmp); //2023: atlas
 			}
 			else models_refs(cmp=it->second)++;
 			
@@ -3450,7 +3470,7 @@ void som_MPX_swap::mpx::load_models_etc()
 			}
 			else mem = new som_MPX_mem(est);
 		}	
-	}	
+	}
 }
 DWORD SOM::MDL::data::_instance_mem_estimate()
 {
@@ -3519,6 +3539,10 @@ extern void som_MPX_job_2(som_MPX_swap::job j) //unload
 
 		//NOTE: keeping in single section
 		map.unload_models_etc();
+
+		extern MMRESULT WINAPI som_MPX_mmioOpenA_BGM_close(HMMIO);
+		som_MPX_mmioOpenA_BGM_close(map.bgmmio);
+		map.bgmmio = 0;
 	}
 }
 void som_MPX_swap::mpx::unload_models_etc()
@@ -3734,6 +3758,36 @@ static void som_MPX_device_reset() //HACK
 	*(DWORD*)0x1d3d208 = z;
 }
 
+extern HMMIO som_MPX_mmioOpenA_BGM = 0;
+extern void som_MPX_mmioOpenA_BGM_touch(HMMIO io)
+{
+	som_MPX_mmioOpenA_BGM = io; //queue up for map transfer
+
+	char buf[8192]; //try to keep BGM data in the MM cache
+	mmioSeek(io,0,SEEK_SET); 	
+	auto _ = mmioRead(io,buf,sizeof(buf));
+	mmioSeek(io,0,SEEK_SET);
+}
+extern HMMIO som_MPX_mmioOpenA_BGM_open(LPSTR mpx)
+{
+	char buf[MAX_PATH]; sprintf(buf,"data\\bgm\\%s",mpx);
+
+	extern HMMIO som_game_mmioOpenA_BGM;
+	HMMIO swap = som_game_mmioOpenA_BGM;
+	extern HMMIO WINAPI som_game_mmioOpenA(LPSTR,LPMMIOINFO,DWORD);
+	//som_game_mmioOpenA_BGM = 0;
+	HMMIO ret = som_game_mmioOpenA(buf,0,MMIO_READ);
+	som_game_mmioOpenA_BGM = swap;
+	som_MPX_mmioOpenA_BGM_touch(ret); return ret;
+}
+extern MMRESULT WINAPI som_MPX_mmioOpenA_BGM_close(HMMIO io)
+{
+	if(som_MPX_mmioOpenA_BGM==io) som_MPX_mmioOpenA_BGM = 0;
+
+	extern HMMIO som_game_mmioOpenA_BGM;
+	return som_game_mmioOpenA_BGM==io?0:mmioClose(io,0); 
+}
+
 extern void som_MPX_reprogram()
 {
 	som_MPX_skies.resize(4);
@@ -3846,7 +3900,7 @@ extern void som_MPX_reprogram()
 		//som_MPX_swap is implemented
 		#ifdef NDEBUG
 		//#error consider removing this stuff around MHM reads
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif
 		//REMOVE ME? (401500)
 		//00412E63 E8 98 E6 FE FF       call        00401500
@@ -3936,7 +3990,7 @@ extern void som_MPX_reprogram()
 		//animation frames may not be unloaded and may also
 		//increase the ref counts for each instance so that
 		//in theory they could reach 65535		
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif
 		
 		//load SND (bug fix)
@@ -4189,8 +4243,14 @@ extern void som_MPX_push_back_transfer_job(int m, int mask)
 
 	auto &map = (*som_MPX_swap::maps)[m];
 
-	//HACK: load_finished (0x100)
-	if(map.corridor_mask) return; 
+	if(map.corridor_mask //HACK: load_finished (0x100)
+	||map.load&&map.loaded==map.load) //can't load anymore?
+	{
+		extern void som_MPX_mmioOpenA_BGM_touch(HMMIO);
+		som_MPX_mmioOpenA_BGM_touch(map.bgmmio);
+
+		return; 
+	}
 	
 	//can't load anymore?
 	if(map.load&&map.loaded==map.load) return;
@@ -4239,3 +4299,147 @@ extern void __cdecl som_MPX_corridor(DWORD event, DWORD *stack)
 	//map.corridor_mask = 0x100|evt->nosettingmask;
 	som_MPX_push_back_transfer_job(m,evt->nosettingmask);
 }
+
+
+
+	//ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS
+
+#if 0  //EXPERIMENTAL //UNUSED //REMOVE ME?
+
+// stb_rect_pack.h - v1.00 - public domain - rectangle packing
+// Sean Barrett 2014
+#define STB_RECT_PACK_IMPLEMENTATION
+#include "../Exselector/src/nanovg/stb_rect_pack.h"
+struct som_MPX_swap::mpx::atlas
+{
+	bool a; //marking as transparent
+
+	stbrp_context c;
+
+	stbrp_node m[1024]; //OVERKILL?
+
+	DDRAW::IDirectDrawSurface7 *texture;
+
+	atlas(bool a):a(a),texture()
+	{
+		stbrp_init_target(&c,8192,8192,m,1024);
+	}
+
+	bool pack(stbrp_rect &p)
+	{
+		stbrp_pack_rects(&c,&p,1); return p.was_packed!=0;
+	}
+};
+extern void som_MPX_atlas2(DWORD t) //som.game.cpp
+{
+	enum{ border=8 }; //UNIMPLEMENTED
+
+	static const float l_8192 = 1/8192.0f;
+
+	if(t<1024) for(int a=2;a-->0;) 
+	{
+		auto &ta = SOM::TextureAtlas[t][a];
+
+		if(DWORD m=ta.pending) 
+		{	
+			ta.pending = false;
+
+			m = (BYTE)~m; //HACK
+
+			auto &map = (*som_MPX_swap::maps)[m];
+
+			SOM::Texture &tt = SOM::L.textures[t];
+
+			DX::DDSURFACEDESC2 desc = {sizeof(DX::DDSURFACEDESC2)}; //REMOVE ME			
+			desc.dwFlags = DDSD_HEIGHT|DDSD_WIDTH;
+			tt.texture->GetSurfaceDesc(&desc);
+
+			stbrp_rect r = {t};
+			r.w = desc.dwWidth+border; r.h = desc.dwHeight+border;
+
+			auto &v = map.atlases[a];
+
+			size_t i; for(i=0;i<v.size();i++)
+			{
+				if(v[i]->pack(r)) break;
+			}
+			if(!r.was_packed)
+			{
+				v.push_back(new som_MPX_swap::mpx::atlas(a==1)); 
+				v.back()->texture = DDRAW::CreateAtlasTexture(8192);
+				v.back()->pack(r);
+			}
+
+			ta.s = r.x*l_8192; ta.t = r.y*l_8192;
+			ta.x = r.w*l_8192; ta.y = r.h*l_8192;
+
+			ta.texture = v[i]->texture;
+
+			DDRAW::BltAtlasTexture(ta.texture,tt.texture,border,r.x,r.y);
+		}
+	}
+}
+
+static void som_MPX_atlas_pending(som_MPX_swap::mpx &map, DWORD t, bool mat)
+{
+	SOM::MT **mt = *SOM::material_textures;
+	
+	if(!SOM::TextureAtlas[t][1].texture)
+	if((SOM::volume_textures[t]
+	||mat||mt[t]&&(mt[t]->data[3]!=1.0f||mt[t]->mode&0x100)))
+	{
+		SOM::TextureAtlas[1][t].pending = (BYTE)~(&map-*som_MPX_swap::maps); //HACK
+	}	
+}
+void som_MPX_swap::mpx::load_mpx_atlas(WORD *tp, DWORD tc)
+{		
+	for(DWORD i=tc;i-->0;)
+	{
+		DWORD t = tp[i]; if(t<1024)
+		{
+		//	if(!SOM::TextureAtlas[t][0].texture)
+		//	SOM::TextureAtlas[t][0].pending = (BYTE)~(&map-*som_MPX_swap::maps);
+			som_MPX_atlas_pending(*this,t,false);
+
+			som_MPX_textures->push_back(t); //HACK
+		}
+	}
+}
+void som_MPX_swap::mpx::load_models_atlas()
+{	
+	for(size_t i=models.size();i-->0;) 
+	{
+		union
+		{
+			SOM::MDL::data *mdl;
+			SOM::MDO::data *mdo;
+			void *cmp; 
+		};
+
+		cmp = models[i];
+
+		if(!models_type(cmp)) mdo = mdl->ext.mdo;
+
+		if(!mdo) continue;
+
+		for(int j=mdo->chunk_count;j-->0;)
+		{
+			auto &ch = mdo->chunks_ptr[i];
+
+			DWORD t = ch.matnumber;
+
+			if(t>=1024||SOM::TextureAtlas[t][1].pending)
+			continue;
+
+			//same as som_bsp_make_mdo_instance				
+			if(ch.blendmode||mdo->materials_ptr[t][3]!=1.0f)
+			{
+				som_MPX_atlas_pending(*this,ch.texnumber,true);
+			}			
+			else som_MPX_atlas_pending(*this,t,false);
+
+			som_MPX_textures->push_back(t); //HACK
+		}
+	}	
+}
+#endif //EXPERIMENTAL

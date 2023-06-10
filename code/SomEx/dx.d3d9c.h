@@ -11,6 +11,8 @@ namespace D3D9C //dx.d3d9c.h
 {
 	//REMOVE ALL OF THIS (to dx.ddraw.h)
 
+	enum{ ibuffersN=6*1 };
+
 	//REMINDER: som_db.exe crashes without
 	//doEmulate, otherwise I'd like it to
 	//be removed ASAP

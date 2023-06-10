@@ -495,6 +495,9 @@ static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
 {
 	const wchar_t *dir = (wchar_t*)idEvent;
 
+	if(!dir) assert(dir); //2023
+	if(!dir) return SOM::PARAM::trigger_write_monitor(); //PARAM/parts?	
+
 	EX_CRITICAL_SECTION //mainly for onWrite at the end
 
 	if(win&&!KillTimer(win,idEvent)){ assert(0); return; }	
@@ -621,14 +624,15 @@ static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
 		//around to them before long
 		extern WORD workshop_category; //HACK (used elsewhere)
 		auto &k = SOM_MAP.prt[workshop_category];
-		auto *tp = ((SOM_CWnd*(__stdcall*)(HWND))0x468441)(win);
+		auto *tp = SOM_MAP_app::CWnd(win);
 		if(auto*p=SOM_MAP_4921ac.find_part_number(k.part_number()))
 		((void(__thiscall*)(void*,int,int))0x417250)(tp,p-SOM_MAP_4921ac.parts,1);
 	}
 }						
 extern void SOM::PARAM::trigger_write_monitor()
 {
-	som_files_wrote(0,0,0,0); //force refresh
+	som_files_wrote(0,0,(UINT_PTR)L"/PARAM",0); //force refresh
+	som_files_wrote(0,0,(UINT_PTR)L"/parts",0); //2022
 }
 extern void (*SOM::PARAM::onWrite)() = 0;
 
@@ -691,7 +695,7 @@ static DWORD WINAPI som_files_threadproc(LPVOID hw)
 
 		//2022: I'm pretty sure I noticed a reason this is 
 		//inefficient (skins maybe? can't recall)
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 		for(size_t i=0;i<nChangeHandles;i++)
 		som_files_wrote(0,0,(UINT_PTR)dwChangeFolders[i],0);	

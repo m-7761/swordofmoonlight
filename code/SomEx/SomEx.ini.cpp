@@ -73,7 +73,7 @@ static void Ex_ini_foreach(Ex_ini_e e, T t, mF mf)
 		//2021: [Number] is passing these to Ex.number.cpp
 		//for some reason all spaces are stripped out...
 		//probably should fix lib/swordofmoonlight.h/cpp
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		if(*p=='#') continue; 
 
 		//NEW: '.' reinitializes p+1
@@ -1831,6 +1831,10 @@ void EX::INI::Editor::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	case HEIGHT_ADJUSTMENT: nc->height_adjustment = q; break;
 
 	case MAP_ENEMIES_LIMIT: EX_INI_MENTION_(int,q,nc->map_enemies_limit); break;
+
+	case DO_NOT_GENERATE_ICONS: nc->do_not_generate_icons = q; break;
+
+	case MAP_ICON_BRIGHTNESS: EX_INI_MENTION_(dec,q,nc->map_icon_brightness); break;
 	}
 }
 
@@ -2730,6 +2734,8 @@ void EX::INI::Option::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	case DO_REVERB: nc->do_reverb = yes; break;
 
 	case DO_SRGB: nc->do_srgb = yes; break;
+
+	case DO_ALPHASORT: nc->do_alphasort = yes; break;
 	}
 }
 
@@ -2921,15 +2927,16 @@ bool EX::INI::Output::Section::missing_whitelist(const char *A)
 	//in the system32 folder (seems unrelated to
 	//SOM, but something triggers it)
 	//http://www.swordofmoonlight.net/bbs2/index.php?topic=320.0
-	#if SOMEX_VNUMBER>0x1020402UL
-	#error A is "C:/windows/system32/atipblag.dat"
-	#endif
 	if(*a=='*' //amdxc32.dll
 	||!stricmp(a,"atiumdag.dll")
 	||!stricmp(a,"atidxx32.dll")
 	||!stricmp(a,"atipblag.dat") //just CreatFile shows this 
 	||!strcmp(a,"disable.txt") //NVIDIA\\DXCache\\disable.txt
 	||strstr(A,"NvAdminDevice"))
+	{
+		return true;
+	}
+	if(!strncmp(A,"\\\\.\\",4)) // \\.\PIPE ?
 	{
 		return true;
 	}

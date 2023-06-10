@@ -3,6 +3,7 @@
 EX_TRANSLATION_UNIT
 
 #include <functional> //function
+#include <set>
 
 #pragma comment(lib,"Msimg32.lib") //AlphaBlend
 
@@ -876,10 +877,21 @@ extern char SOM_MAP_layer(WCHAR w[]=0, DWORD wN=0)
 	}
 	int i = _wtoi(w); return i<64?i&0xFF:-1;
 }
-extern void SOM_MAP_201_open()
-{	
-	int map = 0; 
-	SendDlgItemMessage(som_tool_stack[1],1239,LB_GETSELITEMS,1,(LPARAM)&map);
+extern int SOM_MAP_201_open(int st=1)
+{
+	int map = 0; if(st) 
+	{
+		SendDlgItemMessage(som_tool_stack[1],1239,LB_GETSELITEMS,1,(LPARAM)&map);
+	}
+	else //2023
+	{
+		map = SendDlgItemMessage(som_tool_stack[0],1133,CB_GETCURSEL,0,0);
+		if(map==-1) 
+		{
+			map = _wtoi(Sompaste->get(L".MAP")); //YUCK			
+		}
+		else map = SendDlgItemMessage(som_tool_stack[0],1133,CB_GETITEMDATA,map,0);
+	}
 	WCHAR _map2[32];
 	swprintf(_map2,L"%02d",map);
 	SetEnvironmentVariableW(L".MAP",_map2); 
@@ -912,6 +924,8 @@ extern void SOM_MAP_201_open()
 			SOM_MAP.map.versions[map] = 0; //13
 		}
 	}
+
+	return map;
 }
 extern void SOM_MAP_201_play()
 {
@@ -1785,7 +1799,7 @@ static bool SOM_MAP_map2(const char *p) //SUBROUTINE
 			{
 				#ifdef NDEBUG
 				//#error need a MessageBox here to explain this
-				int todolist[SOMEX_VNUMBER<=0x1020402UL];
+				int todolist[SOMEX_VNUMBER<=0x1020406UL];
 				#endif
 				assert(0); return true; 
 			}
@@ -2410,8 +2424,8 @@ BOOL SOM_MAP_map::write(LPCVOID at, DWORD sz, LPDWORD wr)
 extern BOOL WINAPI SOM_MAP_WriteFile(HANDLE in, LPCVOID at, DWORD sz, LPDWORD wr, LPOVERLAPPED o)
 {
 	extern HANDLE som_sys_dat;
-	extern BOOL WINAPI SOM_SYS_WriteFile(HANDLE,LPCVOID,DWORD,LPDWORD,LPOVERLAPPED);
-	if(in==som_sys_dat) return SOM_SYS_WriteFile(in,at,sz,wr,o);
+//	extern BOOL WINAPI SOM_SYS_WriteFile(HANDLE,LPCVOID,DWORD,LPDWORD,LPOVERLAPPED);
+//	if(in==som_sys_dat) return SOM_SYS_WriteFile(in,at,sz,wr,o);
 
 	//Then this is logging: so lets not log logging!!
 	if(in==EX::monolog::handle) return SOM::Tool.WriteFile(in,at,sz,wr,o);
@@ -2625,7 +2639,7 @@ SOM_MAP_intellisense::evt_data(HWND loop, int sel)
 	if(sel<0) sel = SendDlgItemMessage(loop,1026,LB_GETCURSEL,0,0);
 
 	//need to find the stack memory with the string and length
-	auto esi = ((SOM_CWnd*(__stdcall*)(HWND))0x468441)(loop);
+	auto esi = SOM_MAP_app::CWnd(loop);
 
 	DWORD ecx = *(DWORD*)((char*)esi+0x5c)+0xc;
 
@@ -2754,7 +2768,7 @@ extern LRESULT CALLBACK SOM_MAP_141_142_subclassproc(HWND hWnd, UINT uMsg, WPARA
 		if(wParam==IDOK) case WM_INITDIALOG: //!
 		{		
 			//need to find the stack memory with the string and length
-			char *ed = ((char*(__stdcall*)(HWND))0x468441)(hWnd)+88;
+			char *ed = (char*)SOM_MAP_app::CWnd(hWnd)+88;
 			//som_map_instruct
 			if(scID==18) ed+=4; //61 is a subset of 60
 			auto data = (swordofmoonlight_evt_code3d_t*)ed;
@@ -2822,7 +2836,7 @@ extern LRESULT CALLBACK SOM_MAP_168_172_subclassproc(HWND hWnd, UINT uMsg, WPARA
 			}
 			else
 			{
-				zi = ((BYTE*(__stdcall*)(HWND))0x468441)(hWnd); //CWnd*
+				zi = (BYTE*)SOM_MAP_app::CWnd(hWnd);
 				switch(scID) //som_map_instruct
 				{
 				case 7: zi+=0x60+6; break; //evt::code19_t //25
@@ -3173,6 +3187,7 @@ static char *__cdecl SOM_MAP_456f00(char *str, char *substr)
 	return PathFindExtensionA(str); (void)substr;
 }
 
+extern int SOM_MAP_midminmax[1+2+2+6+1] = {-1}; //12
 union SOM_MAP_this
 {
 	int _i[0x81]; float _f[0x81]; char _c[0x204]; //2021
@@ -3209,6 +3224,7 @@ union SOM_MAP_this
 	};
 	
 	//MSM view (D3D6->D3D7)
+	DWORD __thiscall map_442270(char*,int); //d3d init support
 	DWORD __thiscall map_440ee0(); //init
 	DWORD __thiscall map_442830_407470(texture_t*,char*); //TXR
 	void __thiscall map_441ef0(); //draw
@@ -3266,7 +3282,9 @@ union SOM_MAP_this
 	//EXPERIMENTAL
 	//enhanced view for gray grids?
 	//add to ImageList(s)
-	DWORD __thiscall map_40f9d0(char**);
+//	DWORD __thiscall map_40f9d0(char**);
+	DWORD __thiscall map_40f9d0(HBITMAP);
+	DWORD __thiscall map_40f830(char*);
 	//CDC::FillSolidRect
 	void __thiscall map_46cbc8(RECT*,DWORD);
 	//checkpoint input
@@ -3293,7 +3311,102 @@ union SOM_MAP_this
 		auto &sel = SOM_MAP_4921ac.grid[100*y+x];
 		if(sel.part!=0xffff) *(Tile*)(_c+0xa0) = sel; return sel;
 	}
+
+	int __thiscall map_46750D_minmax() //2023
+	{
+		while(40000!=GetWindowContextHelpId(som_tool))		
+		{
+			int ret = -1;
+			SOM_CDialog *tp = (SOM_CDialog*)this;
+			tp->m_lpszTemplateName = MAKEINTRESOURCEA(102+SOM_MAP_midminmax[11]);
+			ret = ((int(__thiscall*)(void*))0x46750D)(tp);
+		
+			if(*SOM_MAP_midminmax!=-1)
+			{
+				//NOTE: som_tool_subclassproc must post WM_QUIT on WM_DESTROY
+				//since som state is missing (it may think it's already quit)
+
+				MSG msg;
+				while(PeekMessageW(&msg,0,0,0,1)) //som_tool_GetMessageA
+				{
+					//clear WM_QUIT
+					msg.message = msg.message; //breakpoint
+				}
+			}
+			else break;			
+		}
+		return -1; //return ret;
+	}
+	int __thiscall map_4130e0_minmap_map(int map)
+	{
+		if(*SOM_MAP_midminmax!=-1)
+		{	
+			map = *SOM_MAP_midminmax; *SOM_MAP_midminmax = -1;	
+
+		//	int ret = ((int(__thiscall*)(void*,int))0x4130e0)(this,map);
+
+			auto *p = SOM_MAP_app::CWnd(SOM_MAP.painting);
+			SetScrollPos(SOM_MAP.painting,SB_VERT,SOM_MAP_midminmax[1],1);
+			SetScrollPos(SOM_MAP.painting,SB_HORZ,SOM_MAP_midminmax[2],1);
+			for(int i=0;i<6-2;i++)
+			*(int*)((char*)p+0x70+i*4) = SOM_MAP_midminmax[5+i];
+			((void(__thiscall*)(void*))0x446980)(p);
+		//	InvalidateRect(SOM_MAP.painting,0,0);
+			SetWindowPos(som_tool,0,SOM_MAP_midminmax[3],SOM_MAP_midminmax[4],0,0,SWP_NOSIZE|SWP_NOZORDER);
+
+		//	return ret;
+			return 1;
+		}
+		else return ((int(__thiscall*)(void*,int))0x4130e0)(this,map);
+	}
 };
+extern void SOM_MAP_minmax()
+{
+	bool mini = WS_MAXIMIZEBOX&GetWindowStyle(som_tool);
+
+	auto *p = SOM_MAP_app::CWnd(som_tool);
+	auto *q = SOM_MAP_app::CWnd(SOM_MAP.painting);
+
+	//HACK: SOM_MAP_map2 crashes on lyt (err 3)
+	SOM_MAP_midminmax[0] = SOM_MAP_201_open(0);
+	{
+		SOM_MAP_midminmax[1] = GetScrollPos(SOM_MAP.painting,SB_VERT);
+		SOM_MAP_midminmax[2] = GetScrollPos(SOM_MAP.painting,SB_HORZ);
+		RECT wr;
+		GetWindowRect(som_tool,&wr);
+		SOM_MAP_midminmax[3] = wr.left;
+		SOM_MAP_midminmax[4] = wr.top;
+		for(int i=0;i<6;i++)
+		SOM_MAP_midminmax[5+i] = *(int*)((char*)q+0x70+i*4);
+	}
+	SOM_MAP_midminmax[11] = !mini;
+
+	//derived from FUN_00417450_save_map_prompt?_close?
+	//void ***tp = (void ***)0x0019F71C;
+	void ***tp = SOM_MAP_app::CWnd_stack_ptr(p); assert((DWORD)tp==0x19F71C);
+	void *f = (*tp)[0x58/4]; //vtable
+
+	if(0) //FIX ME: this is reloading the map
+	{
+		//save prompt/close?
+		((void(__thiscall*)(void*))0x417450)(tp);
+	}
+	else //map_4130e0_minmap_map doesn't reload
+	{
+		//DestroyWindow(som_tool); 
+		//((void(__thiscall*)(void*))f)(p); //0x47b3f4
+		((void(__thiscall*)(void***))f)(tp); //0x47b3f4
+	}
+
+	som_tool = 0; assert(!som_tool_stack[1]); //UNUSED
+
+	//BOOL _ = DestroyWindow(SOM_MAP.model);
+	SOM_MAP.model = 0; 
+	SOM_MAP.palette = 0;
+	SOM_MAP.painting = 0; //MEMORY LEAK?
+
+	PostMessage(0,WM_QUIT,0,0); //second time doesn't send it???
+}
 
 static SOM_MAP_model *SOM_MAP_48_msm_mem = 0;
 
@@ -3800,7 +3913,7 @@ extern void SOM_MAP_reprogram()
 		//2017?
 		_(tileview)	
 		//2021: D3D7/9 MSM viewer
-		_(map_440ee0)_(map_441ef0)
+		_(map_442270)_(map_440ee0)_(map_441ef0)
 		//2021: D3D7/9tile viewer
 		_(map_404530)_(map_44c800)
 		//2021: D3D7/9 textures
@@ -3810,13 +3923,15 @@ extern void SOM_MAP_reprogram()
 		//2021: MDL+MDO
 		_(map_4084d0)_(map_409eb0)_(map_409e00)_(map_442440)_(map_407c60)
 		//2021: enhanced view for gray grids?
-		_(map_40f9d0)_(map_46cbc8)
+		_(map_46cbc8)_(map_40f830) //_(map_40f9d0)
 		//checkpoint input (related)
 		_(map_413b30_checkpoint)
 		//standby map event
 		_(map_465260_standby_map)
 		//hotkeys
 		_(map_419fc0_keydown)
+		//big map editor
+		_(map_46750D_minmax)_(map_4130e0_minmap_map)
 		#undef _
 	
 	//adding XY axes to enemies/NPCs
@@ -4067,6 +4182,8 @@ extern void SOM_MAP_reprogram()
 		//the second, but tracing it was easy enough
 		//*(DWORD*)0x443E11 = (DWORD&)map_440ee0-0x443E15;
 		*(DWORD*)0x440C14 = (DWORD&)map_440ee0-0x440C18;
+		//004173BE E8 AD AE 02 00       call        00442270 
+		*(DWORD*)0x4173Bf = (DWORD&)map_442270-0x4173c3;
 		//
 		//MSM viewer texture subroutine
 		//00442660 E8 CB 01 00 00       call        00442830
@@ -4266,13 +4383,19 @@ extern void SOM_MAP_reprogram()
 		*(BYTE*)0x40F872 = *(BYTE*)0x40F8B1 = 256;
 
 		//0040F963 E8 68 00 00 00       call        0040F9D0
-		*(DWORD*)0x40F964 = (DWORD&)map_40f9d0-0x40F968;
+	//	*(DWORD*)0x40F964 = (DWORD&)map_40f9d0-0x40F968;
 		int sz_1 = sizeof(*map_40f9d0_lut)-1;
 		float l_sz = 1.0f/(sz_1);
 		auto *lut = new BYTE[sz_1+1];
 		(void*&)map_40f9d0_lut = lut; for(int i=sz_1;i-->0;)
 		{
 			lut[i] = 48+(BYTE)(sz_1*(1-powf(1-i*l_sz,4.0f)))/2;
+		}
+		//if(EX::debug) //art system icons
+		{
+			//2023: trying to load x2mdl.dll icons
+			//0040F192 E8 99 06 00 00       call        0040F830
+			*(DWORD*)0x40F193 = (DWORD&)map_40f830-0x40F197;
 		}
 
 		//if(1)
@@ -4414,6 +4537,15 @@ extern void SOM_MAP_reprogram()
 	//2022: hotkeys?
 	//00419EB8 E8 03 01 00 00       call        00419FC0
 	*(DWORD*)0x419EB9 = (DWORD&)map_419fc0_keydown-0x419EBd;
+
+	//2023: big map editor?
+	//00415FCC E8 3C 15 05 00       call        0046750D  
+	*(DWORD*)0x415FCd = (DWORD&)map_46750D_minmax-0x415Fd1;
+	//0041705F E8 7C C0 FF FF       call        004130E0
+	*(DWORD*)0x417060 = (DWORD&)map_4130e0_minmap_map-0x417064;
+	//this knocks out the MAXIMIZE button and 1 other (close probably)
+	//00416d1d 74 22           JZ         LAB_00416d41
+	*(BYTE*)0x416d1d = 0xEB; //jmp
 }
 
 //2017: fix for ctrl+click elevation/rotation clobbering bug
@@ -4425,10 +4557,11 @@ void __thiscall SOM_MAP_this::map_446190(int x, int y)
 		((void(__thiscall*)(void*,int,int))0x446190)(this,x,y);
 	}
 	 
+	//auto *_i = SOM_MAP_app::CWnd(SOM_MAP.painting);	
 	y = 99-_i[0x7C/4]; x = _i[0x78/4]; //grid coordinates?
 
 	//I think this converts an HWND into a CWnd (19f71c)
-	void *p = ((void*(__stdcall*)(HWND))0x468441)(som_tool);
+	auto *p = SOM_MAP_app::CWnd(som_tool);
 	
 	//2022: update palette/viewer for consistency
 	extern int som_map_tab; if(som_map_tab!=1215) //1220?
@@ -4899,10 +5032,31 @@ static bool SOM_MAP_onflip()
 }
 
 //EXPERIMENTAL
+std::vector<IUnknown*> SOM_MAP_d3d_release;
+DWORD __thiscall SOM_MAP_this::map_442270(char *_1, int _2)
+{
+	//seems to go dead after a while and not spring back
+	//at which point new msm models don't load
+	auto &init = *(DWORD*)((char*)this+0x22fbc);
+	if(0==init)
+	{
+		for(size_t i=SOM_MAP_d3d_release.size();i-->0;)
+		SOM_MAP_d3d_release[i]->Release();
+		SOM_MAP_d3d_release.clear();		
+		assert(!DDRAW::DirectDraw7); //release?
+
+		init = map_440ee0();
+	}
+	return ((DWORD(__thiscall*)(void*,char*,int))0x442270)(this,_1,_2);
+}
 DWORD __thiscall SOM_MAP_this::map_440ee0() //2021
 {
-	som_exe_onflip_passthru = DDRAW::onFlip;
-	DDRAW::onFlip = SOM_MAP_onflip;
+	static int one_off = 0; if(!one_off)
+	{
+		one_off = true;
+		som_exe_onflip_passthru = DDRAW::onFlip;
+		DDRAW::onFlip = SOM_MAP_onflip;
+	}
 
 	//IDirect3D9 says this is a focus window?
 	DDRAW::window = som_tool; assert(som_tool);
@@ -4911,7 +5065,8 @@ DWORD __thiscall SOM_MAP_this::map_440ee0() //2021
 	//avoid setting this since there's some code
 	//in dx_ddraw_DirectDrawCreateEx that prevents
 	//making two of them
-	assert(!DDRAW::DirectDraw7);
+//	assert(!DDRAW::DirectDraw7);
+	if(DDRAW::DirectDraw7) return 1; //big map editor?
 
 	DX::IDirectDraw7 *dd = 0;
 	DX::IDirectDrawSurface7 *ps = 0, *ds = 0;
@@ -4919,6 +5074,8 @@ DWORD __thiscall SOM_MAP_this::map_440ee0() //2021
 	DX::IDirect3DDevice7 *dev;	
 	if(!DirectDrawCreateEx(0,(void**)&dd,DX::IID_IDirectDraw7,0))
 	{		
+		SOM_MAP_d3d_release.push_back(dd);
+
 		//HACK: DirectDrawCreateEx is what seems
 		//to trigger EX::is_needed_to_initialize
 		
@@ -4932,13 +5089,15 @@ DWORD __thiscall SOM_MAP_this::map_440ee0() //2021
 	}
 	if(dd&&!dd->QueryInterface(DX::IID_IDirect3D7,(void**)&d3d))
 	{
+		SOM_MAP_d3d_release.push_back(d3d);
+
 		DX::DDSURFACEDESC2 desc = {sizeof(desc)};
 		//HACK: passing manual primary surface size
 		//isn't allowed, but otherwise dx.d3d9c.cpp
 		//uses DDRAW::window
 		#ifdef NDEBUG
 		//#error extract tile view width? or resize effects buffer?
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif	
 		desc.dwFlags = 0x27; //7|DDSD_BACKBUFFERCOUNT
 		desc.dwWidth = 512; //401?
@@ -4948,14 +5107,18 @@ DWORD __thiscall SOM_MAP_this::map_440ee0() //2021
 		desc.ddsCaps.dwCaps = 0x2218;
 		desc.dwBackBufferCount = 1;
 		dd->CreateSurface(&desc,&ps,0);
+		SOM_MAP_d3d_release.push_back(ps);
 		desc.dwFlags = 0x1007; //7|DDSD_PIXELFORMAT	
 		desc.ddsCaps.dwCaps = 0x24000; //DDSCAPS_ZBUFFER|DDSCAPS_VIDEOMEMORY
 		desc.ddpfPixelFormat.dwSize = 32;
 		desc.ddpfPixelFormat.dwFlags = 0x400;
 		desc.ddpfPixelFormat.dwZBufferBitDepth = 16;
 		dd->CreateSurface(&desc,&ds,0);
+		SOM_MAP_d3d_release.push_back(ds);
 		if(ps&&ds&&!d3d->CreateDevice(DX::IID_IDirect3DTnLHalDevice,ps,&dev))
 		{
+			SOM_MAP_d3d_release.push_back(dev);
+
 			//needed just in case D3DFVF_LVERTEX leaks
 			extern void *workshop_DrawIndexedPrimitive(HRESULT*,DDRAW::IDirect3DDevice7*,DX::D3DPRIMITIVETYPE&,DWORD&,LPVOID&,DWORD&,LPWORD&,DWORD&,DWORD&);
 			DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_DRAWINDEXEDPRIMITIVE_HACK,workshop_DrawIndexedPrimitive); //2021
@@ -5062,6 +5225,8 @@ static bool SOM_MAP_texture(SOM_MAP_this::texture_t *o, char *name, int w, int h
 			(void*&)o->dds4 = s; s->AddRef(); //I guess?
 			(void*&)o->d3dt2 = s;
 
+			SOM_MAP_d3d_release.push_back(s); //testing
+
 			size_t len = strlen(name)+1;
 			o->name = ((char*(__cdecl*)(DWORD))0x46573f)(len);
 			memcpy(o->name,name,len);
@@ -5116,7 +5281,7 @@ DWORD __thiscall SOM_MAP_this::map_442830_407470(texture_t *o, char *name) //202
 		// count against the texture maximum
 		//
 		//might help to preempt this earlier
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 
 		//2022: MSM models may be padded with 
 		//empty textures to 32-bit align data
@@ -5174,7 +5339,7 @@ DWORD __thiscall SOM_MAP_this::map_442830_407470(texture_t *o, char *name) //202
 						//may need to do this when there's no colorkey data
 						#ifdef NDEBUG
 						//#error really should fix no colorkey (SetColorKey)
-					//	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+					//	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 						#endif
 						d[j]._ = 255;
 					}
@@ -5356,7 +5521,7 @@ static bool SOM_MAP_draw_msm(BYTE *m, SOM_MAP_this::texture_t *tp)
 	// 	 
 	// can shift it over in memory?
 	//	
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	//assert((size_t)pp%4==0);
 	//
 	void *pverts = pp; pp+=verts*32; //polygon data
@@ -6512,26 +6677,129 @@ int __thiscall SOM_MAP_this::map_442440_407c60(SOM_MAP_model *m, char *a, char *
 	return ret;
 }
 
-//EXPERIMENTAL
+struct SOM_MAP_icon_kv
+{
+	char k[32];
+	SOM_MAP_4921ac::Icon *v;
+	bool operator<(const SOM_MAP_icon_kv &b)const
+	{
+		return strcmp(k,b.k)<0;
+	}
+};
+DWORD __thiscall SOM_MAP_this::map_40f830(char *_1)
+{
+//	if(1) return ((DWORD(__thiscall*)(void*,char*))0x40f830)(this,_1);
+
+	auto *tp = (struct SOM_MAP_4921ac*)this;
+
+	for(int i=2;i-->0;) //new allocate
+	{
+		(void*&)tp->icons[i] = ((void*(__cdecl*)(size_t))0x46573f)(8);
+
+		//FUN_00464f5a
+		tp->icons[i]->_vtable = (void*)0x48052c; 
+		tp->icons[i]->hil = 0;
+		//CImageList::Create
+		((DWORD(__thiscall*)(void*,int,int,int,int,int))0x46501f)(tp->icons[i],0x14,0x14,0x18,0,1); 
+	}
+
+	std::set<SOM_MAP_icon_kv> optimizing;
+
+	char buf[MAX_PATH];
+	int buf_s = sprintf(buf,"%s",_1);
+
+	auto swap = x2mdl_dll; 	
+	x2mdl_dll = L"x2msm.dll"; //HACK
+	enum{ a_s=20 };
+	char a[MAX_PATH] = "A:\\>\\data\\map\\model\\";
+	HBITMAP b;
+	wchar_t art[MAX_PATH];	
+
+	EX::INI::Editor ed;
+	SOM_MAP_4921ac::Icon *prev = nullptr;
+	auto *pt = tp->parts;	
+	//for(int i=tp->partsN;i-->0;pt++)
+	for(int i=0;i<(int)tp->partsN;i++,pt++)
+	{
+		char *p = pt->icon_bmp;
+
+		if(!ed->do_not_generate_icons)
+		{
+			memcpy(a+a_s,pt->msm.file,32);
+		//	memcpy(PathFindExtensionA(a+a_s),".ico",4);
+			using namespace x2mdl_h;
+			int e = som_art_model(a,art);
+			if(e&_art&&~e&_lnk)		
+			{
+				if(!som_art(art,0)) //x2mdl exit code?
+				{
+					e = som_art_model(a,art); //retry?
+				}
+			}
+			if(e&_ico)
+			wmemcpy(PathFindExtension(art),L".ico",4);
+			else *art = '\0';
+
+			if(*art) p = pt->msm.file;
+		}		
+
+		SOM_MAP_icon_kv kv;
+		memcpy(kv.k,p,32); 
+		CharUpperA(kv.k);
+		auto ins = optimizing.insert(kv);
+		if(ins.second)
+		{
+			auto &v = ins.first->v;
+			(void*&)v = ((void*(__cdecl*)(size_t))0x46573f)(40);			
+			memcpy(v->icon_bmp,kv.k,32);
+
+			if(*art) //EXTENSION
+			{
+				//OPTIMIZING: these are really bmp files right now
+				if(!(b=(HBITMAP)LoadImageW(0,art,IMAGE_BITMAP,20,20,LR_LOADFROMFILE)))
+				if(HICON hi=(HICON)LoadImageW(0,art,IMAGE_ICON,20,20,LR_LOADFROMFILE))
+				{
+					ICONINFO ii;
+					GetIconInfo(hi,&ii);
+					b = ii.hbmColor;
+					DeleteObject(ii.hbmMask);
+					DeleteObject(hi);
+				}
+			//	else b = (HBITMAP)LoadImageW(0,art,IMAGE_BITMAP,20,20,LR_LOADFROMFILE);
+			}
+			else
+			{
+				memcpy(buf+buf_s,v->icon_bmp,32);
+				b = (HBITMAP)LoadImageA(0,buf,IMAGE_BITMAP,20,20,LR_LOADFROMFILE);
+			}
+			v->il_index = map_40f9d0(b);
+
+			v->previous = prev; prev = v;
+		}
+		pt->icon = ins.first->v;
+	}
+
+	x2mdl_dll = swap; return 1; //HACK
+}
 static HBITMAP SOM_MAP_icon_bitmap = 0;
-DWORD __thiscall SOM_MAP_this::map_40f9d0(char **bmp)
+//DWORD __thiscall SOM_MAP_this::map_40f9d0(char **bmp)
+DWORD __thiscall SOM_MAP_this::map_40f9d0(HBITMAP b)
 {
 	auto tp = (struct SOM_MAP_4921ac*)this;
 
 	//NOTE: SOM_MAP's code uses LR_CREATEDIBSECTION
 	//and if the file fails tries to load a resource
-	auto b = (HBITMAP)LoadImageA(0,*bmp,0,0,0,LR_LOADFROMFILE);
+//	auto b = (HBITMAP)LoadImageA(0,*bmp,0,0,0,LR_LOADFROMFILE);
 	if(!b) return ~0;	
 
 	auto il = tp->icons[0]->hil;
 	
 	//HARD TO BELIEVE MOST OF 40f9d0 BOILS
 	//DOWN TO 3 LINES OF CODE
-	auto ret = ImageList_AddMasked(il,b,0);
-
+//	auto ret = ImageList_AddMasked(il,b,0);
 	//ImageList_AddMasked returns the index
 	//return ret?ImageList_GetImageCount(il)-1:~0;
-	if(0){ DeleteObject(b); return ret; }
+//	if(0){ DeleteObject(b); return ret; }
 
 	BITMAPINFO bmi = {sizeof(bmi),20,20,1,32,0,4*20*20};
 	RGBQUAD buf[20*20];
@@ -6544,6 +6812,33 @@ DWORD __thiscall SOM_MAP_this::map_40f9d0(char **bmp)
 	HBITMAP &b2 = SOM_MAP_icon_bitmap;
 	if(!b2) b2 = CreateCompatibleBitmap(dc,20,20);
 	int test20 = GetDIBits(dc,b,0,20,buf,&bmi,0);
+	EX::INI::Editor ed;
+	if(float x=ed->map_icon_brightness)
+	{
+		if(x<0||x>1)
+		{
+			if(x>1) x-=1;
+
+			for(int i=20*20;i-->0;)
+			{
+				float r = buf[i].rgbRed+x*buf[i].rgbRed;
+				float g = buf[i].rgbGreen+x*buf[i].rgbGreen;
+				float b = buf[i].rgbBlue+x*buf[i].rgbBlue;
+
+				buf[i].rgbRed = (BYTE)min(255,max(0,r));
+				buf[i].rgbGreen = (BYTE)min(255,max(0,g));
+				buf[i].rgbBlue = (BYTE)min(255,max(0,b));
+			}
+		}
+		else for(int i=20*20;i-->0;)
+		{
+			buf[i].rgbRed*=x;
+			buf[i].rgbGreen*=x;
+			buf[i].rgbBlue*=x;
+		}
+
+		SetDIBits(dc,b,0,20,buf,&bmi,0);
+	}
 	if(20==test20)
 	{
 		//NOTE: dark blues get masked unless 0.9
@@ -6574,7 +6869,9 @@ DWORD __thiscall SOM_MAP_this::map_40f9d0(char **bmp)
 	}
 	swap = SelectObject(dc,swap);
 
-	int same = ImageList_AddMasked(tp->icons[1]->hil,b2,0);
+	int same = ImageList_AddMasked(tp->icons[1]->hil,b2,0);	
+	auto ret = ImageList_AddMasked(il,b,0);
+
 	assert(same==ret);
 
 	DeleteObject(b); return ret; //DeleteObject(b2);

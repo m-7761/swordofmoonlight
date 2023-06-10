@@ -364,8 +364,8 @@ namespace DDRAW
 	psColorFunction = psF+3, //texture+color function	
 	psCorrections   = psF+7, //bright/dim //psCorrectionsXY	
 	//making optional below
-	psColorkey_nz   = psF+8, //w=tex0 has ckey?1:0 XYZ unused!
-			
+	psColorkey_nz   = psF+8, //w=tex0 has ckey?1:0 XYZ unused!		
+	psConstants10 = psF+10, //2023: general purpose 10-19			
 	psFogFactors = psF+24, //1/(end-start)\end\density\enabled
 	psFogColor   = psF+25; //extern
 
@@ -689,6 +689,11 @@ namespace DDRAW
 	//you want to Release() this interface when finished
 	extern DX::IDirectDraw7 *vblank(HMONITOR=DDRAW::monitor);
 	
+	//2023: these create a large texture to hold smaller textures
+	//they're developed to reduce draw calls for sorting triangles
+	extern DDRAW::IDirectDrawSurface7 *CreateAtlasTexture(int=8192);
+	extern void BltAtlasTexture(DDRAW::IDirectDrawSurface7*,DDRAW::IDirectDrawSurface7*,int border,int,int);
+
 	//DDRAW_LEVEL(7) << "~I()\n";
 	extern void Yelp(const char *I);
 

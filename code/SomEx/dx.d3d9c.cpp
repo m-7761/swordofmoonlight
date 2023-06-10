@@ -11,6 +11,8 @@ DX_TRANSLATION_UNIT
 	//an OpengGL ES mode for OpenXR/ANGLE side-by-side.
 
 #include <map>
+#include <vector>
+#include <algorithm>
 
 #define DIRECT3D_VERSION 0x0900
 
@@ -202,12 +204,10 @@ extern DDRAW::IDirectDrawSurface7 *dx_d3d9c_direct3d_swapsurfs[dx_d3d9c_direct3d
 //extern D3DFORMAT dx_d3d9c_rendertarget_format = D3DFMT_UNKNOWN;
 
 //TODO: THESE SHOULD GO INSIDE Query9
-enum{ dx_d3d9c_ibuffersN = 6*1 };
-enum{ dx_d3d9c_vbuffersN = 6*1 };
-extern UINT dx_d3d9c_ibuffers_s[6*1] = {}; 
-extern UINT dx_d3d9c_vbuffers_s[6*1] = {}; 
-extern IDirect3DIndexBuffer9 *dx_d3d9c_ibuffers[6*1] = {}; 
-extern IDirect3DVertexBuffer9 *dx_d3d9c_vbuffers[6*1] = {}; 
+extern UINT dx_d3d9c_ibuffers_s[D3D9C::ibuffersN] = {}; 
+extern UINT dx_d3d9c_vbuffers_s[D3D9C::ibuffersN] = {}; 
+extern IDirect3DIndexBuffer9 *dx_d3d9c_ibuffers[D3D9C::ibuffersN] = {}; 
+extern IDirect3DVertexBuffer9 *dx_d3d9c_vbuffers[D3D9C::ibuffersN] = {}; 
 extern IDirect3DVertexShader9 *dx_d3d9c_vshaders[16+4] = {}; 
 extern IDirect3DPixelShader9 *dx_d3d9c_pshaders[16+4] = {};
 extern IDirect3DPixelShader9 *dx_d3d9c_pshaders2[16+4] = {};
@@ -1301,7 +1301,7 @@ extern HRESULT dx_d3d9c_ibuffer(IDirect3DDevice9 *d, IDirect3DIndexBuffer9* &ib,
 		r = r; assert(r!=0); //breakpoint
 	}
 
-	i = ++i%dx_d3d9c_ibuffersN;
+	i = ++i%D3D9C::ibuffersN;
 	UINT &s = dx_d3d9c_ibuffers_s[i]; if(s<r||!dx_d3d9c_ibuffers[i])
 	{						
 		if(dx_d3d9c_ibuffers[i])
@@ -1333,7 +1333,7 @@ extern HRESULT dx_d3d9c_vbuffer(IDirect3DDevice9 *d, IDirect3DVertexBuffer9* &vb
 
 	int &i = dx_d3d9c_vbuffer_i;
 
-	i = ++i%dx_d3d9c_vbuffersN;
+	i = ++i%D3D9C::ibuffersN;
 	UINT &s = dx_d3d9c_vbuffers_s[i]; if(s<qN||!dx_d3d9c_vbuffers[i])
 	{						
 		if(dx_d3d9c_vbuffers[i]) 
@@ -2192,6 +2192,7 @@ extern IDirect3DTexture9 *dx_d3d9c_alpha(IDirect3DTexture9 *in)
 	return out;
 }
 
+enum{ dx_d3d9c_30fps_test=1 };
 extern HRESULT dx_d3d9c_present(IDirect3DDevice9Ex *p)
 {		
 	DWORD ticks_before_wait = DX::tick(); //EXPEREMENTAL
@@ -3354,6 +3355,40 @@ reset:	int i;
 	
 	DDRAW_RETURN(out)
 }
+static unsigned short dx_d3d9c_rez[] = 
+{
+	//first is the width followed by heights
+	0,1920,1080,1200,1280,1400,1440,
+	0,1680,1050,
+	0,1600,1200,900,
+	0,1440,900,1440,
+	0,1366,768,
+	0,1360,768,
+	0,1280,1024,960,1800,768,720,
+	0,1176,664,
+	0,1152,864,
+	0,1024,768,
+	0,800,600,
+	0,720,480,576,
+	0,640,480,
+
+	//UHD modes (incomplete)
+	0,2048.1080,1152,1280,
+	0,1792,1344,
+	0,1800,1440,
+	0,1856,1392,
+	0,2160,1200,1440,
+	0,2048,1536,	
+	0,2256,1504,
+	0,2304,1440,1728,
+	0,2560,1440,
+	0,2576,1450,	
+	0,2732,2048,
+	0,2736,1824,
+	0,2880,1800,1920,	
+	0,3200,1800,2400,
+};
+
 HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, LPVOID z, DX::LPDDENUMMODESCALLBACK2 w)
 {
 	DDRAW_LEVEL(7) << "D3D9C::IDirectDraw7::EnumDisplayModes()\n";
@@ -3385,6 +3420,14 @@ HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, L
 		}
 	}
 	else modes = proxy9->GetAdapterModeCount(query9->adapter,D3DFMT_X8R8G8B8);
+
+	HMONITOR hm = proxy9->GetAdapterMonitor(query9->adapter);
+	MONITORINFO mi = { sizeof(mi) };
+	GetMonitorInfoA(hm,&mi);
+	//UNIT vw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+	//UINT vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+	UINT vw = mi.rcMonitor.right-mi.rcMonitor.left;
+	UINT vh = mi.rcMonitor.bottom-mi.rcMonitor.top;	
 
 	//TODO: generic custom table...
 	 	
@@ -3418,12 +3461,17 @@ HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, L
 		 customs[1][0] = customs[1][1] = 0;
 	}
 
-	int prevw = -1, prevh = -1; 
+	typedef std::pair<DWORD,DWORD> v_t; //2023
+	std::vector<v_t> v;
+	v.reserve(modes+DX_ARRAYSIZEOF(dx_d3d9c_rez));
 
+	DWORD cw,mw = 0, mh = 0;
+
+	int prevw = -1, prevh = -1;
 	for(int pass=0;pass<3;pass++) for(UINT i=0;i<modes;i++)
 	{					
 		int bpp = 8; if(pass>0) bpp+=8; if(pass>1) bpp+=16;
-				  
+		
 		if(D3D9C::DLL::Direct3DCreate9Ex)
 		{	
 			//WARNING (2022)
@@ -3442,7 +3490,7 @@ HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, L
 			mode9.RefreshRate = mode9Ex.RefreshRate; mode9.Format = mode9Ex.Format;
 		}
 		else  out = proxy9->EnumAdapterModes(query9->adapter,D3DFMT_X8R8G8B8,i,&mode9);
-
+		
 		if(out!=D3D_OK)	DDRAW_RETURN(!DD_OK) else out = DD_OK;
 
 		if(mode9.Format!=D3DFMT_X8R8G8B8
@@ -3452,38 +3500,57 @@ HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, L
 		}
 
 		prevw = mode9.Width; prevh = mode9.Height;
+	
+		//NOTE: SOM filters these away
+		if(prevw>(int)vw||prevh>(int)vh) continue; //weird???
+
+		mw = max(mw,(DWORD)prevw); mh = max(mh,(DWORD)prevh);
+
+		v.push_back(std::make_pair(prevw,prevh)); //2023
+	}
+
+	auto *p = dx_d3d9c_rez;	
+	for(int i=DX_ARRAYSIZEOF(dx_d3d9c_rez);i-->0;p++) 
+	{
+		if(!p[0]){ cw = *++p; continue; } 
+		if(cw<=mw&&p[-1]<=mh) v.push_back(std::make_pair(cw,p[-1]));
+	}
+
+	auto it = v.begin(), itt = v.end();
+
+	std::sort(it,itt); itt = std::unique(it,itt); 
+	
+	auto iit = it = v.begin(); v.erase(itt,v.end()); itt = v.end();
+
+	for(int i,pass=0;pass<3;pass++) for(i=0,it=iit;it<itt;it++,i++)	
+	{
+		mw = it->first, mh = it->second;
+
+		int bpp = 8; if(pass>0) bpp+=8; if(pass>1) bpp+=16;
 
 		memset(&desc7,0x00,sizeof(DX::DDSURFACEDESC2)); //paranoia
 
 		desc7.dwSize = sizeof(DX::DDSURFACEDESC2);
-
 		desc7.ddpfPixelFormat.dwSize = sizeof(DX::DDPIXELFORMAT);
-
-		desc7.dwFlags = DDSD_HEIGHT|DDSD_PITCH|DDSD_WIDTH|DDSD_REFRESHRATE|DDSD_PIXELFORMAT;
-									
-		desc7.dwHeight = mode9.Height; desc7.dwWidth = mode9.Width;
-
-		desc7.lPitch = desc7.dwWidth*bpp/8; //likely assumption
-
+		desc7.dwFlags = DDSD_HEIGHT|DDSD_PITCH|DDSD_WIDTH|DDSD_REFRESHRATE|DDSD_PIXELFORMAT;		
+		desc7.dwHeight = mh; desc7.dwWidth = mw;
+		desc7.lPitch = mw*bpp/8; //likely assumption
 		desc7.dwRefreshRate = 0; //mode9.RefreshRate;
-
 		switch(bpp)
 		{
 		case 8:  desc7.ddpfPixelFormat = dx_d3d9c_format(D3DFMT_P8); break;
 		case 16: desc7.ddpfPixelFormat = dx_d3d9c_format(D3DFMT_R5G6B5); break; 
 		case 32: desc7.ddpfPixelFormat = dx_d3d9c_format(D3DFMT_X8R8G8B8); break;
-
 		default: assert(0);
 		}
 
 		bool keep = false;
 
-		if((int)mode9.Width>=DDRAW::xyMinimum[0]
-		&&(int)mode9.Height>=DDRAW::xyMinimum[1]) 
+		if((int)mw>=DDRAW::xyMinimum[0]&&(int)mh>=DDRAW::xyMinimum[1]) 
 		{					
 			keep = true; 
 			if(DDRAW::aspectratio=='4:3')
-			if(fabs(float(mode9.Width)/float(mode9.Height)-1.333333f)>0.0001f)
+			if(fabs(float(mw)/float(mh)-1.333333f)>0.0001f)
 			keep = false;
 		   			
 		    if(!DDRAW::fullscreen) //if(DDRAW::inWindow)
@@ -3493,13 +3560,10 @@ HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, L
 				// som.game.cpp calls SetProcessDPIAware
 				//
 				////////////////////////////////////////
-
-				UINT vw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-				UINT vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
-
+						
 				if(vw&&vh) //see resolution fits into virtual screen space
 				{
-					if(mode9.Width>vw||mode9.Height>vh) keep = false;
+					if(mw>vw||mh>vh) keep = false;
 				}
 			}
 		}
@@ -3507,16 +3571,15 @@ HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, L
 		custom: //hack
 		for(int c=0;c<2;c++)
 		if(customs[c][2]!=pass)
-		if(mode9.Width!=customs[c][0]
-		 ||mode9.Height!=customs[c][1]||!keep)
+		if(mw!=customs[c][0]
+		 ||mh!=customs[c][1]||!keep)
 		{	
 			//2022: I think this was for sorting, but currently
 			//the results aren't in order anyway since the first
 			//is fullscreen and that will cause these to be first
 			//(Sword of Moonlight sorts them anyway)
 			if(customs[c][0])
-			if(mode9.Width>=customs[c][0]
-			 &&mode9.Height>customs[c][1]||i==modes)
+			if(mw>=customs[c][0]&&mh>customs[c][1]||i==modes)
 			{				
 				DX::DDSURFACEDESC2 desc; 
 
@@ -5740,6 +5803,10 @@ HRESULT D3D9C::IDirect3D7::CreateDevice(REFCLSID xIn, DX::LPDIRECTDRAWSURFACE7 y
 	D3DDISPLAYMODE dm;	  
 	proxy9->GetAdapterDisplayMode(query9->adapter,&dm);	
 	DDRAW::refreshrate = dm.RefreshRate; //2021
+	switch(DDRAW::refreshrate)
+	{
+	case 59: DDRAW::refreshrate = 60; break;
+	}
 	D3DFORMAT bpp = DDRAW::fullscreen?dm.Format:D3DFMT_UNKNOWN; 
 
 	/*2021: Seeing if "deep color" helps? I got the idea from ANGLE
@@ -7112,7 +7179,7 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 
 	CASE_(ZBIAS) 
 	{
-		float bias = 0.0001f*(int)y; //ARBITRARY (0-16)
+		float bias = 0.000001f*(int)y; //ARBITRARY (0-16)
 		y = *(DWORD*)&bias;
 		x = (DX::D3DRENDERSTATETYPE)D3DRS_DEPTHBIAS;
 		//bias*=5000;

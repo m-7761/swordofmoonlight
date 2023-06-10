@@ -55,6 +55,7 @@ EX_TRANSLATION_UNIT
 #define cColFunction "float4 colFunction : register(ps,c3);"	  
 #define cColCorrect  "float2 colCorrect  : register(ps,c7);"
 #define cColColorkey "float4 colColorkey : register(ps,c8);"
+#define cVolRegister "float4 volRegister : register(ps,c10);"
 #define cColColorize "float4 colColorize : register(ps,c26);"
 #define cFarFrustum  "float4 farFrustum  : register(ps,c27);"
 
@@ -1494,6 +1495,12 @@ static const char *som_shader_classic_vs = //HLSL
 	})
 
 	HLSL(
+	struct FOG_INPUT
+	{
+		float4 pos : POSITION;
+		float4 uv0 : TEXCOORD; //4 is for shadow?
+		classic_stereo_DEPTH
+	};	
 	struct LIT_INPUT
 	{
 		float4 pos : POSITION; 
@@ -1549,7 +1556,22 @@ static const char *som_shader_classic_vs = //HLSL
 	classic_aa //NEW: helps map edges... doesn't seem to hurt
 
 		return Out; 
-	}
+	}						                     
+	CLASSIC_OUTPUT fog(FOG_INPUT In)
+	{
+		CLASSIC_OUTPUT Out; 
+
+		//Out.pos = mul(x4mWVP,In.pos); 	
+		classic_stereo_pos(In.pos)
+		Out.col = vec4(0.0);
+		Out.uv0 = In.uv0.xy;
+
+//	classic_z  		
+	classic_stereo(true)
+	classic_aa
+
+		return Out; 
+	} 
 	CLASSIC_OUTPUT unlit(UNLIT_INPUT In)
 	{
 		CLASSIC_OUTPUT Out; 
@@ -1828,6 +1850,7 @@ static const char *som_shader_classic_vs = //HLSL
 static const char *som_shader_classic_ps = //HLSL 
 {
 	cSkyRegister
+	cVolRegister //2023: psConstants10 
 	cRcpViewport
 	cFogColor
 	cFogFactors 
@@ -2159,8 +2182,8 @@ static const char *som_shader_classic_ps = //HLSL
 		//NOTE: sample1 isn't require in this case
 		//NOTE: abs is because NPCs/monsters don't cast shadows
 		pos*=abs(tex2D(sam1,vp+0.0001f).x);
-		float depth = skyRegister.z;
-		float power = skyRegister.w;
+		float depth = volRegister.z; //skyRegister
+		float power = volRegister.w; //skyRegister
 		float alpha = pow(length(pos-In.fog.xyz)*depth,power);
 		
 		//TODO? conditionally compile this
@@ -2614,6 +2637,7 @@ static void *som_shader_compile_vs(C c, int model, int vs, int index)
 
 	case SOM::Shader::classic: assert(0); return 0;
 	
+	case SOM::Shader::classic_fog: main = "fog"; break;
 	case SOM::Shader::classic_blit: main = "blit"; break;
 	case SOM::Shader::classic_unlit: main = "unlit"; break;
 	case SOM::Shader::classic_sprite: main = "sprite"; break;
@@ -2630,6 +2654,7 @@ static void *som_shader_compile_vs(C c, int model, int vs, int index)
 		
 		code = som_shader_effects_vs; break;
 
+	case SOM::Shader::classic_fog: 
 	case SOM::Shader::classic_blit: 
 	case SOM::Shader::classic_unlit:
 	case SOM::Shader::classic_sprite:
@@ -2882,6 +2907,9 @@ static void som_shader_initialize_ps()
 	//NOTE: som.hacks.cpp zeroes if Shader Model 2
 	if(SOM_SHADER_MAPPING2)
 	DDRAW::ps2ndSceneMipmapping2 = DDRAW::psF+0; //2021
+
+	//2023: vol power/depth in z/w (x/y is unallocated)
+	//psConstants10 = 10; 
 }
 
 extern void SOM::initialize_shaders()

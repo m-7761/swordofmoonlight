@@ -1016,7 +1016,7 @@ static void som_mocap_footstep_soundeffect()
 	#ifdef NDEBUG
 	//do this with frequency and left Ex.ini define
 	//desired range
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	#endif
 
 	//2017: this plays at very fast stutters under
@@ -3038,7 +3038,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 			#ifdef NDEBUG
 			//do this with frequency and let Ex.ini define
 			//desired range
-			int todolist[SOMEX_VNUMBER<=0x1020402UL];
+			int todolist[SOMEX_VNUMBER<=0x1020406UL];
 			#endif
 			//HACK: historically the original arm resets to 1
 			//somehow/somewhere it's being set to 0 (this is
@@ -6799,7 +6799,7 @@ float som_mocap::camera::operator()
 			// pi/9 is too little in VR but jumping
 			// seems too much or too fast
 			// 
-			int todolist[SOMEX_VNUMBER<=0x1020402UL];
+			int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		//	if(zoom<70||EX::debug) //VR? //???
 			if(zoom<70||1) //2022
 			dip2 = lerp(pi/9,dip2,(zoom-30)/32);
@@ -7139,7 +7139,7 @@ float som_mocap::camera::operator()
 				//NOTE: I don't quite understand why l_xx
 				m[1][1] = m11;
 				m[2][2] = -0.09*l_xx;
-			//	m[3][0] = m30;
+				m[3][0] = m30;
 				Somvector::multiply<4,4>(m,n,mn);
 				for(int v=DDRAW::xr;v-->0;)
 				{

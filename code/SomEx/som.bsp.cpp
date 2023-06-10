@@ -8,6 +8,7 @@ EX_TRANSLATION_UNIT
 #include "dx.ddraw.h"
 
 #include "Ex.ini.h"
+#include "Ex.output.h"
 
 #include "som.state.h"
 #include "som.game.h" //som_scene_state
@@ -971,9 +972,10 @@ som_bsp_y **som_bsp_y::sort(som_bsp_y **yy, float ref[3])
 }
 extern void som_bsp_sort_and_draw(bool item)
 {
-	if(!som_bsp_top) return;
+	if(!som_bsp_top) return; //important           
 
 	namespace sss = som_scene_state;
+
 	if(item)
 	{
 		sss::push();
@@ -990,26 +992,68 @@ extern void som_bsp_sort_and_draw(bool item)
 	assert(sss::alphaenable&&!sss::worldtransformed);
 	assert(sss::colorkeyenable&&!sss::zwriteenable);
 
+	//is LEQUAL inadequate for decals?
+	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ZBIAS,-1);
+
+	extern float som_hacks_inventory[4][4];	
+	float r[3]; if(item)
+	{
+		for(int i=3;i-->0;) r[i] = -som_hacks_inventory[3][i];
+	}
+	else memcpy(r,SOM::cam,sizeof(r));
+	
+	bool fog = !item;
+	som_bsp_t *fogt = 0;
+	som_scene_lighting(0); som_scene_lit = 0; //fog?
+	sss::texture = 0xffff;
+	DDRAW::Direct3DDevice7->SetTexture(0,0);
+
 	/*#if 0
 	#define SOM_BSP_Y 1
 	#else
 	#define SOM_BSP_Y 0*/
 	
 		typedef std::pair<int,som_bsp_t*> v_t;
-		std::vector<v_t> dt;
+		static std::vector<v_t> dt; dt.clear();
 		dt.reserve(count_som_bsp_t);
-		auto *t = som_bsp_top;
+		auto *t = som_bsp_top, *tt = t;
 		for(;t;t=t->next)				
 		dt.push_back(v_t(som_bsp_d3(t->u),t));
 
-		auto it = dt.begin();
-		auto itt = dt.end();
+		auto it = dt.begin(), iit=it, itt = dt.end();
 		//NOTE: stable_sort just for sort mode 2?
-	//	std::sort(it,itt,[](const v_t &a, const v_t &b)
-		std::stable_sort(it,itt,[](const v_t &a, const v_t &b)
+		//YUCK: sort mode 2 looks fine with plain sort
+		auto pred = [](const v_t &a, const v_t &b)
 		{
 			return a.first>b.first; //<
-		});
+		};
+		std::sort(iit=it,itt,pred);
+	//	std::stable_sort(iit=it,itt,pred);
+		if(fog)
+		{
+			int fog2 = (int)(100000*SOM::fogend*SOM::fogend);
+			auto fit = std::lower_bound(it,itt,v_t(fog2,t),pred);
+			if(fit!=itt) 
+			{
+				//NOTE: the lower/upper_bound may be 
+				//way far from the fog line
+				if(fit>itt)
+				{
+					fit--;
+				
+					fogt = fit->second;
+				}
+				else if(fit->first>=fog2)
+				{
+					fogt = fit->second;
+				}
+			}
+		}
+
+		if(!fogt) fog = false;
+
+		//iterator debugging slowdown
+		auto *pp = &dt[0], *p = pp, *d = p+dt.size(); 
 	/*
 	#endif
 	#if SOM_BSP_Y
@@ -1043,10 +1087,13 @@ extern void som_bsp_sort_and_draw(bool item)
 //	#error do_red (npc) (lights)
 	#endif
 	extern void som_scene_red(DWORD);
-	extern void som_scene_volume_select(DWORD);
+	extern int som_scene_volume_select(DWORD,int);
 
 	const DWORD lockf = //VS2010 enum fails in lambda
 	DDLOCK_DISCARDCONTENTS|DDLOCK_WAIT|DDLOCK_WRITEONLY;
+
+	int draw_calls = 0;
+	int draw_tries = 0;
 
 	//this has way more memory that's unused as far as
 	//as I know, so that the vbN isn't limited by the
@@ -1054,73 +1101,333 @@ extern void som_bsp_sort_and_draw(bool item)
 	//historically chunks were always 128)
 //	WORD *ib = SOM::L.mpx->ibuffer; //2688
 	WORD *ib = (WORD*)SOM::L.mpx->_client_vbuffer; //21504+2688
-	DDRAW::IDirect3DVertexBuffer7 *ub = SOM::L.mpx->vbuffer;	
-	DDRAW::IDirect3DVertexBuffer7 *vb = SOM::L.vbuffer;
-	DWORD &ubN = SOM::L.mpx_vbuffer_size; //896
-	DWORD &ibM = SOM::L.mpx_ibuffer_size; //2688
-	DWORD ibN = 0; assert(!ibM);
-	DWORD vbN = 0;
-	WORD *q = ib, i = 0, batch = 1;
-	float *up,*vp;
-	ub->Lock(lockf,(void**)&up,0);
-	vb->Lock(lockf,(void**)&vp,0);
-	int mode = -1;
+	DX::IDirect3DVertexBuffer7 *ub = SOM::L.mpx->vbuffer;	
+	DX::IDirect3DVertexBuffer7 *vb = SOM::L.vbuffer;
+//	DWORD &ubN = SOM::L.mpx_vbuffer_size; //896
+//	DWORD &ibM = SOM::L.mpx_ibuffer_size; //2688
+//	DWORD ibN = 0; assert(!ibM);
+	DWORD ubN = 0, vbN = 0;
+	WORD *q = ib;
+	int batch = 1, b = 0;
+	float *up,*upp,*vp,*vpp;	
+	int mode = -1, ui = 0, vi = 0;
 	auto flush = [&]()
 	{
-		ibM = ibN; //OPTIMIZING?
+		draw_calls++;
 
-		if(ubN)
+		if(ui)
 		{
-			//#define SOM_BSP_VB 1
+			#define SOM_BSP_VB 1
 			#if SOM_BSP_VB
 			{
-				ub->Unlock();	
+				//WARNING: slower without dueling vbuffers
+			//	ub->Unlock();	
 				DDRAW::Direct3DDevice7->DrawIndexedPrimitiveVB
-				(DX::D3DPT_TRIANGLELIST,ub,0,ubN,ib,ibN,mode); //HACK	
-				ub->Lock(lockf,(void**)&up,0);
+				(DX::D3DPT_TRIANGLELIST,ub,0,ubN,q,ui,0);	
+			//	ub->Lock(lockf,(void**)&up,0);
 			}
 			#else
 			{
 				DDRAW::Direct3DDevice7->DrawIndexedPrimitive
-				(DX::D3DPT_TRIANGLELIST,0x142,up-=ubN*6,ubN,ib,ibN,mode); //HACK
+				//WARNING: this change may upload unnecessary vertex data
+			//	(DX::D3DPT_TRIANGLELIST,0x142,up-=ubN*6,ubN,q,ibN,0); 
+				(DX::D3DPT_TRIANGLELIST,0x142,upp,ubN,q,ui,0);
 			}
 			#endif
 
-			ubN = 0;
+			q+=ui; ui = 0;
 
-			assert(!vbN);
+		//	ubN = 0; 
+
+		//	assert(!vbN);
+		}
+		if(vi)
+		{
+		//	assert(vbN);
+
+			#if SOM_BSP_VB
+			{					 
+				//WARNING: slower without dueling vbuffers
+			//	vb->Unlock();	
+				DDRAW::Direct3DDevice7->DrawIndexedPrimitiveVB
+				(DX::D3DPT_TRIANGLELIST,vb,0,vbN,q,vi,0);	
+			//	vb->Lock(lockf,(void**)&vp,0);
+			}
+			#else
+			{
+				DDRAW::Direct3DDevice7->DrawIndexedPrimitive
+				//WARNING: this change may upload unnecessary vertex data
+			//	(DX::D3DPT_TRIANGLELIST,D3DFVF_VERTEX,vp-=vbN*8,vbN,q,ibN,0);
+				(DX::D3DPT_TRIANGLELIST,D3DFVF_VERTEX,vpp,vbN,q,vi,0);
+			}
+			#endif
+
+			q+=vi; vi = 0;
+
+		//	vbN = 0; 
+		}
+	};
+	
+//	DDRAW::IDirectDrawSurface7 *tar = 0; //atlas
+
+	DWORD msz = SOM::L.materials_count; //DEBUGGING
+	DWORD txr = ~0, mat = ~0, cop = ~0;
+	DWORD vs = 0, npc = ~0;
+	DWORD cmp = ~0, blend = DX::D3DBLEND_INVSRCALPHA;
+	assert(sss::srcblend==DX::D3DBLEND_SRCALPHA);
+//	DDRAW::Direct3DDevice7->SetRenderState
+//	(DX::D3DRENDERSTATE_DESTBLEND,sss::destblend=blend);
+
+	/*UNUSED (EXAMPLE)
+	* 
+	* this is example code for using 
+	* SOM_BSP_Y
+	* 
+	//WARNING: repurposing y->left!
+	for(*y->sort(&y,r)=0;y;y=y->left)
+	for(;y;y=y->left)
+	for(t=y->first;t;t=t->next)
+	{
+		//same rendering code goes here
+	}
+	*/
+
+	ub = som_scene::ubuffers[b];
+	vb = som_scene::vbuffers[b];	
+//	ub->Lock(lockf,(void**)&up,0); upp = up;
+//	vb->Lock(lockf,(void**)&vp,0); vpp = vp;
+
+	extern DWORD som_hacks_primode;
+	som_hacks_primode = fog?4:0;
+
+	//2-pass: draw back-faces for 2-sided volume 
+	//textures
+	if(1||!EX::debug)
+	{
+	//	som_scene_volume = 4; //HACK
+
+		bool v2 = false, used = false;
+
+		npc = 0;
+		som_hacks_skyconstants[2] = npc?-1:1; 
+		DDRAW::pset9(som_hacks_skyconstants);
+		som_scene_gamma_n = false;
+		sss::setss(0);
+
+		for(p=pp;p<d;p++)
+		{
+			t = p->second;
+
+			if(cmp!=t->texture_etc)
+			{
+				cmp = t->texture_etc;
+
+				DWORD cmp2 = cmp<0xffff?cmp:t->se->texture;
+
+				if(cmp2!=txr)
+				{
+					txr = cmp2;
+
+					v2 = false;
+
+					if(SOM::VT*v=(*SOM::volume_textures)[txr])
+					{
+						if(v->frame!=SOM::frame)
+						{
+							extern void som_scene_volume_select2(SOM::VT*);
+							som_scene_volume_select2(v);
+						}
+						if(2==(int)v->sides) //draw back side only (2-pass)
+						{
+							if(mode==-1) //used
+							{
+								mode = 0;
+
+								//190: D3DRS_COLORWRITEENABLE1 (reenable depth-texture write)
+								//168: D3DRS_COLORWRITEENABLE
+								DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)190,0xF);
+								DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)168,0);
+								DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,sss::alphaenable=0);
+								DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_CW);
+
+								ub->Lock(lockf,(void**)&up,0); upp = up;
+							}
+
+							v2 = true;
+						}
+					}
+				}
+			}
+
+			if(v2)
+			{
+				//vbuffer is really 4096
+				//if(ubN>896-3||ibN>2688-3)
+				if(ubN>som_scene::vbuffer_size-3||ui>4096*3-3)
+				{
+					ub->Unlock(); 
+
+					q = ib; //YUCK //REPURPOSING
+
+					flush(); //lambda //REMOVE ME				
+
+					ub->Lock(lockf,(void**)&up,0); upp = up;
+
+					ubN = 0; q = ib; batch++; //YUCK
+				}
+
+				if(t->mode()<=1) //tile/sprite?
+				{
+					for(int j=0;j<3;j++)
+					{
+						auto *u = t->u[j];
+
+						if(u->batch!=batch)
+						{
+							u->batch = batch;
+
+							up[0] = u->pos[0];
+							up[1] = u->pos[1];
+							up[2] = u->pos[2];
+							(DWORD&)up[3] = ~0;
+							up[4] = u->uv[0];
+							up[5] = u->uv[1];
+							up+=6;
+
+							u->i = ubN++;
+						}
+						*q++ = u->i;
+					}
+					ui+=3;
+				}
+				else //pack v into u (fog)
+				{
+					for(int j=0;j<3;j++)
+					{
+						auto *v = t->v[j];
+
+						if(v->batch!=batch)
+						{
+							v->batch = batch;
+
+							up[0] = v->pos[0];
+							up[1] = v->pos[1];
+							up[2] = v->pos[2];
+							(DWORD&)up[3] = ~0;
+							up[4] = v->uv[0];
+							up[5] = v->uv[1];
+							up+=6;
+
+							v->i = ubN++;
+						}
+						*q++ = v->i;
+					}
+					ui+=3;
+				}
+			}
+		}							
+
+		if(ui)
+		{
+			q = ib; //YUCK //REPURPOSING
+
+			ub->Unlock(); 
+
+			flush(); //lambda //REMOVE ME
+
+			ubN = 0; q = ib;
+		}				
+
+		if(mode!=-1) //used
+		{
+			mode = -1; 
+
+			som_scene_volume = 0;
+
+			DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)190,0);
+			DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)168,0xF);
+			DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,sss::alphaenable=1);
+			DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_CCW);
+		}
+
+		cmp = ~0;
+	}
+	draw_calls = 0; //UNUSED
+
+//goto Debug;
+
+//	ub->Unlock(); vb->Unlock();
+
+	//2-pass: transparency and front side of
+	//2-side volume textures
+	for(p=pp,tt=nullptr;p<d;tt=t)
+	{	
+		auto q = p+1; //SHADOWING
+		while(q<d&&q->first==p->first)
+		q++;
+
+		if(q<=p+1)
+		{
+			t = p++->second; 
+
+			if(tt) tt->next = t;
+			else som_bsp_top = t; //REPURPOSING
 		}
 		else
 		{
-			assert(vbN);
+			auto y = new_som_bsp_y; 
 
-			#if SOM_BSP_VB
-			{
-				vb->Unlock();	
-				DDRAW::Direct3DDevice7->DrawIndexedPrimitiveVB
-				(DX::D3DPT_TRIANGLELIST,vb,0,vbN,ib,ibN,mode);	
-				vb->Lock(lockf,(void**)&vp,0);
-			}
-			#else
-			{
-				DDRAW::Direct3DDevice7->DrawIndexedPrimitive
-				(DX::D3DPT_TRIANGLELIST,D3DFVF_VERTEX,vp-=vbN*8,vbN,ib,ibN,mode);
-			}
-			#endif
+			y->first = p->second;
+			
+			for(p++;p<q;p++)			
+			p[-1].second->next = p->second;			
+			p[-1].second->next = nullptr;
+			
+				y->partition(false/*item*/);
+						
+				*y->sort(&y,r)=0; //YUCK			
 
-			vbN = 0;
+			if(!tt) som_bsp_top = y->first; //REPURPOSING
+
+			for(t=tt;y;y=y->left)
+			{
+				if(t) t->next = y->first; t = y->first;
+
+				while(t->next) t = t->next;
+			}
+				clear_som_bsp_y;
 		}
-		ibN = 0; q = ib; i = 0; batch++;
-	};
-	auto buffer = [&]()
-	{			
+	}
+	t->next = nullptr;
+	
+	tt = som_bsp_top; //batch?
+
+	resume: 
+	
+	batch++; 
+	
+	vbN = ubN = 0; q = ib;
+
+	b = ++b%som_scene::vbuffersN;
+	ub = som_scene::ubuffers[b];
+	vb = som_scene::vbuffers[b];
+
+	ub->Lock(lockf,(void**)&up,0); upp = up;
+	vb->Lock(lockf,(void**)&vp,0); vpp = vp;
+
+	int vg = -1; //volume group
+
+	for(t=tt;t;t=t->next)
+	{
+		mode = t->mode();
+
 		if(mode<=1) //tile/sprite?
 		{
 			//vbuffer is really 4096
 			//if(ubN>896-3||ibN>2688-3)
-			if(ubN>4096-3||ibN>4096*3-3)
+			if(ubN>som_scene::vbuffer_size-3||ui>4096*3-3)
 			{
-				flush(); //lambda
+				break; //flush(); //lambda
 			}
 
 			for(int j=0;j<3;j++)
@@ -1139,17 +1446,17 @@ extern void som_bsp_sort_and_draw(bool item)
 					up[5] = u->uv[1];
 					up+=6;
 
-					u->i = i++; ubN++;
+					u->i = ubN++;
 				}
 				*q++ = u->i;
 			}
-			ibN+=3;
+			ui+=3;
 		}
 		else
 		{
-			if(vbN>4096-3||ibN>4096*3-3)
+			if(vbN>som_scene::vbuffer_size-3||vi>4096*3-3)
 			{
-				flush(); //lambda
+				break; //flush(); //lambda //EXTEND ME? //som_scene::vbuffer_size?
 			}
 
 			for(int j=0;j<3;j++)
@@ -1163,305 +1470,178 @@ extern void som_bsp_sort_and_draw(bool item)
 					memcpy(vp,v->pos,8*sizeof(float));
 					vp+=8;
 
-					v->i = i++; vbN++;
+					v->i = vbN++;
 				}
 				*q++ = v->i;
 			}
-			ibN+=3;
+			vi+=3;
 		}
-	};
+	}
+	q = ib;
 	
-	DWORD txr = ~0, mat = ~0, cop = ~0;
-	DWORD vs = 0, npc = ~0;
-	DWORD cmp = ~0, blend = DX::D3DBLEND_INVSRCALPHA;
-	assert(sss::srcblend==DX::D3DBLEND_SRCALPHA);
-	DDRAW::Direct3DDevice7->SetRenderState
-	(DX::D3DRENDERSTATE_DESTBLEND,sss::destblend=blend);
+	ub->Unlock(); vb->Unlock();
 
-	DWORD msz = SOM::L.materials_count; //DEBUGGING
-
-	extern float som_hacks_inventory[4][4];
-	extern DX::D3DMATRIX som_hacks_item; //world	
-	float r[3]; if(item)
+	//if(EX::debug) //BLACK MAGIC (REMOVE ME?)
 	{
-		for(int i=3;i-->0;) r[i] = -som_hacks_inventory[3][i];
-	}
-	else memcpy(r,SOM::cam,sizeof(r));
-
-	/*UNUSED (EXAMPLE)
-	* 
-	* this is example code for using 
-	* SOM_BSP_Y
-	* 
-	//WARNING: repurposing y->left!
-	for(*y->sort(&y,r)=0;y;y=y->left)
-	for(;y;y=y->left)
-	for(t=y->first;t;t=t->next)
-	{
-		//same rendering code goes here
-	}
-	*/
-	
-	//2-pass: draw back-faces for 2-sided volume 
-	//textures
-	if(1)
-	{
-		som_scene_volume = 4; //HACK
-
-		bool v2 = false, used = false;
-
-		sss::setss(cop=1); //0 //som_hacks_alphaop?
-		npc = 0;
-		som_hacks_skyconstants[2] = npc?-1:1; 
-		DDRAW::pset9(som_hacks_skyconstants);
-		som_scene_gamma_n = false;
-		som_scene_lit = 0; 	
-		som_scene_lighting(0);
-
-		auto iit = it;
-
-		for(;it<itt;it++)
-		{
-			t = it->second;
-
-			if(cmp!=t->texture_etc)
-			{
-				cmp = t->texture_etc;
-
-				DWORD cmp2 = cmp<0xffff?cmp:t->se->texture;
-
-				if(cmp2!=txr)
-				{
-					txr = cmp2;
-
-					v2 = false;
-
-					if(txr<4096)
-					if(SOM::VT*v=(*SOM::volume_textures)[txr])
-					{
-						EX::INI::Volume vt;
-
-						float vg = (float)v->group;
-
-						//draw back side only (2-pass)
-						if(1<(int)vt->volume_sides(vg))
-						{						
-							if(!used)
-							{
-								used = true;
-
-								//190: D3DRS_COLORWRITEENABLE1 (reenable depth-texture write)
-								//168: D3DRS_COLORWRITEENABLE
-								DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)190,0xF);
-								DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)168,0);
-								DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,sss::alphaenable=0);
-								DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_CW);
-							}
-
-							v2 = true;
-
-							sss::texture = txr; //!
-
-							DDRAW::IDirectDrawSurface7 *t = SOM::L.textures[txr].texture;
-							DDRAW::Direct3DDevice7->SetTexture(0,t);
-						}
-					}
-				}
-			}
-
-			if(v2)
-			{
-				mode = t->mode();
-
-				buffer(); //lambda
-			}
-		}
-					
-		if(ibN) flush(); //lambda
-
-		if(used)
-		{
-			DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)190,0);
-			DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)168,0xF);
-			DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,sss::alphaenable=1);
-			DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_CCW);
-		}
-
-		som_scene_volume = 0;
-
-		mode = -1; cmp = ~0; txr = ~0;
-
-		it = iit;
+		txr = ~0; 
+		mat = ~0, cop = ~0;
+		vs = 0, npc = ~0;
+		cmp = ~0; 
+		mode = -1;
+		som_scene_red(0); som_scene_gamma_n = false;
+		som_scene_lit = 0;
+		som_scene_volume = 0;		
+		som_hacks_primode = fog?4:0;
 	}
 
-	//2-pass: transparency and front side of
-	//2-side volume textures
-	while(it<itt)
+	auto *tn = t;
+	for(ui=vi=0,t=tt;t!=tn;t=t->next,(mode<=1?ui:vi)+=3)
 	{	
-		auto jt = it+1;
-		while(jt<itt&&jt->first==it->first)
-		jt++;
-
-		auto *tt = it->second;
-
-		if(jt<=it+1)
-		{
-			it++; tt->next = nullptr;
-		}
-		else
-		{
-			auto iit = it;
-
-			for(it++;it<jt;it++)			
-			it[-1].second->next = it->second;			
-			it[-1].second->next = nullptr;
-
-			auto y = new_som_bsp_y; 
-
-			y->first = tt; y->partition(item);
-						
-				*y->sort(&y,r)=0; //YUCK
-
-			tt = y->first;
-
-			for(som_bsp_t*swap=nullptr;y;y=y->left)
-			{
-				auto *t = y->first;
-
-				if(swap) swap->next = t; swap = nullptr;
-
-				for(;t;t=t->next)
-				if(!t->next&&y->left) swap = t;
-			}
-				clear_som_bsp_y;
-		}
-	
-		for(t=tt;t;t=t->next)	
-		{	
-			if(mode!=t->mode())
-			{
-				if(ibN) flush(); //lambda
-
-				mode = t->mode();
-
-				if(mode) //lit 
-				{
-					mat = ~0; cop = ~0;
-
-					//2022: this should be off (not on?) does som.hacks.cpp manage this?
-					//assert(sss::lighting_current);
-				//	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,1); //1?
-					som_scene_lighting(1);
-				}
-				else //emulating som_scene_413F10?
-				{
-					sss::setss(cop=0);
-
-					//2022: this should be off (not on?) does som.hacks.cpp manage this?
-					//assert(sss::lighting_current);
-				//	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,0); //1?
-					som_scene_lighting(0);
-												
-					if(npc)
-					{
-						npc = 0;
-
-						som_hacks_skyconstants[2] = npc?-1:1; 
-						DDRAW::pset9(som_hacks_skyconstants);
-
-						som_scene_gamma_n = false;
-					}
-					som_scene_lit = 0; 								
-				}
-			}
-
-			if(cmp!=t->texture_etc)
-			{
-				cmp = t->texture_etc;
-			
-				if(!mode)
-				{
-					blend = DX::D3DBLEND_INVSRCALPHA;
-
-					if(SOM::material_textures)
-					{
-						//assert(cmp==som_scene_state::texture);
-
-					//	if(cmp<1024)
-						if(SOM::MT*mt=(*SOM::material_textures)[cmp])
-						{
-					//		if(tuv=mt->mode&(8|16))
-							{
-					//			tu = mt->data[7]*som_scene_413F10_uv;
-					//			tv = mt->data[8]*som_scene_413F10_uv;
-							}
+		draw_tries++;
 				
-							if(mt->mode&0x100) blend = DX::D3DBLEND_ONE;
+		if(t==fogt) //kill fog? 	
+		{
+			flush();
+
+			fog = false;
+			
+			som_hacks_primode = 0;
+
+			mode = -1; cmp = txr = ~0;
+		}
+
+		if(mode!=t->mode())
+		{
+			flush(); //lambda
+
+			mode = t->mode();
+
+			if(mode) //lit 
+			{
+				mat = ~0; cop = ~0;
+
+				//2022: this should be off (not on?) does som.hacks.cpp manage this?
+				//assert(sss::lighting_current);
+			//	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,1); //1?
+				som_scene_lighting(!fog);
+			}
+			else //emulating som_scene_413F10?
+			{
+				sss::setss(cop=0);
+
+				//2022: this should be off (not on?) does som.hacks.cpp manage this?
+				//assert(sss::lighting_current);
+			//	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,0); //1?
+				som_scene_lighting(0);
+
+				som_scene_lit = 0;
+												
+				if(npc)
+				{
+					npc = 0;
+
+					som_hacks_skyconstants[2] = npc?-1:1; 
+					DDRAW::pset9(som_hacks_skyconstants);
+
+					som_scene_gamma_n = false;
+				}												
+			}
+
+			if(!fog) som_hacks_primode = mode==1?5:0; //sprite
+		}
+
+		if(cmp!=t->texture_etc)
+		{
+			cmp = t->texture_etc;
+			
+			if(!mode)
+			{
+				blend = DX::D3DBLEND_INVSRCALPHA;
+
+				if(SOM::material_textures)
+				{
+					//assert(cmp==sss::texture);
+										
+					if(SOM::MT*mt=(*SOM::material_textures)[cmp])
+					{
+				//		if(tuv=mt->mode&(8|16))
+						{
+				//			tu = mt->data[7]*som_scene_413F10_uv;
+				//			tv = mt->data[8]*som_scene_413F10_uv;
 						}
+				
+						if(mt->mode&0x100) blend = DX::D3DBLEND_ONE;
 					}
+				}
 
-					if(txr!=t->mpx_texture)
-					{				
-						txr = t->mpx_texture; txr:
+				if(txr!=t->mpx_texture)
+				{				
+					txr = t->mpx_texture; txr: //GOTO 
+					
+					auto *txr2 = SOM::L.textures[txr].texture;
+					
+					if(fog)
+					{
+						if(!txr2->queryX->knockouts)
+						{
+							if(sss::texture!=0xffff)
+							{
+								flush(); //colorkey?
 
-						if(ibN) flush(); //lambda					
+								sss::texture = 0xffff;
+								DDRAW::Direct3DDevice7->SetTexture(0,0);
+							}
+						}
+						else goto txr2;
+					}
+					else if(1||!EX::debug) //profiling
+					{
+						flush(); //lambda					
 
-						som_scene_volume_select(txr);
+						vg = som_scene_volume_select(txr,vg);
 
 						//draw front side only (2-pass)
 						som_scene_volume = som_scene_volume?1:0;
 
-						sss::texture = txr; //!
+					txr2: sss::texture = txr; //!
 
-						DDRAW::IDirectDrawSurface7 *t = SOM::L.textures[txr].texture;
-						DDRAW::Direct3DDevice7->SetTexture(0,t);
+						DDRAW::Direct3DDevice7->SetTexture(0,txr2);
 					}
 				}
-				else
+			}
+			else
+			{
+				auto *se = t->se;
+
+				blend = (se->flags>>8)&0xf;
+
+				if(!fog)
 				{
-					auto *se = t->se;
-
-					blend = (se->flags>>8)&0xf;
-
 					DWORD op = (se->flags>>12)&0xf;
+
 					if(cop!=op)
 					{
+						flush(); //lambda
+
 						assert(op);
 
-						if(ibN) flush(); //lambda
-
-						som_scene_state::setss(cop=op);
+						sss::setss(cop=op);
 					}
-								
+
 					if(vs!=se->vs)
 					{
-						vs = se->vs;
+						flush(); //lambda
 
-						if(ibN) flush(); //lambda
+						vs = se->vs;
 
 						som_scene_red(vs?SOM::Versus[vs-1].EDI:0);
 					}
-					if(mat!=se->material) 
-					{
-						auto &mm = SOM::L.materials[mat]; assert(mat==~0||mat<msz);
 
-						mat = se->material; sss::material = mat;					
-
-						auto &m = SOM::L.materials[mat]; assert(mat<msz);
-
-						if(memcmp(&m,&mm,sizeof(m)))
-						{
-							if(ibN) flush(); //lambda
-
-							DDRAW::Direct3DDevice7->SetMaterial((DX::D3DMATERIAL7*)(m.f+1));
-						}
-					}
-				
 					if(npc!=se->npc)
 					{
-						npc = se->npc;
+						flush(); //lambda
 
-						if(ibN) flush(); //lambda
+						npc = se->npc;
 
 						som_hacks_skyconstants[2] = npc?-1:1; 
 						DDRAW::pset9(som_hacks_skyconstants);
@@ -1471,16 +1651,11 @@ extern void som_bsp_sort_and_draw(bool item)
 						//except som_scene_413F10 has troubles 
 						som_scene_gamma_n = npc==3&&DDRAW::vshaders9[8];
 					}
-
+										
 					if(se->mode!=3||!se->lit
-					||!som_scene_state::lighting_desired) //2022: sky?
+					||!sss::lighting_desired) //2022: sky?
 					{
 						som_scene_lit = 0;
-
-						if(1==mode) //sprite?
-						{
-							txr = se->texture; goto txr;
-						}
 					}
 					else if(se->worldxform[0][3]) //hack: repurposing
 					{
@@ -1497,34 +1672,71 @@ extern void som_bsp_sort_and_draw(bool item)
 						extern DWORD som_scene_ambient2_vset9(float[3+2]);
 					//	DWORD debug = //having batching troubles
 						som_scene_ambient2_vset9(som_scene_lit); //2020
-					}			
+					}
+				}												
+			
+				if(mat!=se->material) 
+				{
+					auto &mm = SOM::L.materials[mat]; assert(mat==~0||mat<msz);
 
-					if(txr!=se->texture) //FINAL
+					mat = se->material; sss::material = mat;					
+
+					auto &m = SOM::L.materials[mat]; assert(mat<msz);
+
+					if(memcmp(&m,&mm,sizeof(m)))
 					{
-						txr = se->texture; goto txr; //!
+						flush(); //lambda
+
+						DDRAW::Direct3DDevice7->SetMaterial((DX::D3DMATERIAL7*)(m.f+1));
 					}
 				}
 
-				if(sss::destblend!=blend)
+				if(txr!=se->texture) //FINAL
+				{
+					txr = se->texture; goto txr; //!
+				}
+			}
+
+			if(sss::destblend!=blend)
+			{
+				flush();
+
 				DDRAW::Direct3DDevice7->SetRenderState
 				(DX::D3DRENDERSTATE_DESTBLEND,sss::destblend=blend);
 			}
-
-			buffer(); //lambda			
 		}
+
+	//	buffer(); //lambda			
 	}
-	if(ibN) flush(); //lambda
+	flush(); //lambda
 
-	ub->Unlock();
-	vb->Unlock();	
+	/*if(EX::debug) //BLACK MAGIC (REMOVE ME?)
+	{
+		txr = ~0; 
+		mat = ~0, cop = ~0;
+		vs = 0, npc = ~0;
+		cmp = ~0; 
+		mode = -1;
+		som_scene_red(0); som_scene_gamma_n = false;
+		som_scene_lit = 0;
+		som_scene_volume = 0;		
+		som_hacks_primode = fog&&tn?4:0;
+	}*/
 
-	ibM = 0; //OPTIMIZING?
+	if(tt=tn) goto resume; //!
+		
+	Debug:;
+
+	//ub->Unlock();
+	//vb->Unlock();	
 
 	if(vs) som_scene_red(0); som_scene_gamma_n = false;
 
 	som_scene_lit = 0;
 
 	som_scene_volume = 0;
+		
+	som_hacks_primode = 0;
 
   //ASSUMING REBUILDING EACH FRAME//
 
@@ -1533,7 +1745,11 @@ extern void som_bsp_sort_and_draw(bool item)
 	for(int i=_countof(som_bsp_mem);i-->0;) //reset?
 	som_bsp_mem[i].clear();
 
+	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ZBIAS,0);
+
 	if(item) sss::pop();
+
+	EX::dbgmsg("bsp draw calls: %d/%d",draw_calls,draw_tries);
 }
 
 /*////// test code for presplitting (x2mdl should do this) ////////

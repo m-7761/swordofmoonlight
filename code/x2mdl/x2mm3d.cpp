@@ -2788,4 +2788,50 @@ void x2mm3d_convert_points(aiMesh *m, aiNode *n)
 	}
 }
 
+//EXPERIMENTAL
+/*I just realized this is a waste of time as
+//long as x2mm3d is outputting the MDL::Anim
+//data, since it's non-sparse.
+extern void x2mm3d_lerp_prep() 
+{
+	//2022: The idea here is to eliminate redundant
+	//keyframes with regard to linear interpolation.
+
+	for(int i=X->mNumAnimations;i-->0;)
+	{
+		auto *anim = X->mAnimations[i];		
+		int jN = anim->mNumChannels;
+		for(int j=0;j<jN;j++)
+		{
+			auto *chan = anim->mChannels[j];
+
+			int kN = (int)chan->mNumPositionKeys-1;
+			if(kN>1)
+			{
+				//auto *cmp = &chan->mPositionKeys[0]				
+				for(int k=1;k<kN;k++)
+				{
+					chan->mPositionKeys[k]; //UNFINISHED
+				}
+			}
+			kN = (int)chan->mNumRotationKeys-1;
+			if(kN>1)
+			{
+				for(int k=1;k<kN;k++)
+				{
+					chan->mRotationKeys[k]; //UNFINISHED
+				}
+			}
+			kN = (int)chan->mNumScalingKeys-1;
+			if(kN>1)
+			{
+				for(int k=1;k<kN;k++)
+				{
+					chan->mScalingKeys[k]; //UNFINISHED
+				}
+			}
+		}
+	}
+}*/
+
 #endif //_CONSOLE

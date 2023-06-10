@@ -151,9 +151,19 @@ bool MDL::File::x2mdo()
 
 		bool operator<(const ch &cmp)const //sort
 		{
-			int i = *(int32_t*)
-			&texnumber-*(int32_t*)&cmp.texnumber;
-			return i?i<0:blendmode<cmp.blendmode;
+			//2023: I think this is making it hard
+			//to control the order of transparent
+			//polygons where decals are stacked
+			// 
+			// but it would be good to allow for
+			// explicit ordering by numbering the
+			// names of meshes or materials?
+			// 
+			//int i = *(int32_t*) //matnumber?
+			//&texnumber-*(int32_t*)&cmp.texnumber;
+			int i = texnumber-(int)cmp.texnumber;
+			int j = matnumber-(int)cmp.matnumber;
+			return i?i<0:j?j<0:blendmode<cmp.blendmode;
 		}
 	};
 	std::vector<ch> chv;
@@ -1994,4 +2004,87 @@ void x2msm_subd(int m, uint16_t *poly, std::vector<uint16_t> *lv, std::vector<fl
 		delete[] buf2; 
 		delete[] buf;		
 	}
+}
+
+aiNode *x2mdo_split_XY_recursive(uint64_t xy, aiNode *cp, unsigned *mm)
+{
+	aiNode *o = new aiNode(*cp);
+	
+	unsigned i,j,k,n; 
+	o->mChildren = new aiNode*[cp->mNumChildren];	
+	for(i=cp->mNumChildren;i-->0;)
+	{
+		o->mChildren[i] = x2mdo_split_XY_recursive(xy,cp->mChildren[i],mm);
+		o->mChildren[i]->mParent = o;
+	}
+	o->mMeshes = new unsigned[cp->mNumMeshes];
+	for(i=j=k=0,n=cp->mNumMeshes;i<n;i++)
+	{
+		auto *m = X->mMeshes[cp->mMeshes[i]];
+		if(xy&(1ull<<(uint64_t)m->mMaterialIndex))
+		{
+			o->mMeshes[j++] = mm[cp->mMeshes[i]];
+		}
+		else cp->mMeshes[k++] = mm[cp->mMeshes[i]];
+	}
+	o->mNumMeshes = j; cp->mNumMeshes = k; return o; 
+}
+void x2mdo_split_XY()
+{
+	//2022: this algorithm splits off MHM models
+	//so x2msm can be used to add MHM to MDO/MDL
+
+	uint64_t xy = 0;
+
+	unsigned i,j,k,n; 
+	for(i=j=0;i<X->mNumMaterials;i++)
+	{
+		auto *m = X->mMaterials[i];
+
+		if(m->GetTextureCount(aiTextureType_DIFFUSE))
+		continue;
+
+		aiColor4D diffuse(1,1,1,1); //RGBA
+		m->Get(AI_MATKEY_COLOR_DIFFUSE,diffuse);			
+		float a = 1;
+		m->Get(AI_MATKEY_OPACITY,a);
+		diffuse.a*=a;
+
+		if(diffuse.a>=1.0f) continue;
+
+		j++; xy|=1ull<<(uint64_t)i;
+	}
+	if(!j||i==j||i>64) return; //ull is 64 bit
+
+	for(i=j=0;i<X->mNumMeshes;i++)
+	{
+		auto *m = X->mMeshes[i];
+		if(xy&(1ull<<(uint64_t)m->mMaterialIndex))
+		j++;
+	}
+	if(!j||i==j) return;
+
+	//NOW IT SEEMS SPLIT MAY BE NEEDED//
+
+	aiScene *x = const_cast<aiScene*>(X);
+	aiScene *y = new aiScene;
+
+	auto *mm = new unsigned[x->mNumMeshes];	
+	y->mMeshes = new aiMesh*[x->mNumMeshes];
+	for(i=j=k=0,n=x->mNumMeshes;i<n;i++)
+	{
+		if(xy&(1ull<<(uint64_t)i))
+		{
+			y->mMeshes[mm[i]=j++] = x->mMeshes[i];
+		}
+		else x->mMeshes[mm[i]=k++] = x->mMeshes[i];
+	}
+	y->mNumMeshes = j; x->mNumMeshes = k;
+	y->mRootNode = x2mdo_split_XY_recursive(xy,x->mRootNode,mm);
+	delete[] mm;
+
+	//NOTE: I don't see an API for duplicating aiMaterial
+	//so it's left to x2mdl.cpp to set X/Y->mNumMaterials
+	y->mMaterials = x->mMaterials; 
+	y->mNumMaterials = x->mNumMaterials; X = y; Y = x;
 }

@@ -15,6 +15,8 @@ DX_TRANSLATION_UNIT
 #define WIP assert(!'WIP');
 
 #include <map>
+#include <vector>
+
 #include <ddraw.h>
 
 	//REFERENCE
@@ -418,14 +420,12 @@ extern int dx_d3d9c_force_release_old_device();
 static auto*const dx_d3d9c_virtual_group = (IDirect3DTexture9*)8;
 
 //TODO: THESE SHOULD GO INSIDE Query9
-enum{ dx_d3d9c_ibuffersN = 6*1 };
-enum{ dx_d3d9c_vbuffersN = 6*1 };
-extern UINT dx_d3d9c_ibuffers_s[6*1]; 
-extern UINT dx_d3d9c_vbuffers_s[6*1]; 
-extern IDirect3DIndexBuffer9 *dx_d3d9c_ibuffers[6*1]; 
-extern IDirect3DVertexBuffer9 *dx_d3d9c_vbuffers[6*1]; 
-static auto &dx_d3d9x_ibuffers = (GLuint(&)[6*1])dx_d3d9c_ibuffers;
-static auto &dx_d3d9x_vbuffers = (GLuint(&)[6*1])dx_d3d9c_vbuffers;
+extern UINT dx_d3d9c_ibuffers_s[D3D9C::ibuffersN]; 
+extern UINT dx_d3d9c_vbuffers_s[D3D9C::ibuffersN]; 
+extern IDirect3DIndexBuffer9 *dx_d3d9c_ibuffers[D3D9C::ibuffersN]; 
+extern IDirect3DVertexBuffer9 *dx_d3d9c_vbuffers[D3D9C::ibuffersN]; 
+static auto &dx_d3d9x_ibuffers = (GLuint(&)[D3D9C::ibuffersN])dx_d3d9c_ibuffers;
+static auto &dx_d3d9x_vbuffers = (GLuint(&)[D3D9C::ibuffersN])dx_d3d9c_vbuffers;
 extern IDirect3DVertexShader9 *dx_d3d9c_vshaders[16+4];
 extern IDirect3DPixelShader9 *dx_d3d9c_pshaders[16+4];
 extern IDirect3DPixelShader9 *dx_d3d9c_pshaders2[16+4];
@@ -594,7 +594,7 @@ static void __stdcall dx_d3d9x_glMsg_db(GLenum src, GLenum type, GLuint id, GLen
 
 	//OutputDebugStringA(msg); DEBUGGING
 
-	OutputDebugStringA(msg);
+	OutputDebugStringA(msg); OutputDebugStringA("\r\n"); //???
 
 	//GL_DEBUG_TYPE_OTHER?
 	if(type==0x8251) return; //Nvidia "hints" are pure noise/just feedback (not issues)
@@ -633,6 +633,60 @@ extern void *dx_ddraw_hacks[DDRAW::TOTAL_HACKS];
 	void *hP=0,*hK=dx_ddraw_hacks?dx_ddraw_hacks[DDRAW::h##_HACK]:0;\
 	if(cond) for(;hK;hK=0)hP=((void*(*)(HRESULT*,DDRAW::__VA_ARGS__))hK)
 
+extern DDRAW::IDirectDrawSurface7 *DDRAW::CreateAtlasTexture(int sz)
+{
+	DX::DDSURFACEDESC2 desc = {sizeof(DX::DDSURFACEDESC2)};
+
+	desc.dwFlags|=DDSD_HEIGHT|DDSD_WIDTH|DDSD_CAPS|DDSD_PIXELFORMAT;
+	desc.dwWidth = desc.dwHeight = sz;
+
+	desc.ddpfPixelFormat = dx_d3d9c_format(D3DFMT_A8R8G8B8);
+	desc.ddsCaps.dwCaps = DDSCAPS_TEXTURE|DDSCAPS_VIDEOMEMORY|DDSCAPS_WRITEONLY;
+
+	DX::LPDIRECTDRAWSURFACE7 y = nullptr;
+
+	DDRAW::DirectDraw7->CreateSurface(&desc,&y,0); assert(y); return (DDRAW::IDirectDrawSurface7*)y;
+}
+extern void dx_d3d9X_updating_texture2(DDRAW::IDirectDrawSurface7*,int,int);
+extern void DDRAW::BltAtlasTexture(DDRAW::IDirectDrawSurface7 *atlas, DDRAW::IDirectDrawSurface7 *p, int border, int x, int y)
+{
+	const bool X = DDRAW::gl;
+
+	POINT pt; pt.x = x; pt.y = y;
+
+	auto d3dd9 = DDRAW::Direct3DDevice7->proxy9;
+
+	IDirect3DSurface9 *s,*t; p->queryX->group9->GetSurfaceLevel(0,&s);
+
+	if(X)
+	{
+		//glBindTexture(GL_TEXTURE_2D,atlas->queryX->updateGL); 
+		dx_d3d9X_updating_texture2(p,x,y);
+
+		//HACK: just reset glBindTexture 
+		if(p!=DDRAW::TextureSurface7[0])
+		DDRAW::Direct3DDevice7->SetTexture(0,DDRAW::TextureSurface7[0]);
+	}
+	else
+	{
+		auto q = atlas->queryX; if(!q->update9) //2021 (updating_texture)
+		{
+			//int lvs = g?g->GetLevelCount():1; 
+			int lvs = max(1,q->mipmaps);
+			d3dd9->CreateTexture(q->width,q->height,lvs,0,D3DFMT_A8R8G8B8,D3DPOOL_DEFAULT,&q->update9,0);
+		}
+		for(unsigned i=0;i<atlas->queryX->mipmaps;i++)
+		{
+			q->update9->GetSurfaceLevel(i,&t);
+
+			d3dd9->UpdateSurface(s,nullptr,t,&pt); //TODO border/mipmaps (render target?)
+
+			t->Release(); pt.x/=2; pt.y/=2; //good enough?
+		}
+	}
+
+	s->Release();
+}
 HRESULT D3D9X::IDirectDraw7::CreateSurface(DX::LPDDSURFACEDESC2 x, DX::LPDIRECTDRAWSURFACE7 *y, IUnknown *z)
 {
 	DDRAW_LEVEL(7) << "D3D9X::IDirectDraw7::CreateSurface()\n";
@@ -2925,6 +2979,10 @@ HRESULT D3D9X::IDirect3D7<X>::CreateDevice(REFCLSID xIn, DX::LPDIRECTDRAWSURFACE
 	D3DDISPLAYMODE dm;	  
 	proxy9->GetAdapterDisplayMode(query9->adapter,&dm);	
 	DDRAW::refreshrate = dm.RefreshRate; //2021
+	switch(DDRAW::refreshrate)
+	{
+	case 59: DDRAW::refreshrate = 60; break;
+	}
 	D3DFORMAT bpp = DDRAW::fullscreen?dm.Format:D3DFMT_UNKNOWN; 
 
 	D3DFORMAT dsbpp = D3DFMT_D16;
@@ -4131,11 +4189,11 @@ HRESULT D3D9X::IDirect3D7<X>::CreateVertexBuffer(DX::LPD3DVERTEXBUFFERDESC x, DX
 	DDRAW_PUSH_HACK(DIRECT3D7_CREATEVERTEXBUFFER,IDirect3D7*,
 	DX::LPD3DVERTEXBUFFERDESC&,DX::LPDIRECT3DVERTEXBUFFER7*&,DWORD&)(0,this,x,y,z);						  
 	
-	if(!x||!y) DDRAW_FINISH(!D3D_OK)
+	if(!x||!y) DDRAW_FINISH(D3D_OK) //short-circuit? //!D3D_OK //2022
 
 	if(z!=0) DDRAW_LEVEL(7) << "PANIC! last argument non-zero\n";
 
-	if(!DDRAW::Direct3DDevice7) 
+	if(!DDRAW::Direct3DDevice7) //???
 	{
 		DDRAW_FINISH(!D3D_OK) //todo: if necessary save buffer contents for later
 	}
@@ -4728,7 +4786,7 @@ static HRESULT dx_d3d9x_ibuffer(GLuint &ib, DWORD r, LPWORD q)
 {
 	int &i = dx_d3d9c_ibuffer_i; assert(!dx_d3d9c_immediate_mode);
 
-	i = ++i%dx_d3d9c_ibuffersN;
+	i = ++i%D3D9C::ibuffersN;
 	UINT &s = dx_d3d9c_ibuffers_s[i]; if(s<r||!dx_d3d9x_ibuffers[i])
 	{						
 		if(!dx_d3d9x_ibuffers[i]) 
@@ -4755,7 +4813,7 @@ static HRESULT dx_d3d9x_vbuffer(GLuint &vb, DWORD qN, LPVOID q)
 {
 	int &i = dx_d3d9c_vbuffer_i; assert(!dx_d3d9c_immediate_mode);
 
-	i = ++i%dx_d3d9c_vbuffersN;
+	i = ++i%D3D9C::ibuffersN;
 	UINT &s = dx_d3d9c_vbuffers_s[i]; if(s<qN||!dx_d3d9x_vbuffers[i])
 	{						
 		if(!dx_d3d9x_vbuffers[i]) 		
@@ -5686,20 +5744,13 @@ namespace D3D9C
 {
 	extern bool updating_texture(DDRAW::IDirectDrawSurface7*,int);
 }
-extern bool D3D9X::updating_texture(DDRAW::IDirectDrawSurface7 *p, int force)
+extern void dx_d3d9X_updating_texture2(DDRAW::IDirectDrawSurface7 *p, int x, int y)
 {
-	//HACK: there's a lot of D3DPOOL_SYSTEMMEM logic at the 
-	//top of this routine that's not worth duplicating here
-	if(!D3D9C::updating_texture(p,force)) return false;	
-	else if(p->target=='dx9c') return true;
-
-	assert(p->target=='dxGL'||p->target=='dx95');
-	
 	auto q = p->query9;
 	auto g = q->group9;
 
 	int lvs = max(1,q->mipmaps);
-		
+			
 	auto &teX = q->updateGL; assert(p->proxy9);
 		
 	//NOTE: D3D does this with D3DSAMP_SRGBTEXTURE
@@ -5734,15 +5785,28 @@ extern bool D3D9X::updating_texture(DDRAW::IDirectDrawSurface7 *p, int force)
 			//
 			//kooky OpenGL... ANGLE says texture is immutable (glTexStorage2D)
 			//glTexImage2D(GL_TEXTURE_2D,lv,sfmt,desc.Width,desc.Height,0,GL_RGBA,GL_UNSIGNED_BYTE,lock.pBits);
-			glTexSubImage2D(GL_TEXTURE_2D,lv,0,0,desc.Width,desc.Height,GL_RGBA,GL_UNSIGNED_BYTE,lock.pBits);
+			glTexSubImage2D(GL_TEXTURE_2D,lv,x,y,desc.Width,desc.Height,GL_RGBA,GL_UNSIGNED_BYTE,lock.pBits);
 
-			pp->UnlockRect();
+			pp->UnlockRect(); x/=2; y/=2; //BltAtlasTexture
 		}
 		else assert(0); 
 
 		if(g) pp->Release();
 	}
+}
+extern bool D3D9X::updating_texture(DDRAW::IDirectDrawSurface7 *p, int force)
+{
+	//HACK: there's a lot of D3DPOOL_SYSTEMMEM logic at the 
+	//top of this routine that's not worth duplicating here
+	if(!D3D9C::updating_texture(p,force)) return false;	
+	else if(p->target=='dx9c') return true;
 
+	assert(p->target=='dxGL'||p->target=='dx95');
+	
+	auto q = p->query9;
+
+	dx_d3d9X_updating_texture2(p,0,0);
+	
 	//HACK: just reset glBindTexture 
 	if(p!=DDRAW::TextureSurface7[0])
 	DDRAW::Direct3DDevice7->SetTexture(0,DDRAW::TextureSurface7[0]);
@@ -6180,18 +6244,18 @@ extern void dx_d3d9x_resetdevice() //dx.d3d9c.cpp
 	}	
 
 	//2018: stereo/dx_d3d9c_immediate_mode (PlayStation VR)
-	if(!X) for(int i=dx_d3d9c_ibuffersN;i-->0;)
+	if(!X) for(int i=D3D9C::ibuffersN;i-->0;)
 	{
 		if(auto*x=dx_d3d9c_ibuffers[i]) x->Release(); 
 	}
-	else glDeleteBuffers(dx_d3d9c_ibuffersN,dx_d3d9x_ibuffers);
+	else glDeleteBuffers(D3D9C::ibuffersN,dx_d3d9x_ibuffers);
 	memset(dx_d3d9c_ibuffers,0x00,sizeof(dx_d3d9c_ibuffers));
 	memset(dx_d3d9c_ibuffers_s,0x00,sizeof(dx_d3d9c_ibuffers_s));
-	if(!X) for(int i=dx_d3d9c_vbuffersN;i-->0;)
+	if(!X) for(int i=D3D9C::ibuffersN;i-->0;)
 	{
 		if(auto*x=dx_d3d9c_vbuffers[i]) x->Release();
 	}
-	else glDeleteBuffers(dx_d3d9c_vbuffersN,dx_d3d9x_vbuffers);
+	else glDeleteBuffers(D3D9C::ibuffersN,dx_d3d9x_vbuffers);
 	memset(dx_d3d9c_vbuffers,0x00,sizeof(dx_d3d9c_vbuffers));
 	memset(dx_d3d9c_vbuffers_s,0x00,sizeof(dx_d3d9c_vbuffers_s));
 	

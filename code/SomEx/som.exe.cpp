@@ -24,11 +24,11 @@ static DWORD som_exe_entrypoint(HANDLE proc) //experimental
 	if(ReadProcessMemory(proc,(void*)0x400000,&idh,sizeof(idh),0))
 	{
 		if(idh.e_magic==*(WORD*)"MZ"
-		  &&ReadProcessMemory(proc,(char*)0x400000+idh.e_lfanew,&peh,sizeof(peh),0))
+		&&ReadProcessMemory(proc,(char*)0x400000+idh.e_lfanew,&peh,sizeof(peh),0))
 		{
 			if(peh.pe==*(DWORD*)"PE\0\0"
-			  &&peh.file.Machine==0x14c //i386
-			   &&peh.optional.Magic==0x10B) //?
+			&&peh.file.Machine==0x14c //i386
+			&&peh.optional.Magic==0x10B) //?
 			{
 				return 0x400000+
 				peh.optional.AddressOfEntryPoint;
@@ -45,7 +45,7 @@ static DWORD som_exe_breakpoint(HANDLE proc, DWORD bp, DWORD *rp=0)
 	{
 		const DWORD breakpoint = 0x909090CC;
 		if(!ReadProcessMemory(proc,(void*)bp,&out,4,0) 
-		  ||!WriteProcessMemory(proc,(void*)bp,rp?rp:&breakpoint,4,0))					
+		||!WriteProcessMemory(proc,(void*)bp,rp?rp:&breakpoint,4,0))					
 		som_exe_mismatch = true; if(rp) assert(out==breakpoint);
 		VirtualProtectEx(proc,(void*)bp,4,op,&op);
 		FlushInstructionCache(proc,(void*)bp,4);
@@ -124,7 +124,7 @@ static DWORD som_exe(wchar_t **argv, size_t argc)
 
 	bool this_is_a_control_launch =	go->do_without_the_extension_library;	
 	
-	wchar_t bin[MAX_PATH] = L"";
+	wchar_t bin[MAX_PATH]; *bin = '\0';
 
 	if(!wcsnicmp(argv[0],L"SOM_",4)
 	||!wcsnicmp(argv[0],L"MapComp",7)
@@ -132,7 +132,7 @@ static DWORD som_exe(wchar_t **argv, size_t argc)
 	||SOM::tool&&4==wcslen(wcsstr(argv[0],L"Edit"))) //workshop_exe
 	{
 		SOM::xtool(bin,argv[0]); 
-		if(!*bin) return 0; //HACK: PrtsEdit and friends?
+	//	if(!*bin) return 0; //HACK: PrtsEdit and friends? //2023
 
 		if(wcslen(argv[0]+4)>2) //2: DB/RT
 		{
@@ -175,19 +175,57 @@ static DWORD som_exe(wchar_t **argv, size_t argc)
 	f[argc*6-1] = '\0'; //NpcEdit tries to open ""
 	swprintf_s(cmd,f,args[0],args[1],args[2],args[3],args[4]);	  	
 
-    STARTUPINFOW si; memset(&si,0x00,sizeof(si)); si.cb=sizeof(si);			
-	si.wShowWindow = show?SW_SHOW:SW_HIDE; //clean in-window startup								  
-	if(!this_is_a_control_launch) si.dwFlags = STARTF_USESHOWWINDOW; 	
+	struct STARTUPINFOEX:STARTUPINFOW{ LPPROC_THREAD_ATTRIBUTE_LIST al; }; //HACK
 
-	PROCESS_INFORMATION pi; 
+    STARTUPINFOEX si; memset(&si,0x00,sizeof(si)); si.cb=sizeof(si);			
+	si.wShowWindow = show?SW_SHOW:SW_HIDE; //clean in-window startup								  
+	if(!this_is_a_control_launch) si.dwFlags = STARTF_USESHOWWINDOW;
+
+	PROCESS_INFORMATION pi = {}; 
 	//NEW: twart phantom jobs courtesy Microsoft / meddlers
 	//thankfully these job mongers usually allow breakaways
 	DWORD cflags = CREATE_BREAKAWAY_FROM_JOB|CREATE_NO_WINDOW;
+//	cflags|=DETACHED_PROCESS; //2023: ACCESS_DENIED
 	DWORD suspend = this_is_a_control_launch?0:CREATE_SUSPENDED;					
 	//NEW: seems DebugActiveProcess isn't cutting further down
 	if(suspend) cflags|=DEBUG_ONLY_THIS_PROCESS|DEBUG_PROCESS;
 	//1: inherit handles for "SomEx.dll Binary Job" as seen below
-	if(!CreateProcessW(bin,cmd,0,0,1,suspend|cflags,0,0,&si,&pi)) return 0;
+	if(!CreateProcessW(bin,cmd,0,0,1,suspend|cflags,0,0,&si,&pi))
+	{
+		//2023: it seems Microsoft has disabled CreateProcess
+		//for console apps. ShellExecute still works it seems
+
+	//	HANDLE nop = 0; SIZE_T sz = 0; BYTE al[100]; //OVERKILL		
+	//	si.al = (LPPROC_THREAD_ATTRIBUTE_LIST)al;
+	//	if(!InitializeProcThreadAttributeList(si.al,1,0,&sz))
+		{
+	//		assert(sz<=sizeof(al)/2);
+	//		if(!UpdateProcThreadAttribute(si.al,0,PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,&nop,sizeof(nop),0,0)
+	//		||!CreateProcessW(bin,cmd,0,0,1,suspend|cflags|EXTENDED_STARTUPINFO_PRESENT,0,0,&si,&pi))
+			{
+				/*2023: getting ACCESS_DENIED with CreateProcess in Start.bat or console
+				HINSTANCE se = ShellExecuteA(0,"open","SOM_EX","SOM_EX",0,SW_SHOWNORMAL);
+				if(32>(int)se)
+				{
+					assert(!"2023: CreateProcess ACCESS_DENIED");
+
+					DWORD err = GetLastError();
+
+					return 0; //breakpoint
+				}
+				else
+				{
+					suspend = 0;
+
+					pi.hProcess = se; assert(!"se");
+
+				}*/
+				return 0; //breakpoint
+			}
+		//	DeleteProcThreadAttributeList(si.al); //!
+		}
+		
+	}
 	//messy: but unavoidable (perhaps there's no use for _thread)
 	SOM::exe_process = pi.hProcess; SOM::exe_thread = pi.hThread;
 	SOM::exe_threadId = pi.dwThreadId; //XP
@@ -195,10 +233,10 @@ static DWORD som_exe(wchar_t **argv, size_t argc)
 	//Important (brings order to SOM)
 	AllowSetForegroundWindow(pi.dwProcessId);  
 
-	wchar_t str[9] = L"0";
-	GetEnvironmentVariableW(L"SomEx.dll Binary Job",str,9);
-	HANDLE job = (HANDLE)wcstoul(str,0,16); 
-	if(job&&!AssignProcessToJobObject(job,pi.hProcess)) assert(0);
+	char str[9] = "0";
+	GetEnvironmentVariableA("SomEx.dll Binary Job",str,9);
+	HANDLE job = (HANDLE)strtoul(str,0,16); 
+	if(job&&!AssignProcessToJobObject(job,pi.hProcess)) assert(!suspend);
 			
 	EXLOG_LEVEL(7) << "Subprocess threadmain created\n";
 
@@ -638,8 +676,8 @@ extern void SOM::launch_legacy_exe()
 		pid = som_exe(argv,4);
 	}
 
-	wchar_t hex[9] = L"0"; _ultow(pid,hex,16); 
-	SetEnvironmentVariableW(L"SomEx.dll Binary PID",hex);
+	char hex[9] = "0"; _ultoa(pid,hex,16); 
+	SetEnvironmentVariableA("SomEx.dll Binary PID",hex); //SOM_EX.cpp
 
 	CloseHandle(SOM::exe_process);
 	CloseHandle(SOM::exe_thread);

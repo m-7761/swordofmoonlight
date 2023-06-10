@@ -27,7 +27,11 @@ public:
 	//number of selected characters in
 	//that glyphset's selected member.
 	//negative for right justification
-	int select(const wchar_t*,int=0)const;
+	//
+	//midline: this has to be false to 
+	//select more than 1 newline, which
+	//is needed to manage hybrid fonts
+	int select(const wchar_t*,int=0,bool midline=0)const;
 	
 	struct glyphset_t
 	{

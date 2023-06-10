@@ -19,10 +19,6 @@ EX_TRANSLATION_UNIT
 #define SOMVECTOR_MATH
 #include "../Somplayer/Somvector.h"
 
-//#if 1 && defined(_DEBUG)
-#define SOM_SCENE_BSP_2023 1 //2022
-//#endif
-
 extern DWORD som_scene_ambient2 = 0;
 extern DWORD som_scene_ambient2_vset9(float p5[3+2])
 {
@@ -60,7 +56,7 @@ extern void __cdecl SOM::frame_is_missing()
 
 	//in places SOM begins drawing a new// 
 	//frame without having displayed the//
-	//current frame. This could flip the//
+	//current frame. this could flip the//
 	//frame; that hasn't been tried. But//
 	//for now just keep up the heartbeat//
 
@@ -119,30 +115,30 @@ static void som_scene_44d810_flush();
 
 extern int som_hacks_shader_model;
 
-static struct som_scene //may be just transparency?
+static struct som_scenery //may be just transparency?
 {	
 	DWORD se_charge,se_commit; som_scene_elements *ses;
 
 	bool empty(){ return 0==se_commit; }
 
-	som_scene &flush() //transparency
+	som_scenery &flush() //transparency
 	{
 		return sort().draw().clear();
 	}
-	som_scene &sort()
+	som_scenery &sort()
 	{
 		//NOTE: the original depth-sort (this) is pretty crazy
 		((BYTE(__cdecl*)(void*))0x44D5A0)(this); return *this;
 	}
-	som_scene &draw() //transparency
+	som_scenery &draw() //transparency
 	{
 		 draw_44d7d0(this); return *this;
 	}
-	static void draw_44d7d0(som_scene *transparency)
+	static void draw_44d7d0(som_scenery *transparency)
 	{
 		som_scene_44d810_flush(); //2021
 		{
-			if(SOM_SCENE_BSP_2023&&som_hacks_shader_model) //hack
+			if(EX::INI::Option()->do_alphasort&&som_hacks_shader_model) //hack
 			{
 				extern bool som_scene_hud; //compass? etc?
 				if(!som_scene_hud)
@@ -162,7 +158,7 @@ static struct som_scene //may be just transparency?
 		}
 		som_scene_44d810_flush(); //2021
 	}
-	som_scene &clear()
+	som_scenery &clear()
 	{
 		((BYTE(__cdecl*)(void*))0x44D540)(this); return *this;
 	}
@@ -173,31 +169,31 @@ static struct som_scene //may be just transparency?
 		else assert(0); //no real recourse
 	}
 
-	static som_scene *alloc(int n)
+	static som_scenery *alloc(int n)
 	{
-		int s = sizeof(som_scene)+n*sizeof(void*);
-		auto p = (som_scene*)new char[s];
+		int s = sizeof(som_scenery)+n*sizeof(void*);
+		auto p = (som_scenery*)new char[s];
 		p->se_commit = 0;
 		p->se_charge = n; (void*&)p->ses = p+1; return p;
 	}
 
-}*&som_scene_transparentelements = *(som_scene**)0x4C223C;
+}*&som_scene_transparentelements = *(som_scenery**)0x4C223C;
 
 //2021: som.MDL.cpp needs to work with workshop.cpp tools
 extern void som_scene_push_back(void *s, void *se)
 {
-	((som_scene*)s)->push_back((som_scene_element*)se);
+	((som_scenery*)s)->push_back((som_scene_element*)se);
 }
 
-static som_scene *som_scene_transparentelements3 = 0; //swing model?
+static som_scenery *som_scene_transparentelements3 = 0; //swing model?
 
 //2021: som_scene_44d810_batch
-static som_scene *som_scene_batchelements = 0;
+static som_scenery *som_scene_batchelements = 0;
 static DWORD som_scene_batchelements_lock = 0;
 extern DWORD &som_scene_batchelements_hold; //YUCK
 struct som_scene_batchelements_off //RAII
 {
-	som_scene *swap;
+	som_scenery *swap;
 	DDRAW::IDirect3DVertexBuffer7 *swap1d69da4; //TRICKY
 	som_scene_batchelements_off():swap(som_scene_batchelements)
 	{
@@ -267,11 +263,9 @@ extern void som_scene_translucent_frame()
 	som_scene_alphaenable();
 }
 
-//TODO: this should default to 4096?
-extern DWORD som_scene_vbuffer_capacity = 0; //EXTENSION?
-extern const int som_scene_vbuffersN = 3;
-extern DDRAW::IDirect3DVertexBuffer7 *som_scene_vbuffers[som_scene_vbuffersN] = {};
 static void (*som_scene_onreset_passthru)() = 0;
+DX::IDirect3DVertexBuffer7 *som_scene::vbuffers[som_scene::vbuffersN] = {};
+DX::IDirect3DVertexBuffer7 *som_scene::ubuffers[som_scene::vbuffersN] = {};
 static void som_scene_onreset() //2021
 {
 	som_scene_onreset_passthru();
@@ -279,28 +273,38 @@ static void som_scene_onreset() //2021
 	//NOTE: som_scene_44d060 could implement this but
 	//I feel like som.scene.cpp should have an onReset
 	//callback installed to teardown its D3D interfaces
-	if(som_scene_vbuffers[0])
+	if(som_scene::vbuffers[0])
 	{
 		//som_scene_44d060
-		//assert(SOM::L.vbuffer==som_scene_vbuffers[0]);
+		//assert(SOM::L.vbuffer==som_scene::vbuffers[0]);
 		assert(!SOM::L.vbuffer);
 
 		//som_hacks_CreateVertexBuffer is setting these up
-		for(int i=1;i<som_scene_vbuffersN;i++)
-		if(auto*&ea=som_scene_vbuffers[i])
+		for(int i=1;i<som_scene::vbuffersN;i++)
 		{
-			ea->Release(); ea = 0;
+			if(auto*&ea=som_scene::vbuffers[i])
+			{
+				ea->Release(); ea = 0;
+			}
+			if(auto*&ea=som_scene::ubuffers[i])
+			{
+				ea->Release(); ea = 0;
+			}
 		}
-		som_scene_vbuffers[0] = 0;
+		som_scene::vbuffers[0] = 0;
+		som_scene::ubuffers[0] = 0;
 	}
 }
 static void __cdecl som_scene_44d060()
 {
 	//set the mode 3 vbuffer back to the original?
-	if(!som_scene_vbuffers[0]) assert(0);
-	else if(void*&vb=*(void**)0x1d69da4)
+	if(!som_scene::vbuffers[0]) assert(0);
+	else
 	{
-		vb = som_scene_vbuffers[0];
+		if(void*&vb=*(void**)0x1d69da4)
+		vb = som_scene::vbuffers[0];
+		if(void*&ub=*(void**)0x59892C)
+		ub = som_scene::ubuffers[0];
 	}
 	((void(__cdecl*)())0x44d060)();
 }
@@ -392,7 +396,7 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 		assert(se->ai!=150||se->npc<2);
 	}*/
 	
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
@@ -500,11 +504,11 @@ static void som_scene_44d810_flush()
 	}
 	//EXPERIMENTAL
 	//test revolving vbuffers?
-	for(DWORD i=0;i<som_scene_vbuffersN;)
-	if(vb==som_scene_vbuffers[i++])
+	for(DWORD i=0;i<som_scene::vbuffersN;)
+	if(vb==som_scene::vbuffers[i++])
 	{
-		i%=som_scene_vbuffersN;
-		SOM::L.vbuffer = som_scene_vbuffers[i];
+		i%=som_scene::vbuffersN;
+		SOM::L.vbuffer = (DDRAW::IDirect3DVertexBuffer7*)som_scene::vbuffers[i];
 		break;
 	}
 	if(n>=e->se_commit)
@@ -531,7 +535,7 @@ static void som_scene_44d810_batch(som_scene_element *se)
 	//counts the size and fills on flush, assuming that the cost
 	//of pushing a bunch of unused/junk memory beats out anything
 	DWORD sz = se->vcount;
-	if(sz+som_scene_batchelements_lock>=som_scene_vbuffer_capacity)
+	if(sz+som_scene_batchelements_lock>=som_scene::vbuffer_size)
 	{
 		som_scene_44d810_flush(); //assert(!som_scene_batchelements_lock);
 	}		
@@ -755,7 +759,7 @@ struct som_scene_logger : som_scene_static
 
 		if(T::NPC) som_scene_gamma_n = false; //KF2?
 	}
-	static void transparent_or_batch(DWORD &tes, som_scene *e) //2021
+	static void transparent_or_batch(DWORD &tes, som_scenery *e) //2021
 	{
 		//REMINDER: tes can be bes/som_scene_batchelements_hold!
 
@@ -1849,7 +1853,7 @@ namespace som_scene_skyswap
 		//som_scene_state::push(); //2022: OVERKILL?
 		
 		//mov eax,dword ptr ds:[004C223Ch]
-		som_scene &te = *som_scene_transparentelements; 
+		som_scenery &te = *som_scene_transparentelements; 
 		//assert(te.se_charge==1024);
 
 		//TRANSPLANT FROM som.hacks.cpp		
@@ -2356,9 +2360,7 @@ return 0; //1.2.2.4 release
 }
 
 extern int som_hacks_shader_model;
-//#if SOM_SCENE_BSP_2023 1 //2022
 typedef SOM::MPX::Layer::tile::scenery_ext som_scene_element2;
-//#else
 static std::vector<som_scene_element2> som_scene_transparentelements2;
 static HRESULT __stdcall som_scene_4137F0_Lock2 //King's Field II
 (SOM::MPX::Layer::tile *tile, DDRAW::IDirect3DVertexBuffer7 *vb, LPVOID *p
@@ -2415,12 +2417,14 @@ static void som_scene_4133E0_layers() //2022
 	//chunks to reduce overdraw
 	((void(__cdecl*)())0x4133E0)();
 
-		if(0||!EX::debug) return;
+	return; //2023
+//	if(0||!EX::debug) return; //???
 
 	som_MPX &mpx = *SOM::L.mpx->pointer;
 	int &ls = mpx[SOM::MPX::layer_selector];
 	auto &l = *(SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
-	if(1&mpx[SOM::MPX::flags]) return;
+
+//	if(1&mpx[SOM::MPX::flags]) return; //???
 
 	auto &mpx2 = *SOM::L.mpx;
 	auto *dl = mpx2.tiles_on_display;
@@ -2656,6 +2660,7 @@ static void __cdecl som_scene_42B220() //OBJECTS
 	else ((void(__cdecl*)())0x42B220)();	
 }
 extern float som_hacks_skyconstants[4];
+extern float som_hacks_volconstants[4];
 static void __cdecl som_scene_408090() //ENEMIES
 {
 		som_scene_44d810_flush(); //som_hacks_skyconstants[2]?
@@ -2956,16 +2961,18 @@ static float som_scene_depth2(float a[3], float b[3])
 	//float o = 0; for(int i=0;i<3;i++) o+=powf(a[i]-b[i],2); return o;
 	return (a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1])+(a[2]-b[2])*(a[2]-b[2]);
 }
-static void __cdecl som_scene_44d5a0(som_scene *ts) //depth-sort
+static void __cdecl som_scene_44d5a0(som_scenery *ts) //depth-sort
 {
 	//TODO! MAKE lightselector MORE ACCURATE
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
+
+	EX::INI::Option op;
 
 	float eye[3];
 
 	int i,iN;
 	som_scene_elements &ses = *ts->ses;	
-	if(SOM_SCENE_BSP_2023&&som_hacks_shader_model)
+	if(op->do_alphasort&&som_hacks_shader_model)
 	{
 		extern void som_bsp_add_vbufs(som_MDL::vbuf**,size_t);
 		som_bsp_add_vbufs(ses,ts->se_commit);
@@ -3033,7 +3040,7 @@ static void __cdecl som_scene_44d5a0(som_scene *ts) //depth-sort
 	{
 		som_scene_element2 &el = som_scene_transparentelements2[i];
 				
-		if(SOM_SCENE_BSP_2023&&som_hacks_shader_model)
+		if(op->do_alphasort&&som_hacks_shader_model)
 		{
 			//2022: transparency sort/split?
 			extern void som_bsp_add_tiles(som_scene_element2*,size_t);
@@ -3064,7 +3071,7 @@ static void __cdecl som_scene_44d5a0(som_scene *ts) //depth-sort
 		}
 	}
 
-	if(SOM_SCENE_BSP_2023&&som_hacks_shader_model)
+	if(op->do_alphasort&&som_hacks_shader_model)
 	{
 		som_scene_transparentelements2.clear(); //2022
 	}
@@ -3078,51 +3085,59 @@ static void __cdecl som_scene_44d5a0(som_scene *ts) //depth-sort
 }
 //transparency/shadows draw call
 extern int som_scene_volume = 0;
-extern void som_scene_volume_select(DWORD txr)
+extern void som_scene_volume_select2(SOM::VT *v)
+{
+	assert(v->frame!=SOM::frame); //hack?
+	
+	//som_game_once_per_event_cycle?
+	v->frame = SOM::frame; 
+
+	//I think SOM::VT is unnecessary?
+	//it does cache the calculations?
+	EX::INI::Volume vt;
+	float vg = (float)v->group;
+	v->sides = (int)vt->volume_sides(vg);
+	v->depth = 1/vt->volume_depth(vg);
+	v->power = vt->volume_power(vg);
+			
+	//MLAA mode is required to reuse
+	//all 4 components of psColorkey
+	if(SOM::VT::fog_register) 
+	{
+		DWORD rgb = (DWORD)vt->volume_fog_saturation(vg);
+		v->fog[0] = (rgb>>16&0xff)/255.0f;
+		v->fog[1] = (rgb>>8&0xff)/255.0f;
+		v->fog[2] = (rgb&0xff)/255.0f;
+		v->fog[3] = vt->volume_fog_factor(vg);
+	}
+}
+extern int som_scene_volume_select(DWORD txr, int vg=-1)
 {
 	#ifndef NDEBUG //TESTING
-	if(1&&som_scene_batchelements) return;
+	if(1&&som_scene_batchelements) return -1;
 	#else
 	//batch?
-	int todolist[SOMEX_VNUMBER<=0x1020402UL];
+	int todolist[SOMEX_VNUMBER<=0x1020406UL];
 	#endif
 
 	if(SOM::volume_textures&&txr!=65535)	
 	if(SOM::VT*v=(*SOM::volume_textures)[txr])
 	{	
+		if(v->group==vg) return vg;
+
 		if(v->frame!=SOM::frame) //hack?
 		{
-			//som_game_once_per_event_cycle?
-			v->frame = SOM::frame; 
-
-			//I think SOM::VT is unnecessary?
-			//it does cache the calculations?
-			EX::INI::Volume vt;
-			float vg = (float)v->group;
-			v->sides = (int)vt->volume_sides(vg);
-			v->depth = 1/vt->volume_depth(vg);
-			v->power = vt->volume_power(vg);
-			
-			//MLAA mode is required to reuse
-			//all 4 components of psColorkey
-			if(SOM::VT::fog_register) 
-			{
-				DWORD rgb = (DWORD)vt->volume_fog_saturation(vg);
-				v->fog[0] = (rgb>>16&0xff)/255.0f;
-				v->fog[1] = (rgb>>8&0xff)/255.0f;
-				v->fog[2] = (rgb&0xff)/255.0f;
-				v->fog[3] = vt->volume_fog_factor(vg);
-			}
+			som_scene_volume_select2(v);
 		}
-		som_hacks_skyconstants[2] = v->depth; 
-		som_hacks_skyconstants[3] = v->power;
-		DDRAW::pset9(som_hacks_skyconstants);
+		som_hacks_volconstants[2] = v->depth; //skyconstants
+		som_hacks_volconstants[3] = v->power; //skyconstants
+		DDRAW::pset9(som_hacks_volconstants,1,DDRAW::psConstants10);
 		if(SOM::VT::fog_register) 
 		DDRAW::pset9(v->fog,1,SOM::VT::fog_register); //DDRAW::psColorkey
 
-		som_scene_volume = v->sides; return;
+		som_scene_volume = v->sides; return v->group;
 	}
-	som_scene_volume = 0;
+	som_scene_volume = 0; return -1;
 }
 extern bool som_scene_shadow = false;
 static void som_scene_413F10_maybe_flush
@@ -3185,7 +3200,6 @@ static void som_scene_413F10_maybe_flush
 	vbN = ibN = 0;
 }
 extern float som_scene_413F10_uv = 0; //testing
-//#if !SOM_SCENE_BSP_2023
 static void som_scene_413F10(float &depth,
 som_scene_element2* &se2, som_scene_element2*send2)
 {	
@@ -3332,8 +3346,7 @@ som_scene_element2* &se2, som_scene_element2*send2)
 
 	depth = se2==send2?0:se2->depth_44D5A0;
 }
-//#endif
-static BYTE __cdecl som_scene_44d7d0(som_scene *ts)
+static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 {
 		som_scene_44d810_flush(); //HACK: 402400 switch from opaque?
 
@@ -3365,8 +3378,10 @@ static BYTE __cdecl som_scene_44d7d0(som_scene *ts)
 
 	som_scene_element2 *se2 = 0, *send2 = 0;
 
+	EX::INI::Option op;
+
 	float depth;
-	if(!SOM_SCENE_BSP_2023||!som_hacks_shader_model)
+	if(!op->do_alphasort||!som_hacks_shader_model)
 	{
 		if(!som_scene_transparentelements2.empty())
 		{
@@ -3547,7 +3562,7 @@ static BYTE __cdecl som_scene_44d7d0(som_scene *ts)
 		
 	if(pass==transparency_pass) 
 	{
-		if(SOM_SCENE_BSP_2023&&som_hacks_shader_model) //TESTING
+		if(op->do_alphasort&&som_hacks_shader_model) //TESTING
 		{
 			som_scene_state::worldtransformed = 0; 
 			DDRAW::Direct3DDevice7->SetTransform(DX::D3DTRANSFORMSTATE_WORLD,&DDRAW::Identity);
@@ -3619,7 +3634,7 @@ static BYTE __cdecl som_scene_4412E0_swing(SOM::MDL *mdl, DWORD id)
 	return ((BYTE(__cdecl*)(SOM::MDL*,DWORD))0x4414c0)(mdl,d);
 }
 extern DWORD som_MDL_449d20_swing_mask(bool);
-static bool som_scene_swing_mirror(bool mirror, som_scene &tes)
+static bool som_scene_swing_mirror(bool mirror, som_scenery &tes)
 {
 	auto ses = *tes.ses;
 	int n = n = tes.se_commit;
@@ -3658,7 +3673,7 @@ extern void som_scene_swing(bool clear, float alpha)
 			//OPTIMIZING
 			//this will just hold any transparent elements of the
 			//non-afterimage models
-			tes = som_scene::alloc(32); //MIGHT NEED TO INCREASE?
+			tes = som_scenery::alloc(32); //MIGHT NEED TO INCREASE?
 			som_scene_transparentelements3 = tes;
 		}
 		//sometimes som_scene_transparentelements3 isn't empty 
@@ -4554,11 +4569,11 @@ extern void som_scene_reprogram()
 	// 	00425FE6 E8 E5 77 02 00       call        0044D7D0
 	// 	//shop menu
 	// 	0043D003 E8 C8 07 01 00       call        0044D7D0
-	*(DWORD*)0x418599 = (DWORD)som_scene::draw_44d7d0-0x41859d;
-	*(DWORD*)0x410D58 = (DWORD)som_scene::draw_44d7d0-0x410D5c;
-	*(DWORD*)0x4138Be = (DWORD)som_scene::draw_44d7d0-0x4138c2;
-	*(DWORD*)0x425FE7 = (DWORD)som_scene::draw_44d7d0-0x425FEb;
-	*(DWORD*)0x43D004 = (DWORD)som_scene::draw_44d7d0-0x43D008;
+	*(DWORD*)0x418599 = (DWORD)som_scenery::draw_44d7d0-0x41859d;
+	*(DWORD*)0x410D58 = (DWORD)som_scenery::draw_44d7d0-0x410D5c;
+	*(DWORD*)0x4138Be = (DWORD)som_scenery::draw_44d7d0-0x4138c2;
+	*(DWORD*)0x425FE7 = (DWORD)som_scenery::draw_44d7d0-0x425FEb;
+	*(DWORD*)0x43D004 = (DWORD)som_scenery::draw_44d7d0-0x43D008;
 	//0040254E 83 C4 0C             add         esp,0Ch
 	//SWING MODEL, FULLSCREEN SFX?
 	//00402551 E8 FA 37 02 00       call        00425D50 
@@ -4785,7 +4800,7 @@ extern void som_scene_reprogram()
 		// in communication)
 		// 
 		//som_hacks_CreateVertexBuffer
-		som_scene_vbuffer_capacity = 4096*(EX::debug?4:1); //EXTENSION?
+	//	som_scenery::vbuffer_size = 4096*(EX::debug?4:1); //EXTENSION?
 
 		//return 2 to som_scene_44d810 so it can apply
 		//an offset into the batched vbuffer
@@ -4797,23 +4812,23 @@ extern void som_scene_reprogram()
 		//based on bone limits. however since the chunk
 		//size was about 128 (no relation) vertices each
 		//model has a lot of chunks, but probably not 128
-		som_scene_batchelements = som_scene::alloc(128);
+		som_scene_batchelements = som_scenery::alloc(128);
 
 		//UNFINSHED
 		#ifdef NDEBUG
 		//#error do_red? som_scene_volume_select?
-		int todolist[SOMEX_VNUMBER<=0x1020402UL];
+		int todolist[SOMEX_VNUMBER<=0x1020406UL];
 		#endif
-
-		//TEARDOWN
-		//these release 3 vbuffers, all but the MSM vbuffer
-		//this sets the MDO/MDL one to som_scene_vbuffers[0]
-		//prior to teardown
-		//00401FBF E8 9C B0 04 00       call        0044D060
-		//0044CF60 E8 FB 00 00 00       call        0044D060
-		*(DWORD*)0x401Fc0 = (DWORD)som_scene_44d060-0x401Fc4;
-		*(DWORD*)0x44CF61 = (DWORD)som_scene_44d060-0x44CF65;
 	}
+	//TEARDOWN
+	//these release 3 vbuffers, all but the MSM vbuffer
+	//this sets the MDO/MDL one to som_scene::vbuffers[0]
+	//prior to teardown
+	//00401FBF E8 9C B0 04 00       call        0044D060
+	//0044CF60 E8 FB 00 00 00       call        0044D060
+	*(DWORD*)0x401Fc0 = (DWORD)som_scene_44d060-0x401Fc4;
+	*(DWORD*)0x44CF61 = (DWORD)som_scene_44d060-0x44CF65;
+
 	som_scene_onreset_passthru = DDRAW::onReset; //2021
 	DDRAW::onReset = som_scene_onreset;
 }
