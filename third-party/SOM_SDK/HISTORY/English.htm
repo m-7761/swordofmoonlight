@@ -1,0 +1,65 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+<title>Sword of Moonlight SDK History</title>
+</head>
+<body>
+<p>The <a href="http://sdk.swordofmoonlight.net/">SDK</a> files represent all of the 3rd party efforts which are, or once were, dependencies of the various opensource projects surrounding Sword of Moonlight.*</p>
+<p>Basically what is included are the headers and libraries which are missing from the source code itself. You won't find the source code for building these libraries here.</p>
+<p>Historically Visual Studio projects expect a SOM_SDK environment variable to be defined. It should point to the SDK folder wherever it is installed on your station/network. Unzip the various SDK files to that folder. If Visual Studio is open as you are defining SOM_SDK it will have to be closed down and fired back up.</p>
+
+<p>*Hosted under <a href="http://svn.swordofmoonlight.net/code">http://svn.swordofmoonlight.net/code/</a>. </p> 
+
+<ul>
+<li>
+<h3>BeaEngine</h3>
+<a href="http://www.beaengine.org/">http://www.beaengine.org/</a>
+
+<p>Beaengine is pretty much the only game in town if what you need is a modern (21st century) disassembly library. It is used by the SomEx project to disassemble the Sword of Moonlight runtimes at runtime in order to gather instruction lengths. This function will likely be relegated to Detours (below) in time. It also generates the ASM in the memory inspector. This function is pretty negligible, but it's something Detours cannot do. </p>
+</li>
+<li>
+<h3>Detours</h3>
+<a href="http://research.microsoft.com/en-us/projects/detours/">http://research.microsoft.com/en-us/projects/detours/</a>
+<p>
+Detours is a Microsoft product. Microsoft products have a history of being scrubbed from the internet, and Microsoft webpages have a tendancy to disappear and or move around a lot. So if the url above is bad, try Bing! if it's still around. If you're looking for the files and can't find them, hopefully someone had the presense of mind to archive them somewhere.</p>
+<p>Detours is used by the SomEx project to hook various APIs. Originally the Easyhook library was used, but Detours proved to be a much better fit, sometime before the SDK files began to be hosted. Easyhook is no longer used.</p>
+<p>Detours lightweight disassembler will probably take BeaEngine's place as well. Even though Detours is not a disassembly library, the disassembler is required to do what it does. The Detours disassembler cannot print the disassembled instructions, therefore there will probably be more modular compatability with additional disassembly libraries as long as people are interested in that.  
+</li>
+<li>
+<h3>Direct3D 9</h3>
+This file is a work in progress.
+</li>
+<li>
+<h3>Direct3D 10</h3>
+This file is a work in progress.
+</li>
+<li>
+<h3>DirectX 8.1</h3>
+This file is a work in progress.
+</li>
+<li>
+<h3>DirectX 9 Extras</h3>
+This file is a work in progress.
+</li>
+<li>
+<h3>Win Iconv</h3>
+This file is a work in progress.
+</li>
+</ul>
+
+<h1>The following appear in now ancient versions of SomEx.dll.</h1>
+
+<ul>
+<li>
+<h3>GLib</h3>
+This file is a work in progress.
+</li>
+<li>
+<h3>Zzip Library</h3>
+<a href="http://zziplib.sourceforge.net/">http://zziplib.sourceforge.net/</a>
+<p>Zzip is not an ideal .zip format solution but it's very lightweight, and even amongst "heavier" libraries there are no shining stars. Zzip is readonly, and can't really handle Unicode file systems. SomEx and Somversion go to some length taking advantage of some unexposed aspects of the Zzip library in order to cheat around this. It's not obvious that Unicode filenames inside the .zip archive will work, it's untested, but the odds are pretty good a .zip file with UTF8 filenames would work. </p>
+<p>The current build of the library is static with Zlib rolled in (no dll required for either) which allows for fewer dll files in the tool folder, but mainly this decision was made because none of the official binaries would play nice with one another, and neither would all of the projects build under Visual Studio 2005 as is.</p>
+</li>
+
+</body>
+</html>

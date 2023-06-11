@@ -1,0 +1,5 @@
+
+#Removes Parent Directory (..)
+#IndexIgnore .*
+IndexIgnore .ht*
+Options +Indexes 
