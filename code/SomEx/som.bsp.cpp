@@ -1230,6 +1230,7 @@ extern void som_bsp_sort_and_draw(bool item)
 
 					v2 = false;
 
+					if(SOM::volume_textures)
 					if(SOM::VT*v=(*SOM::volume_textures)[txr])
 					{
 						if(v->frame!=SOM::frame)

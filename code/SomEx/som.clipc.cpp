@@ -275,7 +275,7 @@ bool SOM::clipper_40dff0(float _1[3],float _2,float _3, int obj, int _5, float _
 {
 	auto &ai = SOM::L.ai3[obj];	
 	auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
-	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; assert(mdl||mdo);
+	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; //assert(mdl||mdo);
 	auto *mhm = mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0;
 
 	float _[3]; assert(_6);
@@ -367,7 +367,7 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 	auto obj = _5?som_clipc_objectstack[_4]:SOM::frame&1?_4:SOM::L.ai3_size-1-_4;
 	auto &ai = SOM::L.ai3[obj];	
 	auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
-	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; assert(mdl||mdo);
+	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; //assert(mdl||mdo);
 	auto *mhm = mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0;
 
 	if(_5==0) //lateral?	
@@ -1198,7 +1198,7 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 		int obj = som_clipc_objectstack[i];
 		auto &ai = SOM::L.ai3[obj];
 		auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
-		auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; assert(mdl||mdo);
+		auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; //assert(mdl||mdo);
 		auto *mhm = mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0;
 		float h2 = mhm?ai[SOM::AI::height3]+oo2:fence2;
 		if(som_clipc_x40dff0(futurepos,h2,shape,obj,1,pos,norm))
@@ -1235,7 +1235,7 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 //a full investigation even though I'm going to publish v1.2.2.14 anyway
 //NOTE: surmounting_staging solves this problem okay in a roundabout way
 //#error fix me
-int todolist[SOMEX_VNUMBER<=0x1020406UL]; //I think this can be removed?
+int todolist[SOMEX_VNUMBER<=0x1020408UL]; //I think this can be removed?
 #endif
 			//REMINDER: it's too messy to try to rule out crawlspaces
 			//return false;

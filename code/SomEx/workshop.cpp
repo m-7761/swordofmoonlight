@@ -6645,7 +6645,7 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 	bool arm60 = other||60==SOM::arm[0];	
 
 	//REMOVE ME
-	int todolist[SOMEX_VNUMBER<=0x1020406UL];
+	int todolist[SOMEX_VNUMBER<=0x1020408UL];
 	//UNFINISHED: this needs to be able to change on the fly
 	extern float som_MDL_arm_fps; //0.06f	
 	int armX = 1+(int) 

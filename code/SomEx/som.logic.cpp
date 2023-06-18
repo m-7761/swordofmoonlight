@@ -137,7 +137,7 @@ static BYTE __cdecl som_logic_409080(DWORD event) //square
 	//if(~e->ext_zr_flags&2)
 	//return ((BYTE(__cdecl*)(DWORD))0x409080)(event);
 
-	int todolist[SOMEX_VNUMBER<=0x1020406UL];
+	int todolist[SOMEX_VNUMBER<=0x1020408UL];
 	float d[3]; memcpy(d,SOM::xyz,sizeof(d));
 	for(int i=3;i-->0;) d[i]-=p[i];
 
@@ -815,7 +815,7 @@ const float *sdr, const float height, float xyzuvw[3], bool flying)
 		//add enough to clear the MHM
 		//tolerance, assuming gravity
 		//is Earth like
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 		float t = clip.falling+0.02f;
 		float d1 = 0.5f*g*(t*t); 
 		t+=step;
@@ -1466,7 +1466,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	{
 		//FIX ME
 		//I feel like this should be unspawning?!
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 
 		//"retroactive" mode?
 		float *sp = &ai[SOM::AI::_xyzuvw];				

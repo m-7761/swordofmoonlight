@@ -2103,7 +2103,7 @@ static DWORD __cdecl som_state_42bca0() //42AE60
 				{
 					//42bca0 detects the closest object, and perhaps inert objects
 					//should be given lower priority (this isn't event activation)
-					int todolist[SOMEX_VNUMBER<=0x1020406UL];
+					int todolist[SOMEX_VNUMBER<=0x1020408UL];
 
 					switch(type[1])
 					{
@@ -2322,12 +2322,23 @@ static void __cdecl som_state_slides422AB0(HDC dc, char *line, int x, int y)
 		SetTextColor(dc,0xdcdcdc);TextOutA(dc,xx,yy,x,x_s); //60,48
 	}
 }
-extern bool som_state_viewing_show = false;
+extern int som_state_viewing_show = false;
+static int __cdecl som_state_4051F0_strcmp(char*,char*)
+{
+	return !(2==som_state_viewing_show); //2023: allow non-AVI video
+}
 static void __cdecl som_state_4051F0_intro(char *a)
 {
 	//NOTE: NOT UTILIZED BY OPENING SHOW (som_state_slides422AB0 is)
 
-	som_state_viewing_show = true;
+	/*bool movie = true; switch((DWORD)a)
+	{
+	case 0x45a11c: case 0x45a380: case 0x45a38c: case 0x45a398:
+	case 0x45a374: case 0x45e57c:
+	}*/
+	bool movie = (DWORD)a>0x450000;
+
+	som_state_viewing_show = 1+movie; //true
 	((void(__cdecl*)(char*))0x4051F0)(a);
 	som_state_viewing_show = false;
 }
@@ -3954,7 +3965,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	//TODO: these could change dynamically so
 	//that they should be reset on the event
 	//cycle
-	int todolist[SOMEX_VNUMBER<=0x1020406UL];
+	int todolist[SOMEX_VNUMBER<=0x1020408UL];
 	SOM::L.shape = pc->player_character_shape; //0.25			
 	SOM::L.hitbox = pc->player_character_shape2; //0.25
 	SOM::L.hitbox2 = pc->player_character_shape3; //0.25
@@ -4301,7 +4312,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	{
 		*range = pc->player_character_radius-1.5f;
 		//44ce30 does event test (return to this)
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 		//2020: it's possible this is doing nothing
 		//since I changed do_fix_boxed_events after
 		//learning 42bca0 tests from  the center of
@@ -4408,19 +4419,28 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	}
 	if(image__db2) //presentations
 	{
-		//opening slides
+		//opening slides (45a11c is opening.dat)
 		//NOTE: this is independent of SOM_SYS's commandline arguments
 		//00401A79 E8 72 37 00 00       call        004051F0 		
 		*(DWORD*)0x401A7A = (DWORD)som_state_4051F0_intro_2022-0x401A7E;
-		//game over (1,2&3)
+		//game over (1,2 &3)	(45a380, 45a38c & 45a398)
 		//00402DF5 E8 F6 23 00 00       call        004051F0 
 		*(DWORD*)0x402DF6 = (DWORD)som_state_4051F0_intro-0x402DFA;
-		//ending credits (immediately below game over)
+		//ending credits (immediately below game over) (45a374)
 		//00402E16 E8 D5 23 00 00       call        004051F0
-		*(DWORD*)0x402E17 = (DWORD)som_state_4051F0_intro-0x402E1B;		
-
+		*(DWORD*)0x402E17 = (DWORD)som_state_4051F0_intro-0x402E1B;
+		//SOM_SYS test
+		//00403999 E8 52 18 00 00       call        004051F0
+		*(DWORD*)0x40399a = (DWORD)som_state_4051F0_intro-0x40399e;
+		//function pointer in Startup table (45e57c is title.dat)
+		//0042C259 E8 92 8F FD FF       call        004051F0
+		*(DWORD*)0x42C25a = (DWORD)som_state_4051F0_intro-0x42C25e;
+		//00405221 E8 3A A7 04 00       call        0044F960
+		*(DWORD*)0x405222 = (DWORD)som_state_4051F0_strcmp-0x405226;
+		
 		//00405727 E8 84 D3 01 00   call        00422AB0
 		*(DWORD*)0x405728 = (DWORD)som_state_slides422AB0-0x40572C;
+
 	}
 	/*Calculate jump into Event instruction table
 	00408B82 8B 44 24 10      mov         eax,dword ptr [esp+10h] 

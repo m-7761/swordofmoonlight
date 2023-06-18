@@ -2558,7 +2558,7 @@ static C::pair Ex_number_pair(C *c, const wchar_t *lv, const wchar_t **rv=0)
 {	
 	size_t id = 0, len = 0; const wchar_t *label = 0;
 
-	const size_t name_s = 30; wchar_t name[name_s+1] = L"";
+	const size_t name_s = 64; wchar_t name[name_s+1] = L""; //30
 
 	for(size_t i=0;i<=name_s;i++) switch(*lv)
 	{		

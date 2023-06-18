@@ -496,12 +496,12 @@ static VOID WINAPI som_game_OutputDebugStringA(LPCSTR lpOutputString)
 extern void*__cdecl som_MPX_operator_new(size_t sz);
 extern void __cdecl som_MPX_operator_delete(void*p);
 
-BYTE som_game_401300(char *a, char *ext)
+static BYTE som_game_401300(char *a, char *ext)
 {
 	//hopefully these don't allocate 2 buffers like 401300???
 	return (a=strrchr(a,'.'))&&!stricmp(a+1,ext);
 }
-BYTE som_game_401410(char *a, char *d, char *ext)
+static BYTE som_game_401410(char *a, char *d, char *ext)
 {
 	int i,len = strlen(a);
 	for(i=len;i-->0;) if(a[i]=='.') break;
@@ -540,7 +540,7 @@ SOM::Game::Game()
 
 		#ifdef NDEBUG
 		//#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 		#endif
 
 			if(1||!EX::debug) //2021
@@ -699,7 +699,9 @@ const wchar_t *SOM::Game::data(const char *in, bool ok)
 
 		assert(0); return 0; 
 	}
-	else w[j] = in[i]; w[j] = '\0'; return w;
+	else w[j] = in[i]; w[j] = '\0'; 
+
+	return w;
 }
 
 const wchar_t *SOM::Game::project(const char *in, bool ok) 
@@ -1554,6 +1556,13 @@ static HANDLE WINAPI som_game_CreateFileA(LPCSTR fname, DWORD faccess, DWORD C, 
 			//static wchar_t v[MAX_PATH] = L"";
 			if(EX::data(wname+5,vname)) wname = vname;
 		}
+		else if(!strnicmp(fname,"DATA\\",5)) //2023
+		{
+			assert(0); //TESTING
+
+			//files for KING'S FIELD sample projects?
+			if(EX::data(fname+5,vname)) wname = vname;
+		}
 	}
 
 	//2022: PathFileExistsA returns true now
@@ -1760,8 +1769,15 @@ static HANDLE WINAPI som_game_LoadImageA(HINSTANCE hi, LPCSTR in, UINT uType, in
 	{
 		//2018: assuming not returning this
 		//static wchar_t v[MAX_PATH] = L"";
-		if(EX::data(w+5,vname))
-		w = vname;
+		if(EX::data(w+5,vname)) w = vname;
+	}
+	else //2023: lookup project files in alternative data?
+	{
+		if(!w||!PathFileExistsW(w)) //King's Field sample?
+		if(!strnicmp(in,"DATA\\",5))
+		{
+			if(EX::data(in+5,vname)) w = vname;
+		}
 	}
 
 	if(!w) return SOM::Game.LoadImageA(hi,in,uType,cx,cy,uFlags);
@@ -2927,8 +2943,17 @@ extern HMMIO WINAPI som_game_mmioOpenA(LPSTR A, LPMMIOINFO B, DWORD C)
 	wav = !ext||!stricmp(ext+1,"wav");
 
 	char sound[64]; while(A)
-	{
-		if(!wav) //TODO? can cache maybe?
+	{		
+		wchar_t *w = 0,  vname[MAX_PATH]; //2023
+		if(!strnicmp(A,"DATA\\",5)) 
+		{
+			//2018: assuming not returning this
+			//static wchar_t v[MAX_PATH] = L"";
+			if(EX::data(A+5,vname)) w = vname;
+		}
+		else assert(0);
+
+		if(w) if(!wav) //TODO? can cache maybe?
 		{
 			if(PathFileExistsA(A)) nonPCM:
 			{
@@ -2959,7 +2984,7 @@ extern HMMIO WINAPI som_game_mmioOpenA(LPSTR A, LPMMIOINFO B, DWORD C)
 				return out;
 			}
 		}
-		else if(HMMIO out=SOM::Game.mmioOpenA(A,B,C)) //PCM?
+		else if(HMMIO out=mmioOpenW(w,B,C)) //PCM?
 		{
 			MMCKINFO fmt;
 			if(!SOM::Game.mmioDescend(out,&fmt,0,0)) //parent/RIFF 
@@ -5840,7 +5865,7 @@ extern bool __cdecl som_game_42cf40()
 			if(it.nonempty&&!SOM::L.items_MDO_table[it.mdo][0])
 			{
 				//ISSUE WARNING
-				int todolist[SOMEX_VNUMBER<=0x1020406UL];
+				int todolist[SOMEX_VNUMBER<=0x1020408UL];
 
 				if(it.item<256) //try to repair?
 				{
@@ -7113,7 +7138,7 @@ extern void som_game_reprogram()
 		//close anyway, it just wastes time)
 		#ifdef NDEBUG
 //		#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 		#endif
 
 		//this routine tears down d3d/ddraw and zeroes a

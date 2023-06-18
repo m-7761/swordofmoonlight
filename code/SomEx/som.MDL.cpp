@@ -1884,7 +1884,7 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 			if(j||t>1) t*=som_MDL_fps; 
 		}
 	}
-	else if(3&mode) //hard?	
+	else if(3&mode) if(ha2) //hard?	
 	{
 		union
 		{

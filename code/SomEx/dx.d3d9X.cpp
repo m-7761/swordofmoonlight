@@ -2096,7 +2096,7 @@ HRESULT D3D9X::IDirectDrawSurface7::GetAttachedSurface(DX::LPDDSCAPS2 x, DX::LPD
 	else if(~x->dwCaps&DDSCAPS_MIPMAP) out = !DD_OK;
 	else if(!queryX->group||queryX->mipmaps<=1) out = !DD_OK;
 	
-	if(DDRAW::doMipmaps) return DDERR_NOMIPMAPHW;
+	if(out||DDRAW::doMipmaps) return DDERR_NOMIPMAPHW;
 
 	IDirect3DSurface9 *s = 0;
 
@@ -2104,14 +2104,12 @@ HRESULT D3D9X::IDirectDrawSurface7::GetAttachedSurface(DX::LPDDSCAPS2 x, DX::LPD
 
 	int lv = queryX->isMipmap+1;
 
-	if(!out)
 	if(!(out=query9->group9->GetSurfaceLevel(lv,&s)))
 	{
 		D3DSURFACE_DESC desc; //2021
 		s->GetDesc(&desc);
 		width = width; height = height;
 	}
-
 	if(!out)
 	{
 		auto p = new DDRAW::IDirectDrawSurface7(DDRAW::target);

@@ -1501,6 +1501,7 @@ static void Ex_output_f2_event_battery()
 	Ex_output_event_counter = ln;
 }
 
+static HRESULT (__stdcall*HasExpandedResources)(BOOL*);
 static void Ex_output_f5_system_information()
 {
 	EX::INI::Output tt;
@@ -1520,6 +1521,11 @@ static void Ex_output_f5_system_information()
 	else if(DSOUND::listenedFor>3) //watching
 	swprintf(listen,L"(%d) ",DSOUND::listenedFor);
 
+	char her = '\0';
+	if(HasExpandedResources) //Game Mode? seems to be always on
+	{
+		BOOL b = 0; HasExpandedResources(&b); if(b) her = '*';
+	}
 	if(0&&EX::debug)
 	{
 		float t = 0;
@@ -1531,11 +1537,11 @@ static void Ex_output_f5_system_information()
 	}
 	else if(1||EX::debug) //2021
 	{
-		EX_OUTPUT_PRINT_F(L"%d fps %s%s%s",DDRAW::fps,listen,emu_,log_)
+		EX_OUTPUT_PRINT_F(L"%d fps %s%s%s%c",DDRAW::fps,listen,emu_,log_,her)
 	}
 	else if(EX::clip>=10&&_finite(EX::clip))
-	EX_OUTPUT_PRINT_F(L"%d fps %s%s%s",int(EX::clip),listen,emu_,log_)	
-	else EX_OUTPUT_PRINT_F(L"<5 fps %s%s",emu_,log_)
+	EX_OUTPUT_PRINT_F(L"%d fps %s%s%s%c",int(EX::clip),listen,emu_,log_,her)	
+	else EX_OUTPUT_PRINT_F(L"<5 fps %s%s%c",emu_,log_,her)
 
 	//if(tt->do_f5_triple_buffer_fps)
 	{
@@ -3300,6 +3306,10 @@ extern void EX::initialize_output_overlay()
 	//if EX::INI::Output was empty
 	Ex_output_onreset_passthru = DDRAW::onReset;
 	DDRAW::onReset = Ex_output_onreset;	
+	
+	if(0&&EX::debug) //TESTING
+	if(HMODULE gm=LoadLibraryA("Gamemode.dll"))	
+	(void*&)HasExpandedResources = GetProcAddress(gm,"HasExpandedResources");
 
 	EX::INI::Output tt; if(!tt) return;
 
