@@ -4,18 +4,12 @@
 
 namespace EX
 {
-	struct Movie //name subject to change
-	{
-		//intended to be a floating point rect
-
-		float x1, y1, x2, y2; //left top right bottom 
-	};
-
-	void playing_movie(const wchar_t *filename);
+	void playing_movie(const wchar_t *filename, float volume=1.0f);
 
 	void stop_playing_movie();
 
 	bool is_playing_movie();
+	void is_playing_movie_WM_SIZE(long,long); //Ex.window.cpp
 }
 
 #endif //EX_MOVIE_INCLUDED

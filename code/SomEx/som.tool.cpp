@@ -1607,18 +1607,27 @@ static void som_tool_openscript(HWND on, HWND of)
 	}
 	else SOM::exe(L"SOM_MAIN");
 }
-static void som_tool_openfolder(HWND on, WPARAM id)
+static void som_tool_openfolder(HWND on, WPARAM id) //library
 {		
-	id-=2001; if(id>2) return; if(id==2) //som_rt.exe?
+	id-=2001; if(id>2) return; /*if(id==2) //som_rt.exe?
 	{
 		//old SOM_RT based projects have sound/bgm folders
 		//todo: may want to ask to move the old files over
 		const wchar_t *bgm = SOM::Tool.project(SOMEX_(B)"\\DATA\\SOUND\\BGM");	
 		if(PathFileExists(bgm)) ShellExecuteW(on,L"explore",bgm,0,0,1);
+	}*/
+	const char *a[4] = //todo? check for/open user folders
+//	{SOMEX_(B)"\\DATA\\PICTURE",SOMEX_(B)"\\DATA\\MOVIE",SOMEX_(B)"\\DATA\\BGM"};
+//	ShellExecuteW(on,L"explore",SOM::Tool.project(a[id]),0,0,1);
+	{"PICTURE","MOVIE","BGM","SOUND\\BGM"};
+	const wchar_t *data; wchar_t w[MAX_PATH]; 
+	sound:
+	for(int i=0;*(data=EX::data(i));i++)
+	{
+		swprintf_s(w,L"%ls\\%hs",data,a[id]);	
+		ShellExecuteW(on,L"explore",w,0,0,1);
 	}
-	const char *a[3] = //todo? check for/open user folders
-	{SOMEX_(B)"\\DATA\\PICTURE",SOMEX_(B)"\\DATA\\MOVIE",SOMEX_(B)"\\DATA\\BGM"};
-	ShellExecuteW(on,L"explore",SOM::Tool.project(a[id]),0,0,1);
+	if(id==2){ id = 3; goto sound; }
 }
 
 static HINSTANCE STDAPICALLTYPE som_tool_ShellExecuteA(HWND hwnd, LPCSTR verb, LPCSTR file, LPCSTR args, LPCSTR dir, INT show)
@@ -2461,47 +2470,49 @@ static void som_tool_box(UINT_PTR id, HWND hWnd, UINT &uMsg, WPARAM &wParam, LPA
 	}
 }
 
-static void som_tool_media(HWND hwnd,UINT msg, const wchar_t *dir)
+static void som_tool_media(HWND hwnd, UINT msg, const wchar_t *dir) //library
 {	
-	//could use some more thought
-	static wchar_t w[MAX_PATH] = L"", *root = w;
-
-	bool deep = dir>=w&&dir<w+MAX_PATH;
-
-	int w_s = deep?dir-w:
-	swprintf_s(w,L"%ls\\%ls\\",EX::cd(),dir);	
-	if(w_s<3||w_s>MAX_PATH-8) return; //paranoia
-	if(!deep) root = w+w_s;
-
-	wcscpy(w+w_s,L"*"); 
-	WIN32_FIND_DATAW data; 
-	HANDLE find = FindFirstFileW(w,&data);
-	if(find!=INVALID_HANDLE_VALUE) do		
-	if(data.cFileName[0]!='.' //., .., and .hidden
-	&&~data.dwFileAttributes&FILE_ATTRIBUTE_HIDDEN)
-	if(data.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
+	const wchar_t *data;
+	for(int i=0;*(data=EX::data(i));i++)
 	{
-		int dir_s =
-		swprintf_s(w+w_s,MAX_PATH-w_s,L"%ls\\",data.cFileName);
-		if(dir_s>1)
-		som_tool_media(hwnd,msg,w+w_s+dir_s); 
-	}
-	else //adding any kind of media file available
-	{
-		wcscpy_s(w+w_s,MAX_PATH-w_s,data.cFileName);
+		//could use some more thought
+		static wchar_t w[MAX_PATH] = L"", *root = w;
+		bool deep = dir>=w&&dir<w+MAX_PATH;
+		int w_s = deep?dir-w:
+		swprintf_s(w,L"%ls\\%ls\\",data,dir);	
+		if(w_s<3||w_s>MAX_PATH-8) return; //paranoia
+		if(!deep) root = w+w_s;
 
-		UINT test = 0; switch(msg)
-		{			
-		case CB_ADDSTRING: test = CB_FINDSTRINGEXACT; break;
-		case LB_ADDSTRING: test = LB_FINDSTRINGEXACT; break;
-		default: assert(0);
+		wcscpy(w+w_s,L"*"); 
+		WIN32_FIND_DATAW data; 
+		HANDLE find = FindFirstFileW(w,&data);
+		if(find!=INVALID_HANDLE_VALUE) do		
+		if(data.cFileName[0]!='.' //., .., and .hidden
+		&&~data.dwFileAttributes&FILE_ATTRIBUTE_HIDDEN)
+		if(data.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
+		{
+			int dir_s =
+			swprintf_s(w+w_s,MAX_PATH-w_s,L"%ls\\",data.cFileName);
+			if(dir_s>1)
+			som_tool_media(hwnd,msg,w+w_s+dir_s); 
 		}
-		if(!test||CB_ERR==SendMessageW(hwnd,test,-1,(LPARAM)root))
-		SendMessageW(hwnd,msg,0,(LPARAM)root);
+		else //adding any kind of media file available
+		{
+			wcscpy_s(w+w_s,MAX_PATH-w_s,data.cFileName);
 
-	}while(FindNextFileW(find,&data));
+			UINT test = 0; switch(msg)
+			{			
+			case CB_ADDSTRING: test = CB_FINDSTRINGEXACT; break;
+			case LB_ADDSTRING: test = LB_FINDSTRINGEXACT; break;
+			default: assert(0);
+			}
+			if(!test||CB_ERR==SendMessageW(hwnd,test,-1,(LPARAM)root))
+			SendMessageW(hwnd,msg,0,(LPARAM)root);
+
+		}while(FindNextFileW(find,&data));
 	
-	FindClose(find);
+		FindClose(find);
+	}
 }
 /*thinking click-anywhere beats this
 //(plus, the list-boxes lack inputs)
@@ -2677,10 +2688,10 @@ static LRESULT CALLBACK som_tool_comboboxproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			}
 			switch(multimedia)
 			{
-			case 'bgm': som_tool_media(hWnd,CB_ADDSTRING,L"DATA\\BGM"); 
-						som_tool_media(hWnd,CB_ADDSTRING,L"DATA\\SOUND\\BGM"); break;
-			case 'pic': som_tool_media(hWnd,CB_ADDSTRING,L"DATA\\PICTURE"); break;
-			case 'vid': som_tool_media(hWnd,CB_ADDSTRING,L"DATA\\MOVIE"); break;
+			case 'bgm': som_tool_media(hWnd,CB_ADDSTRING,L"BGM"); 
+						som_tool_media(hWnd,CB_ADDSTRING,L"SOUND\\BGM"); break;
+			case 'pic': som_tool_media(hWnd,CB_ADDSTRING,L"PICTURE"); break;
+			case 'vid': som_tool_media(hWnd,CB_ADDSTRING,L"MOVIE"); break;
 			}
 		}
 		if(SOM::tool==SOM_MAP.exe) switch(a)
@@ -6091,7 +6102,7 @@ extern ATOM som_tool_combobox(HWND cb=0)
 
 	if(SOM::tool==SOM_PRM.exe&&id==1075)
 	{			 
-		som_tool_media(cb,CB_ADDSTRING,L"DATA\\PICTURE"); //item
+		som_tool_media(cb,CB_ADDSTRING,L"PICTURE"); //item
 		ComboBox_SetCurSel(cb,-1); 
 	}
 	
@@ -6149,10 +6160,10 @@ static ATOM som_tool_listbox(HWND lb)
 
 		if(paranoia==46700||paranoia==46800) switch(som_map_instruct)
 		{
-		case 13: som_tool_media(lb,LB_ADDSTRING,L"DATA\\PICTURE"); break;	
-		case 14: som_tool_media(lb,LB_ADDSTRING,L"DATA\\MOVIE"); break;	
-		case 16: som_tool_media(lb,LB_ADDSTRING,L"DATA\\BGM"); 
-				 som_tool_media(lb,LB_ADDSTRING,L"DATA\\SOUND\\BGM"); break;	
+		case 13: som_tool_media(lb,LB_ADDSTRING,L"PICTURE"); break;	
+		case 14: som_tool_media(lb,LB_ADDSTRING,L"MOVIE"); break;	
+		case 16: som_tool_media(lb,LB_ADDSTRING,L"BGM"); 
+				 som_tool_media(lb,LB_ADDSTRING,L"SOUND\\BGM"); break;	
 		}
 		else assert(0); break;
 	}}
@@ -9701,7 +9712,7 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 			//UNFINISHED
 			//I need to reduce the Kraken size so it
 			//can move in its cave
-			int todolist[SOMEX_VNUMBER<=0x1020406UL];			
+			int todolist[SOMEX_VNUMBER<=0x1020408UL];			
 			if(EX::debug) //2021: add 1 decimal place
 			{
 				//this works but requires reprogramming to save it
@@ -13131,7 +13142,9 @@ static HANDLE WINAPI som_tool_CreateFileA(LPCSTR in, DWORD A, DWORD B, LPSECURIT
 				}
 			}
 			if(w!=v&&EX::data(w+5,vname))
-			w = vname; //v?
+			{
+				w = vname; //v?
+			}
 
 			//this is thwarting som_tool_file_appears_to_be_missing
 			//it doesn't help that PathFileExistsA thinks SOMEX_(A)
@@ -14318,7 +14331,7 @@ extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022
 	memcpy(p->description,tile+100,127);
 
 	//TODO: still need to update icons (this is experimental)
-	int todolist[SOMEX_VNUMBER<=0x1020406UL];
+	int todolist[SOMEX_VNUMBER<=0x1020408UL];
 	//40f8dc has code for inserting an icon... it would take 
 	//a bit of work to implement it (it's probably worthwhile
 	//to reprogram 40f8dc because it's potentially very slow)

@@ -695,7 +695,7 @@ static DWORD WINAPI som_files_threadproc(LPVOID hw)
 
 		//2022: I'm pretty sure I noticed a reason this is 
 		//inefficient (skins maybe? can't recall)
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 
 		for(size_t i=0;i<nChangeHandles;i++)
 		som_files_wrote(0,0,(UINT_PTR)dwChangeFolders[i],0);	

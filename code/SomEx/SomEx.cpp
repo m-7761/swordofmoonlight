@@ -158,6 +158,19 @@ static EX::Pedals::Configuration SomEx_pedals_configuration();
   
 extern bool SomEx_movies(LPCWSTR avi)
 {	
+	if(wcslen(avi)-11>30) //2023
+	{
+		MessageBoxW(EX::client,L"SomEx.dll: Movie's file name is longer than 30 codepoints",avi+11,MB_OK);
+		return false;
+	}
+
+	wchar_t vname[MAX_PATH];
+	if(!wcsnicmp(avi,L"DATA\\",5)) //2023
+	{
+		//files for KING'S FIELD sample projects?
+		if(EX::data(avi+5,vname)) avi = vname;
+	}
+
 	if(1==SOM::L.startup) //opening movie?
 	{	
 		static bool encore = false;
@@ -182,7 +195,7 @@ extern bool SomEx_movies(LPCWSTR avi)
 		extern void som_game_highlight_save_game(int,bool);
 		som_game_highlight_save_game(-1,0);
 
-		EX::playing_movie(avi); return false;
+		EX::playing_movie(avi,SOM::masterVol/255.0f); return false;
 	}
 	return true;
 }
@@ -384,7 +397,7 @@ extern int EX::is_needed_to_initialize()
 	SOM::cursorY = SOM::config("cursorY",0);
 	SOM::cursorZ = SOM::config("cursorZ",0);
 	SOM::capture = SOM::config("capture",0);
-	int todolist[SOMEX_VNUMBER<=0x1020406UL];
+	int todolist[SOMEX_VNUMBER<=0x1020408UL];
 	//2022: no longer working (January) (maybe just
 	//a temporary Windows 10 bug?) (is this function
 	//only called once?)
@@ -393,7 +406,7 @@ extern int EX::is_needed_to_initialize()
 	{
 		//TESTING: this shows the up arrow... I wish
 		//it would timeout
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 		SOM::f10();
 	}
 
@@ -1007,16 +1020,21 @@ static bool SomEx(bool reload=false)
 			}
 		}			
 
-		if(GetEnvironmentVariableW(L".NET",0,0)<=1
-		//New Years 2018 note: Adding SOM_EX test so standalone
-		//game setups cannot draw from InstDir.
-		&&!wcsicmp(L"SOM_EX.exe",PathFindFileNameW(argv[0]))) //NEW
-		{			
-			wchar_t InstDir[MAX_PATH]; DWORD InstDir_s = sizeof(InstDir);
+		if(GetEnvironmentVariableW(L".NET",0,0)<=1)
+		{
+			//New Years 2018 note: Adding SOM_EX test so standalone
+			//game setups cannot draw from InstDir.
+			if(!wcsicmp(L"SOM_EX.exe",PathFindFileNameW(argv[0]))) //NEW
+			{			
+				wchar_t InstDir[MAX_PATH]; DWORD InstDir_s = sizeof(InstDir);
 
-			if(!SHGetValueW(HKEY_CURRENT_USER,
-			L"SOFTWARE\\FROMSOFTWARE\\SOM\\INSTALL",L"InstDir",0,InstDir,&InstDir_s))
-			SetEnvironmentVariableW(L".NET",InstDir);
+				if(!SHGetValueW(HKEY_CURRENT_USER,
+				L"SOFTWARE\\FROMSOFTWARE\\SOM\\INSTALL",L"InstDir",0,InstDir,&InstDir_s))
+				SetEnvironmentVariableW(L".NET",InstDir);
+				else if(MessageBoxW(0,L"SOFTWARE\\FROMSOFTWARE\\SOM\\INSTALL\\InstDir key missing\n"
+				L"Please set this registry key with your installer or Setup.bat script\n",L"SomEx.dll",MB_OK))
+				EX::is_needed_to_shutdown_immediately(1);
+			}
 		}
 		
 		//command line oriented defaults
@@ -1415,7 +1433,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 {
 	switch(ul_reason_for_call)
 	{	
-	case DLL_PROCESS_ATTACH: 
+	case DLL_PROCESS_ATTACH:
 
 				_set_error_mode(_OUT_TO_MSGBOX);
 

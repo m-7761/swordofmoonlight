@@ -73,7 +73,7 @@ static void Ex_ini_foreach(Ex_ini_e e, T t, mF mf)
 		//2021: [Number] is passing these to Ex.number.cpp
 		//for some reason all spaces are stripped out...
 		//probably should fix lib/swordofmoonlight.h/cpp
-		int todolist[SOMEX_VNUMBER<=0x1020406UL];
+		int todolist[SOMEX_VNUMBER<=0x1020408UL];
 		if(*p=='#') continue; 
 
 		//NEW: '.' reinitializes p+1

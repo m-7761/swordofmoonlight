@@ -5,7 +5,8 @@ EX_TRANSLATION_UNIT
 #include "math.h" //fabsf
 
 #include "Ex.ini.h"
-#include "Ex.input.h"	
+#include "Ex.movie.h"
+#include "Ex.input.h"
 #include "Ex.output.h"	
 #include "Ex.cursor.h"
 #include "Ex.window.h"
@@ -520,7 +521,7 @@ static LRESULT CALLBACK Ex_window_proc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
 		
 	case WM_SIZE:
 	//case WM_SHOWWINDOW: never fires on min/maximize??
-	
+		
 		if(Ex_window_visible) switch(w)
 		{
 		/*2021: moving to WM_SYSCOMMAND, phantom unpausing issues
@@ -536,6 +537,10 @@ static LRESULT CALLBACK Ex_window_proc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
 						
 			Ex_window_center_client(); break;
 		}		   
+
+		if(EX::is_playing_movie())		
+		EX::is_playing_movie_WM_SIZE(LOWORD(l),HIWORD(l));
+
 		break;
 	case WM_SYSCOMMAND: //2021
 
