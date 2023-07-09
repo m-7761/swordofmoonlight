@@ -1,4 +1,7 @@
 
+#define __COPYRIGHT__ \
+"Copyright (C) 2009-2023 Swordofmoonlight.net. All rights reserved."
+
 #ifndef EX_INCLUDED
 #define EX_INCLUDED SomEx
 
@@ -121,11 +124,11 @@ static void SetThreadName(DWORD ID, LPCSTR Name)
 #include "Ex.log.h"
 static EX::Prefix Ex;
 #define __WFILE__ EX_WIDEN(__FILE__)
-#define EX_LOG(NS)\
+#define EX_LOG(NS) \
 EX::including_log(__WOBJECT__,L#NS,\
 &debug,&error,&panic,&alert,&hello,&sorry)
-//this is added after the precompiled header #include of every single file
-#define EX_TRANSLATION_UNIT static const wchar_t *__WOBJECT__ = __WFILE__;
+#define EX_TRANSLATION_UNIT \
+static const wchar_t *__WOBJECT__ = (__COPYRIGHT__,__WFILE__);
 
 namespace EX
 { 

@@ -810,7 +810,8 @@ EX_INI_SECTION(Editor)
 	do_not_dither,
 	do_not_stipple,
 	do_not_smooth,
-	do_not_generate_icons; //UNDOCUMENTED
+	do_not_generate_icons, //UNDOCUMENTED
+	do_not_open_with_mm3d; //UNDOCUMENTED
 	
 	//2020: the tool/SOM_EX.ini file was setting this
 	//but it's not useful if that file isn't present
@@ -1200,8 +1201,11 @@ EX_INI_SECTION(Sample)
 	EX_INI_NUMBER(0,0,4095)
 	footstep_identifier, //SND 30
 	headbutt_identifier,
-	headwind_identifier, //falling (UNIMPLEMENTED)
+	headwind_identifier, //SND 1000
 	ricochet_identifier; //SND 55/96 (DOCUMENT ME)
+
+	EX_INI_NUMBER(-1,0,1)
+	headwind_ambient_wind_effect; //UNDOCUMENTED
 
 	//DOCUMENT US
 	//these are just an expedient way to adjust

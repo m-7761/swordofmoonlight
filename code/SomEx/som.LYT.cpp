@@ -1,6 +1,6 @@
 	
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <vector>
 #include <algorithm>

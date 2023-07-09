@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <hash_set> //Windows XP
 
@@ -459,6 +459,9 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 	wchar_t *o = wcsrchr(cat,'.');
 	if(!o||o[-1]=='\\'||o[-1]=='/')
 	return 0;
+
+	bool edit = o[1]=='*'; //2023
+
 	wchar_t o1 = o[1]; o[1] = '*';
 	wchar_t o2 = o[2]; o[2] = '\0';	
 	WIN32_FIND_DATAW found;
@@ -543,7 +546,9 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 		
 		art = true;
 		t1 = found.ftLastWriteTime;
-		wcscpy(w+i+j,found.cFileName+j);		
+		wcscpy(w+i+j,found.cFileName+j);
+
+		if(edit) return _art; 
 
 	}while(FindNextFileW(glob,&found));
 
@@ -645,6 +650,15 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 }
 extern int som_art_model(const char *cat, wchar_t w[MAX_PATH])
 {
+	if(!SOM::game) //HACK: workshop.cpp?
+	{
+		char *a = PathFindFileNameA(cat);
+		char *e = a;
+		strtol(a,&e,10);
+		if(e>a&&!*e)
+		strcpy((char*)cat,SOMEX_(A)"\\data\\my\\model\\arm.mdl");
+	}
+
 	wchar_t buf[128]; //32+deepest data folder?
 	swprintf_s(buf,L"%hs",cat); return som_art_model(buf,w);
 }

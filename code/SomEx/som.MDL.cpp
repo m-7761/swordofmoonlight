@@ -1,5 +1,5 @@
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include "Ex.output.h"
 
@@ -21,6 +21,7 @@ static void*(__cdecl*som_MDL_malloc)(size_t) = 0;
 static void(__cdecl*som_MDL_free)(void*) = 0;
 static DWORD(__cdecl*som_MDL_x4418b0)(SOM::MDL*,FLOAT*,DWORD) = 0;
 static SOM::MDL::data*(__cdecl*som_MDL_x440030)(char*) = 0;
+static SOM::MDL*(__cdecl*som_MDL_x440520)(SOM::MDL::data*) = 0;
 static void(__cdecl*som_MDL_x44d810)(void*) = 0;
 static DWORD(__cdecl*som_TXR_x448fd0)(char*,int,int,int) = 0;
 static BYTE(__cdecl*som_MDL_x448780)(DWORD) = 0;
@@ -2298,8 +2299,13 @@ extern DWORD __cdecl som_TXR_4485e0(char *a, int _2, int _3, int _4)
 	//HACK: this is used to load files from
 	//nonstandard locations
 	auto swap = som_art_CreateFile_w;
-	som_art_CreateFile_w = art;
+	if(e)
+	{
+		som_art_CreateFile_w = art;
 
+		//make sure art doesn't go through LoadImage
+		strcpy(PathFindExtensionA(a),".txr");
+	}
 	DWORD ret = som_TXR_x448fd0(a,_2,_3,_4); //x4485e0
 
 	som_art_CreateFile_w = swap; //POINT-OF-NO-RETURN
@@ -2928,7 +2934,7 @@ static void __cdecl som_MDL_4403f0_free(SOM::MDL::data *l) //MDO?
 	}
 	else if(SOM::game)
 	{
-		assert(0); //UNUSED (models_free)
+		//assert(0); //UNUSED (models_free) //440511 //magic
 
 		((BYTE(__cdecl*)(void*))0x445870)(o);
 	}
@@ -3184,6 +3190,58 @@ static int __cdecl som_MDL_441430(SOM::MDL &mdl, int c)
 	return mdl.running_time(c);
 }
 
+//2023: these retain model viewer point-of-view
+static void __fastcall som_MDO_edit(char *tp)
+{
+	bool io = SOM::tool==ItemEdit.exe; //ObjEdit
+
+	float swap[32], *f = nullptr;
+
+	DWORD c = io?0x55c:0x57c;
+	auto &d = (SOM::MDO::data*&)tp[c];
+	auto &o = (SOM::MDO*&)tp[c+4];
+
+	if(o) memcpy(swap,f=o->f+1,sizeof(swap));
+
+	((void(__fastcall*)(char*))(io?0x406930:0x40B490))(tp);
+
+	if(f&&o) memcpy(o->f+1,swap,sizeof(swap));
+	if(f&&o) o->f[4] = !o->f[4]; //_cmp_trans1
+}
+static void __fastcall som_MDL_edit(char *tp)
+{
+	float swap[9], *f = nullptr; //ObjEdit
+
+	auto &d = (SOM::MDL::data*&)tp[0x574];
+	auto &o = (SOM::MDL*&)tp[0x578];
+
+	if(o) memcpy(swap,f=o->xyzuvw,sizeof(swap));
+
+	((void(__fastcall*)(char*))(0x40b490))(tp);
+
+	if(f&&o) memcpy(o->xyzuvw,swap,sizeof(swap)); 
+}
+static SOM::MDL *__cdecl som_MDL_edit2(SOM::MDL::data *d)
+{	
+	DWORD c = 0x4171cc; switch(SOM::tool) //EneEdit
+	{
+	case ObjEdit.exe: break;
+	case NpcEdit.exe: c = 0x4172bc; break;
+	}
+
+	float swap[9], *f = nullptr;
+
+	auto &o = *(SOM::MDL**)c;
+
+	if(o) memcpy(swap,f=o->xyzuvw,sizeof(swap));
+
+	auto *oo = som_MDL_x440520(d);
+
+	if(f&&oo) memcpy(oo->xyzuvw,swap,sizeof(swap));
+
+	return oo;	
+}
+
 extern void som_MDL_reprogram() //som.state.cpp
 {
 	DWORD cmp = 0; //THERE IS A BUG IN THIS API
@@ -3206,7 +3264,16 @@ extern void som_MDL_reprogram() //som.state.cpp
 		*(DWORD*)0x401916 = (DWORD)som_TXR_4485e0-0x40191a;
 
 		(DWORD&)som_MDO_x445660 = 0x4017A0; //load MDO (art)
-		(DWORD&)som_TXR_x448fd0 = 0x4039f0; //load_TXR_etc (art) 
+		(DWORD&)som_TXR_x448fd0 = 0x4039f0; //load_TXR_etc (art)
+		
+		//004061E1 E8 4A 07 00 00       call        00406930 
+		*(DWORD*)0x4061E2 = (DWORD)som_MDO_edit-0x4061E6;
+		//redundantly loads MDO?!
+		//00405A4D E8 DE 0E 00 00       call        00406930
+		memset((void*)0x405A4D,0x90,5);
+		//00405A7C E8 AF 0E 00 00       call        00406930
+		*(DWORD*)0x405A7d = (DWORD)som_MDO_edit-0x405A81;
+
 		break;
 
 	case ObjEdit.exe:
@@ -3243,6 +3310,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		(DWORD&)som_MDL_free = 0x41ba2c; //free?
 		(DWORD&)som_MDL_x4418b0 = 0x402AC0; //get CP delta
 		(DWORD&)som_MDL_x440030 = 0x401750; //load_MDL_file
+	//	(DWORD&)som_MDL_x440520 = 0x403e80; //make_MDL_instance
 		(DWORD&)som_MDL_x44d810 = 0x40c360; //draw_scene_element
 		(DWORD&)som_TXR_x448fd0 = 0x4086c0; //load_TXR_etc (art) 
 		(DWORD&)som_MDL_x448780 = 0x408860; //unload_TXR
@@ -3250,6 +3318,15 @@ extern void som_MDL_reprogram() //som.state.cpp
 		(DWORD&)som_MDL_x448100 = 0x408200; //unload_material
 		(DWORD&)som_MDO_x445660 = 0x4063d0; //load MDO (art)
 		(DWORD&)som_MDL_x45f350 = 0x42b0b0; //som_MDL_4
+
+		//0040AF72 E8 19 05 00 00       call        0040B490
+		*(DWORD*)0x40af73 = (DWORD)som_MDL_edit-0x40af77;
+		//redundantly loads MDO?!
+		//0040A841 E8 4A 0C 00 00       call        0040B490
+		memset((void*)0x40A841,0x90,5);
+		//0040A870 E8 1B 0C 00 00       call        0040B490
+		*(DWORD*)0x40A871 = (DWORD)som_MDL_edit-0x40A875;
+
 		break;
 		
 	case EneEdit.exe: case SfxEdit.exe: //same EXE code wise
@@ -3282,12 +3359,19 @@ extern void som_MDL_reprogram() //som.state.cpp
 		(DWORD&)som_MDL_free = 0x40ce88; //operator delete?
 		(DWORD&)som_MDL_x4418b0 = 0x4054D0; //get CP delta
 		(DWORD&)som_MDL_x440030 = 0x403990; //load_MDL_file
+		(DWORD&)som_MDL_x440520 = 0x403e80; //make_MDL_instance
 		(DWORD&)som_MDL_x44d810 = 0x40c4d0; //draw_scene_element
 		(DWORD&)som_TXR_x448fd0 = 0x40aa80; //load_TXR_etc (art)
 		(DWORD&)som_MDL_x448780 = 0x40ac20; //unload_TXR
 		(DWORD&)som_MDL_x447ff0 = 0x40a530; //reserve_material
 		(DWORD&)som_MDL_x448100 = 0x40a620; //unload_material
 		(DWORD&)som_MDL_x45f350 = 0x4161a8; //som_MDL_4
+
+		//0040338B E8 F0 0A 00 00       call        00403E80 
+		*(DWORD*)0x40338c = (DWORD)som_MDL_edit2-0x403390;
+		//00403862 E8 19 06 00 00       call        00403E80 
+		*(DWORD*)0x403863 = (DWORD)som_MDL_edit2-0x403867;
+		
 		break;
 
 	case NpcEdit.exe:
@@ -3320,12 +3404,18 @@ extern void som_MDL_reprogram() //som.state.cpp
 		(DWORD&)som_MDL_free = 0x40CE68; //operator delete?
 		(DWORD&)som_MDL_x4418b0 = 0x4054B0; //get CP delta
 		(DWORD&)som_MDL_x440030 = 0x403970; //load_MDL_file
+		(DWORD&)som_MDL_x440520 = 0x403e60; //make_MDL_instance
 		(DWORD&)som_MDL_x44d810 = 0x40c4b0; //draw_scene_element
 		(DWORD&)som_TXR_x448fd0 = 0x40aa60; //load_TXR_etc (art)
 		(DWORD&)som_MDL_x448780 = 0x40ac00; //unload_TXR
 		(DWORD&)som_MDL_x447ff0 = 0x40a510; //reserve_material
 		(DWORD&)som_MDL_x448100 = 0x40a600; //unload_material
 		(DWORD&)som_MDL_x45f350 = 0x41619c; //som_MDL_4
+
+		//0040336B E8 F0 0A 00 00       call        00403E60 
+		*(DWORD*)0x40336c = (DWORD)som_MDL_edit2-0x403370;
+		//00403842 E8 19 06 00 00       call        00403E60
+		*(DWORD*)0x403843 = (DWORD)som_MDL_edit2-0x403847;
 		break;
 	
 	case 0:
@@ -3500,6 +3590,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		(DWORD&)som_MDL_free = 0x401580;
 		(DWORD&)som_MDL_x4418b0 = 0x4418b0; //get CP delta
 		(DWORD&)som_MDL_x440030 = 0x440030; //load_MDL_file
+	//	(DWORD&)som_MDL_x440520 = 0x403e80; //make_MDL_instance
 		extern void som_scene_44d810_extern(void*);
 		som_MDL_x44d810 = som_scene_44d810_extern;
 		(DWORD&)som_TXR_x448fd0 = 0x4485e0; //load_TXR_etc

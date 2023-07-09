@@ -1,6 +1,6 @@
 	
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <vector>
 #include <algorithm>
@@ -517,14 +517,6 @@ static int __cdecl MapComp_main(int argc, char *argv[], char *envp[])
 extern const wchar_t *x2mdl_dll; //HACK
 static DWORD __cdecl MapComp_405470(char *a)
 {
-	//HACK: communicate MSM/MHM is desired	
-	//NOTE: this can only be set after any
-	//MDO files are read (MapComp reads in
-	//every object early, for lamps, while
-	//it would be more prudent to scan for
-	//lamps and read selectively)
-	x2mdl_dll = L"x2msm.dll";
-
 	assert(!MapComp_memory[3]||SOM_MAP.lyt);
 	DWORD ret = ((DWORD(__cdecl*)(char*))0x405470)(a);
 	if(ret) return ret;
@@ -994,6 +986,8 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 
 	//0x417184->"A:\>\data\map\msm\"->model
 	sprintf(a,"%s%s",SOMEX_(A)"\\data\\map\\model\\",prt);
+
+	x2mdl_dll = L"x2msm.dll"; //PARANOID
 
 	wchar_t art[MAX_PATH]; 	
 	int e = som_art_model(a,art); //2021

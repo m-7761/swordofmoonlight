@@ -131,7 +131,7 @@
     </Link>
     <PostBuildEvent>
       <Command>copy /y "$(OutDir)SomEx.dll" "$(SOM_SVN)\tool\SomEx.dll"
-rem echo skipping "$(SomEx_PostBuild)"
+rem $(SomEx_PostBuild)
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

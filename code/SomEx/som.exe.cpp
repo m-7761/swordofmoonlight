@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <propkey.h>
 #include <propvarutil.h>
@@ -676,8 +676,8 @@ extern void SOM::launch_legacy_exe()
 		pid = som_exe(argv,4);
 	}
 
-	char hex[9] = "0"; _ultoa(pid,hex,16); 
-	SetEnvironmentVariableA("SomEx.dll Binary PID",hex); //SOM_EX.cpp
+	wchar_t hex[9] = L"0"; _ultow(pid,hex,16); 
+	SetEnvironmentVariableW(L"SomEx.dll Binary PID",hex); //SOM_EX.cpp
 
 	CloseHandle(SOM::exe_process);
 	CloseHandle(SOM::exe_thread);

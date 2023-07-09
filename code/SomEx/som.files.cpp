@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <map>
 #include <string>
@@ -242,8 +242,12 @@ bool SOM::PARAM::Item::Arm::_game() //static
 
 	SOM::PARAM::Item.arm = p; return true;
 }
+typedef SWORDOFMOONLIGHT::zip::inflate_t xprof;
+extern size_t som_tool_xdata(const wchar_t*,xprof&);
 bool SOM::PARAM::Item::Arm::_tool() //static
 {
+	xprof *xp = new xprof, &x = *xp; //2023
+
 	SOM::PARAM::Item::Arm *p = new SOM::PARAM::Item::Arm;
 	memset(p,0x00,sizeof(*p));
 
@@ -272,6 +276,13 @@ bool SOM::PARAM::Item::Arm::_tool() //static
 			
 			if(mv==1023||p->records[mv].my) continue;
 
+			//2023: store filename and translate item.arm
+			wmemcpy(p->files[mv].name,data.cFileName,30); 
+			p->files[mv].data = (BYTE)i;
+			swprintf(data.cFileName,L"data\\my\\arm\\%s",p->files[mv].name);
+			size_t xsz = som_tool_xdata(data.cFileName,x);
+			if(xsz) memcpy(&prf,&x,30);
+
 			auto &dst = p->records[mv];
 
 			//YUCK: the model/name fields are swapped
@@ -289,8 +300,6 @@ bool SOM::PARAM::Item::Arm::_tool() //static
 
 			//leave the 0-terminator 0
 			memset(dst._reserved,0xff,sizeof(dst._reserved)-1);
-			//ItemEdit?
-			dst._reserved[sizeof(dst._reserved)-2] = (BYTE)i;
 
 		}while(f?fclose(f):0,FindNextFileW(h,&data));
 		FindClose(h);
@@ -302,6 +311,8 @@ bool SOM::PARAM::Item::Arm::_tool() //static
 	SOM::PARAM::Item.arm = p;
 
 	return true; err: assert(0);
+
+	delete xp; //2023
 
 	delete p; return false;
 }
@@ -695,7 +706,7 @@ static DWORD WINAPI som_files_threadproc(LPVOID hw)
 
 		//2022: I'm pretty sure I noticed a reason this is 
 		//inefficient (skins maybe? can't recall)
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 
 		for(size_t i=0;i<nChangeHandles;i++)
 		som_files_wrote(0,0,(UINT_PTR)dwChangeFolders[i],0);	

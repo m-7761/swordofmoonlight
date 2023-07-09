@@ -1,6 +1,6 @@
 
 #include "directx.h" 
-DX_TRANSLATION_UNIT
+DX_TRANSLATION_UNIT //(C)
 
 #define DIRECT3D_VERSION 0x0700
 

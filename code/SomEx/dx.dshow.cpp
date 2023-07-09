@@ -1,6 +1,6 @@
 
 #include "directx.h" 
-DX_TRANSLATION_UNIT
+DX_TRANSLATION_UNIT //(C)
 
 #include <vector>
 

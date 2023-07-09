@@ -1,6 +1,6 @@
 ﻿
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 //#include <expandedresources.h> //Game Mode?
 
@@ -1251,7 +1251,7 @@ static void *som_hacks_CreateSurface4(HRESULT*hr, DDRAW::IDirectDraw4*in, DX::LP
 			x->dwWidth = x->dwHeight = 256*
 			EX::INI::Editor()->texture_subsamples;
 
-			int todolist[SOMEX_VNUMBER<=0x1020408UL];
+			int todolist[SOMEX_VNUMBER<=0x102040cUL];
 			//NOTE: this still covers 0~7 for 32-bit textures, it's
 			//always been that way... can't think why it should be
 			//so. 2021: I've changed the colorkey to 0~0 except for
@@ -1615,8 +1615,8 @@ extern bool som_hacks_setup_shaders(DWORD &z) //workshop.cpp
 
 			//DirectDrawCreateEx can now upgrade/downgrade modes on
 			//a per adapter basis and may force this off
-			int swapRGB = DDRAW::sRGB;
-			DDRAW::sRGB = 0?1:op->do_srgb; //...
+			int swapRGB = SOM::opengl?1:DDRAW::sRGB;
+			DDRAW::sRGB = SOM::opengl?1:op->do_srgb; //...
 
 			do switch(begin)
 			{
@@ -3022,7 +3022,7 @@ static void *som_hacks_BeginScene(HRESULT*,DDRAW::IDirect3DDevice7*)
 {	
 	if(!SOM::field) return 0; //2022
 
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	/*2022: this is causing a glitch on the first frame after 
 	//changing maps???
 	//NOTE: som_hacks_onflip had some code to ignore the first
@@ -5402,7 +5402,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		//TODO
 		//instead of 50, raise the item up higher, and pull it forward as necessary
 		//to approximate 50, both WRT SOM::zoom and VR mode
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		//NOTE: 50 is the original value, but using 62 (kf2) just to scale down some
 		//since 1m is a little bit in your face... in VR mode I think the value gets
 		//overriden... 1m is chosen for VR. this branch is in case an extension puts
@@ -5629,7 +5629,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 				if(!hr&&som_hacks_shader_model //legacy
 				 &&!som_hacks_alphablendenable) //skyfloor
 				{
-					int todolist[SOMEX_VNUMBER<=0x1020408UL]; //and fog powers?
+					int todolist[SOMEX_VNUMBER<=0x102040cUL]; //and fog powers?
 					if(EX::INI::Option()->do_alphafog)
 				//	if(EX::INI::Detail()->alphafog_skyflood_constant>0) //blend?
 					som_hacks_fab_alphablendenable();	
@@ -5638,7 +5638,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 			else if(!hr) //assuming unlit swing model (bug)
 			{
 				//assert(0); //2022: should be obsolete
-				int todolist[SOMEX_VNUMBER<=0x1020408UL];
+				int todolist[SOMEX_VNUMBER<=0x102040cUL];
 
 				in->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,1); 
 
@@ -6173,7 +6173,7 @@ static void *som_hacks_mipmaps_pixel_art_power_of_two(const DX::DDSURFACEDESC2 *
 
 	//this needs a lot more work, but it should 
 	//be getting moved into x2mdl.dll shortly
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	//
 	// 2022: this is mode 3 below that's designed
 	// to deemphasize diagonal pixels
@@ -7648,7 +7648,7 @@ static bool som_hacks_onflip()
 		
 	#ifdef NDEBUG
 	//#error fixed? investigated?
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	#endif
 //2018: ASSUMING matte is not required here
 //2017: something like this was done before, but
@@ -7674,7 +7674,7 @@ if(SOM::newmap>=SOM::frame-2) return false;
 	//matte
 	#ifdef NDEBUG
 	//#error WGL_NV_DX_interop2 can't draw in onFlip
-	int todolist2[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist2[SOMEX_VNUMBER<=0x102040cUL];
 	#endif
 	if(!DDRAW::inStereo&&!DDRAW::WGL_NV_DX_interop2)
 	{

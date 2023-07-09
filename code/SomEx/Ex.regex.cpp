@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 //WARNING: this file is old/a bit of a mess
 //it's improved a little bit but not enough

@@ -1,6 +1,6 @@
 					   
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 //NOMINMAX
 #undef min

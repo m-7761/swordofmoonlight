@@ -1,6 +1,6 @@
 	
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <functional> //function
 #include <set>
@@ -1799,7 +1799,7 @@ static bool SOM_MAP_map2(const char *p) //SUBROUTINE
 			{
 				#ifdef NDEBUG
 				//#error need a MessageBox here to explain this
-				int todolist[SOMEX_VNUMBER<=0x1020408UL];
+				int todolist[SOMEX_VNUMBER<=0x102040cUL];
 				#endif
 				assert(0); return true; 
 			}
@@ -4391,6 +4391,8 @@ extern void SOM_MAP_reprogram()
 		{
 			lut[i] = 48+(BYTE)(sz_1*(1-powf(1-i*l_sz,4.0f)))/2;
 		}
+		lut[0] = 0; //2023 (by request)
+
 		//if(EX::debug) //art system icons
 		{
 			//2023: trying to load x2mdl.dll icons
@@ -5097,7 +5099,7 @@ DWORD __thiscall SOM_MAP_this::map_440ee0() //2021
 		//uses DDRAW::window
 		#ifdef NDEBUG
 		//#error extract tile view width? or resize effects buffer?
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif	
 		desc.dwFlags = 0x27; //7|DDSD_BACKBUFFERCOUNT
 		desc.dwWidth = 512; //401?
@@ -5225,7 +5227,8 @@ static bool SOM_MAP_texture(SOM_MAP_this::texture_t *o, char *name, int w, int h
 			(void*&)o->dds4 = s; s->AddRef(); //I guess?
 			(void*&)o->d3dt2 = s;
 
-			SOM_MAP_d3d_release.push_back(s); //testing
+			//these are invalid in map_442270
+			//SOM_MAP_d3d_release.push_back(s); //testing
 
 			size_t len = strlen(name)+1;
 			o->name = ((char*(__cdecl*)(DWORD))0x46573f)(len);
@@ -5281,7 +5284,7 @@ DWORD __thiscall SOM_MAP_this::map_442830_407470(texture_t *o, char *name) //202
 		// count against the texture maximum
 		//
 		//might help to preempt this earlier
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 
 		//2022: MSM models may be padded with 
 		//empty textures to 32-bit align data
@@ -5339,7 +5342,7 @@ DWORD __thiscall SOM_MAP_this::map_442830_407470(texture_t *o, char *name) //202
 						//may need to do this when there's no colorkey data
 						#ifdef NDEBUG
 						//#error really should fix no colorkey (SetColorKey)
-					//	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+					//	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 						#endif
 						d[j]._ = 255;
 					}
@@ -5521,7 +5524,7 @@ static bool SOM_MAP_draw_msm(BYTE *m, SOM_MAP_this::texture_t *tp)
 	// 	 
 	// can shift it over in memory?
 	//	
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	//assert((size_t)pp%4==0);
 	//
 	void *pverts = pp; pp+=verts*32; //polygon data

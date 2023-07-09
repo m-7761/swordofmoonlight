@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <vector> 
 #include <algorithm> 
@@ -14,6 +14,7 @@ EX_TRANSLATION_UNIT
 #include "som.932.h"
 #include "som.state.h"
 #include "som.extra.h"
+#include "som.files.h" 
 #include "som.tool.hpp" 
 			
 #include "../lib/swordofmoonlight.h" //prf
@@ -391,7 +392,7 @@ static void workshop_submenu(HMENU hm)
 static windowsex_DIALOGPROC workshop_32768;
 static void workshop_icard_32768()
 {	
-	int i = -1;
+	HMENU hm = 0; //goto
 	const wchar_t *icard;
 	if(workshop->xicard.empty())
 	{
@@ -400,12 +401,12 @@ static void workshop_icard_32768()
 		icard = EX::need_unicode_equivalent(932,workshop->icard);
 	}
 	else icard = workshop->xicard.c_str();	
-	while(i<5) 
-	if(32768==GetMenuItemID(workshop_menu,++i))
+	for(int i=1;i<10;i++) //ARBITRARY
+	if(32768==GetMenuItemID(workshop_menu,i))
 	{
 		RECT rc;
 		GetMenuItemRect(som_tool,workshop_menu,i,&rc);				
-		HMENU hm = CreatePopupMenu();
+		hm = CreatePopupMenu();
 		wchar_t *pp,*p;
 		for(p=pp=const_cast<wchar_t*>(icard);*p;pp=p)
 		{
@@ -424,6 +425,113 @@ static void workshop_icard_32768()
 			CreateDialogIndirectParamA(0,locked,som_tool,workshop_32768,0);				
 		}
 		DestroyMenu(hm); return;
+	}
+}
+
+static void workshop_moves_32767_sub(HMENU hm, int mv, HMENU sm[1024], bool top, wchar_t *open)
+{
+	auto *arm = SOM::PARAM::Item.arm;
+	auto &rec = arm->records[mv];
+		
+	MENUITEMINFOW mii = {sizeof(mii),MIIM_STRING|MIIM_ID};
+	mii.dwTypeData = som_tool_text;	
+
+	int i = 4; if(!top)
+	{	
+		mii.wID = ~mv;
+		//swprintf(mii.dwTypeData,L"%s\t%d",arm->files[mv].name,mv);		
+		swprintf(mii.dwTypeData,L"%s\t%d",open,mv);		
+		InsertMenuItem(hm,0,MF_BYPOSITION,&mii);	
+		//SetMenuDefaultItem(hm,0,1);
+	}	
+	else goto top;
+
+	for(i=1;i<4;i++)
+	{
+		mv = rec.mvs[i];
+		if(mv>999) continue;
+
+		top:
+		mii.fMask|=MIIM_SUBMENU;
+		if(!sm[mv]) 
+		{
+			sm[mv] = CreatePopupMenu();
+			workshop_moves_32767_sub(sm[mv],mv,sm,false,open);
+		}
+		mii.hSubMenu = sm[mv];
+		auto &rec2 = arm->records[mv];
+		auto u = EX::need_unicode_equivalent(932,rec2.description);
+		swprintf(mii.dwTypeData,L"%s (#%d)",u,rec2.mid);
+		InsertMenuItem(hm,i,MF_BYPOSITION,&mii);	
+	}
+}
+static void workshop_moves_32767()
+{
+	HMENU sm[1024] = {};
+
+	BOOL move = IsDlgButtonChecked(som_tool,1031);
+
+	if(!move&&!IsDlgButtonChecked(som_tool,1032))
+	{
+		MessageBeep(-1); return;
+	}
+
+	#ifdef NDEBUG
+	#error japanese
+	#endif
+	wchar_t open[30];
+	if(!GetDlgItemText(som_tool,32767,open,30))
+	wcscpy(open,L"&Open Profile");
+
+	for(int i=1;i<10;i++) //ARBITRARY
+	if(32767==GetMenuItemID(workshop_menu,i))
+	{
+		bool once = false;
+
+		RECT rc;
+		GetMenuItemRect(som_tool,workshop_menu,i,&rc);				
+		HMENU hm = CreatePopupMenu();
+		{
+			wchar_t w[8];
+			HWND ch = GetWindow(GetDlgItem(som_tool,1042),GW_CHILD);
+			for(int i=3;ch;ch=GetWindow(ch,GW_HWNDNEXT),i--) 
+			{
+				if(i==0&&move) break; //skip own self?
+
+				if(GetWindowText(ch,w,8))
+				{
+					if(!once)
+					{
+						once = true;
+
+						SOM::PARAM::Item.arm->clear();
+						SOM::PARAM::Item.arm->open();
+					}
+
+					int mv = wcstol(w,0,10);
+					if(mv<(move?1000:255))
+					workshop_moves_32767_sub(hm,mv,sm,true,open);
+				}
+			}			
+		}
+		if(!once){ MessageBeep(-1); return; }
+
+		int mv = ~TrackPopupMenuEx(hm,TPM_RETURNCMD|TPM_NONOTIFY,rc.left,rc.bottom,som_tool,0);
+
+		for(int i=1024;i-->0;) if(sm[i]) DestroyMenu(sm[i]);
+
+		DestroyMenu(hm); 
+
+		if(mv!=~0)
+		{
+			auto &f = SOM::PARAM::Item.arm->files[mv];
+
+			swprintf(som_tool_text,L"%s\\my\\arm\\%s",EX::data(f.data),f.name);
+			SetEnvironmentVariableW(L".WS",som_tool_text);
+		//	SetEnvironmentVariableW(L"SomEx.dll Workshop Tool",L""); //WM_APP+'ws'
+			SOM::launch_legacy_exe();
+		}
+		return;
 	}
 }
 
@@ -487,16 +595,17 @@ static void workshop_titles(const wchar_t *t=workshop_title)
 	}
 	SetWindowTextW(som_tool,t);
 }
-extern const char *workshop_directory(int sfx=false)
+extern const char *workshop_directory(int sfx=false, int tool_or_hlp=SOM::tool)
 {
-	switch(SOM::tool)
+	switch(tool_or_hlp)
 	{
-	case ItemEdit.exe: return "item";
-	case ObjEdit.exe: return "obj";
-	case EneEdit.exe: return "enemy";
-	case NpcEdit.exe: return "npc";
-	case SfxEdit.exe: return sfx?"sfx":"my"; 
-	default: assert(SOM::tool==PrtsEdit.exe); return "map";
+	case ItemEdit.exe: case 31100: return sfx=='arm'?"my":"item";
+	case ObjEdit.exe: case 34100: return "obj";
+	case EneEdit.exe: case 35100: return "enemy";
+	case NpcEdit.exe: case 36100: return "npc";
+	case SfxEdit.exe: case 33100: return sfx=='sfx'?"sfx":"my"; 
+	default: assert(SOM::tool==PrtsEdit.exe);
+	case 40000: return "map";
 	}
 }
 static const char *workshop_subdirectory(int id)
@@ -520,16 +629,21 @@ static const char *workshop_subdirectory(int id)
 static void workshop_xtitles()
 {		
 	//following som_tool_prf's lead here
-	typedef SWORDOFMOONLIGHT::zip::inflate_t xprof;
-	const char *dir = workshop_directory();
+	auto *dir = workshop_directory();
+	auto *dir2 = SOM::tool==PrtsEdit.exe?"parts":"prof";
+	if(IsDlgButtonChecked(som_tool,1031))
+	{
+		dir = "my"; dir2 = "arm"; //YUCK (above too)
+	}
 	wchar_t w[MAX_PATH];
-	int i = swprintf(w,L"data\\%hs\\%hs\\",
-	dir,SOM::tool==PrtsEdit.exe?"parts":"prof");
-	const wchar_t *p = PathFindFileNameW(workshop_savename);
+	int i = swprintf(w,L"data\\%hs\\%hs\\",dir,dir2);
+	//TODO? workshop_savedata
+	const auto *p = PathFindFileNameW(workshop_savename);
 	for(;*p&&i<MAX_PATH-1;i++) w[i] = *p++;
 	w[i] = '\0';	
+	typedef SWORDOFMOONLIGHT::zip::inflate_t xprof;
 	extern size_t som_tool_xdata(const wchar_t*,xprof&);
-	xprof x;
+	xprof *xp = new xprof, &x = *xp;
 	size_t x_s = som_tool_xdata(w,x);
 	workshop_cpp::enemy_prf &e = *(workshop_cpp::enemy_prf*)&x[0];	
 	if(PrtsEdit.exe==SOM::tool)
@@ -546,6 +660,7 @@ static void workshop_xtitles()
 			w[SendDlgItemMessage(som_tool,1008,EM_GETLINE,0,(LPARAM)w)] = '\0';
 		}
 		SetDlgItemTextW(som_tool,1023,p);
+		InvalidateRect(som_tool,0,1); //2023: WM_ERASEBKGND
 	}
 	else if(x_s>=31)
 	{
@@ -604,7 +719,7 @@ static void workshop_xtitles()
 		e.descriptions[i][20] = '\0';
 		SetWindowTextW(bt,EX::need_unicode_equivalent(932,e.descriptions[i]));			
 	}
-	else assert(!x_s);
+	else assert(!x_s); delete xp;
 }
 static int workshop_page = 0;
 static HWND workshop_page2 = 0;
@@ -1344,7 +1459,7 @@ static void workshop_click_radio(int a, int z, int id)
 		//since it only happens in the maximized mode
 		CheckRadioButton(som_tool,2000,z,id);
 		CheckRadioButton(som_tool,1007,1009,id);
-		return;
+		goto notify;
 	}
 
 	//HACK: SendMessage(BM_CLICK) checks both radios when
@@ -1365,18 +1480,24 @@ static void workshop_click_radio(int a, int z, int id)
 				z = 1009;				
 			}
 		}
-		CheckRadioButton(som_tool,a,z,id);
+//2023: BM_CLICK causes artifacts when hiding		
+
+//		CheckRadioButton(som_tool,a,z,id);
 	}
-	
-	SendDlgItemMessage(som_tool,id,BM_CLICK,0,0);
+//	SendDlgItemMessage(som_tool,id,BM_CLICK,0,0);
+	CheckRadioButton(som_tool,a,z,id);
+	notify: //2023: simulate BM_CLICK?
+	SendMessage(som_tool,WM_COMMAND,id,(LPARAM)GetDlgItem(som_tool,id));
 }
 static WCHAR *workshop_default(WCHAR *w, int i, int def=0)
 {
 	return i!=def?_itow(i,w,10):&(*w='\0');
 }
-static VOID CALLBACK workshop_click_radio_timer(HWND win, UINT, UINT_PTR id, DWORD)
+//2023: knocking out this call (REPURPOSING) (NOP)
+static VOID __stdcall workshop_click_radio_timer(DWORD,DWORD,DWORD)
+//static VOID CALLBACK workshop_click_radio_timer(HWND win, UINT, UINT_PTR id, DWORD)
 {
-	KillTimer(win,id); workshop_click_radio(LOWORD(id),HIWORD(id),GetDlgCtrlID(win));
+	//KillTimer(win,id); workshop_click_radio(LOWORD(id),HIWORD(id),GetDlgCtrlID(win));
 }
 static bool workshop_ReadFile_item(workshop_cpp::item_prf<> &item, size_t item_s)
 {
@@ -1450,6 +1571,9 @@ static bool workshop_ReadFile_item(workshop_cpp::item_prf<> &item, size_t item_s
 	}	
 	workshop_click_radio(1030,1033,id);
 	bool movement = id<=1031&&item.equip==1;
+
+	if(id==1031) //e.g. workshop_moves_32767_sub
+	PostMessage(som_tool,WM_SYSCOMMAND,SC_MINIMIZE,0);
 
 	WCHAR w[16];
 	BYTE rcpt = item.equip?0:item.get<prf::item2_t>().receptacle;
@@ -1572,7 +1696,11 @@ static bool workshop_ReadFile_obj(workshop_cpp::object_prf &obj, size_t obj_s)
 	default: id = 999; assert(2==obj.clipmodel);
 	}
 	//PostMessage(GetDlgItem(som_tool,id),BM_CLICK,0,0);
-	SetTimer(GetDlgItem(som_tool,id),MAKELONG(999,1001),0,workshop_click_radio_timer);
+	//SetTimer(GetDlgItem(som_tool,id),MAKELONG(999,1001),0,workshop_click_radio_timer);
+	{
+		//00409CA2 E8 03 7C 01 00       call        004218AA 
+		workshop_click_radio(999,1001,id); //2023
+	}
 	//display 1 dimension for disc shaped objects?
 	//HACK: NOT WORKING? passing buck to SetTimer(som_tool,'stnf',0,0)
 	//if(id==1000) 
@@ -1614,7 +1742,11 @@ static bool workshop_ReadFile_obj(workshop_cpp::object_prf &obj, size_t obj_s)
 	//PostMessage(GetDlgItem(som_tool,id),BM_CLICK,0,0);
 	//this sets unrelated checkboxes (not radio buttons)
 	//it's easier to let the callback is handle the glitch
-	SetTimer(GetDlgItem(som_tool,id),MAKELONG(1007,2000+0x1F),0,workshop_click_radio_timer);
+	//SetTimer(GetDlgItem(som_tool,id),MAKELONG(1007,2000+0x1F),0,workshop_click_radio_timer);
+	{
+		//00409C93 E8 12 7C 01 00       call        004218AA
+		workshop_click_radio(1007,2000+0x1F,id); //2023
+	}
 	
 	WCHAR w[16];
 	BYTE rcpt = id!=2041?0:obj.receptacle;	
@@ -2152,7 +2284,7 @@ extern BOOL WINAPI workshop_ReadFile(HANDLE in, LPVOID to, DWORD sz, LPDWORD rd,
 }
 
 static void workshop_file_update(int);
-static void workshop_file_system(int);
+static void workshop_file_system(int,bool=false);
 static void workshop_DROPFILES(WPARAM wParam)
 {
 	HDROP &drop = (HDROP&)wParam;
@@ -2162,8 +2294,9 @@ static void workshop_DROPFILES(WPARAM wParam)
 		if(*workshop_savename)
 		SendMessage(som_tool,WM_COMMAND,32772,0); //new
 
-		if(0==workshop_mode)
-		SendMessage(som_tool,WM_SYSCOMMAND,SC_MINIMIZE,0);
+		//2023: puts NpcEdit into mini mode on selection
+	//	if(0==workshop_mode)
+	//	SendMessage(som_tool,WM_SYSCOMMAND,SC_MINIMIZE,0);
 	}
 	else for(UINT i=0,prf=0,beep=0;i<n;i++)
 	{
@@ -2185,7 +2318,12 @@ static void workshop_DROPFILES(WPARAM wParam)
 			//HACK: simulate file by command-line argument
 			SetEnvironmentVariableW(L".WS",som_tool_text);
 			som_tool_initializing++;
-			SendMessage(workshop_host,WM_COMMAND,SOM::tool<EneEdit.exe?32771:40001,0);
+			{
+				SendMessage(workshop_host,WM_COMMAND,SOM::tool<EneEdit.exe?32771:40001,0);
+			
+				//2023: quick fix, titles are getting out of sync
+				workshop_xtitles();
+			}
 			som_tool_initializing--;
 		}		
 		else if(SOM::tool==SfxEdit.exe)
@@ -2265,15 +2403,14 @@ static void workshop_minmax(bool redraw=true)
 {
 	if(redraw) workshop_redraw();
 
-	BYTE diff = workshop_mode; //REMOVE ME?
+	int diff = workshop_mode; //REMOVE ME?
 
 	bool mini = WS_MAXIMIZEBOX&GetWindowStyle(som_tool);
 	workshop_mode = mini;	
 
 	diff-=workshop_mode;
 
-	bool pretty = diff;
-	if(pretty) SetWindowRedraw(som_tool,0);
+	if(diff) SetWindowRedraw(som_tool,0);
 
 	if(workshop_tool) if(!mini) //e.g. SOM_PRM
 	{
@@ -2337,6 +2474,7 @@ static void workshop_minmax(bool redraw=true)
 		//tabstop with each toggle???
 		if(!mini&&focus&&!som_tool_neighbor_focusing)		
 		som_tool_neighbor_focusing = GetFocus();
+	//	if(!focus) SetFocus(0); //2023
 		{
 			int pg = workshop_page2&&mini?1:0;
 			HWND ch0 = GetWindow(som_tool,GW_CHILD);
@@ -2366,10 +2504,12 @@ static void workshop_minmax(bool redraw=true)
 			som_tool_neighbor_focusing = 0;
 		}
 		//else assert(som_tool_neighbor_focusing);
-	}	
+	}
 
 	if(cx&&DDRAW::Direct3DDevice7)
 	{
+		bool arm = false; //2023
+
 		//REMINDER: SOM uses 50. 30 cuts the heads off if not adjusted for height
 		//or the view matrix is pulled back further? will have to figure that out
 		enum{ fov=0?30:50 };
@@ -2384,6 +2524,12 @@ static void workshop_minmax(bool redraw=true)
 		{
 		case SfxEdit.exe:
 		case ItemEdit.exe: //factor = 1650; break;
+
+			if(arm=IsDlgButtonChecked(som_tool,1031))
+			{
+				factor = 4800*4; break;
+			}
+
 		case ObjEdit.exe: //factor = 3100; break;
 			//Ene/NpcEdit seem to zoom in LMB+RMB more by default that SOM_PRM
 			//so this is likely completely off. The others may too. The dragon
@@ -2412,7 +2558,7 @@ static void workshop_minmax(bool redraw=true)
 		//objects may use small negative values
 		WCHAR minus[2] = {};
 		GetDlgItemTextW(som_tool,1002,minus,2);*/
-		bool minus = GetDlgItemFloat(som_tool,1002)<-0.01f;
+		bool minus = arm||GetDlgItemFloat(som_tool,1002)<-0.01f;
 		float offcenter;
 		if(SOM::tool==ItemEdit.exe)
 		{
@@ -2446,7 +2592,7 @@ static void workshop_minmax(bool redraw=true)
 		DDRAW::Direct3DDevice7->SetTransform(DX::D3DTRANSFORMSTATE_PROJECTION,m);
 	}
 	
-	if(pretty) //MAYBE PUT INSIDE TIMER?
+	if(diff) //MAYBE PUT INSIDE TIMER?
 	{
 		SetWindowRedraw(som_tool,1); 
 		EX::vblank();
@@ -2635,7 +2781,7 @@ static void *workshop_SetTransform(HRESULT*,DDRAW::IDirect3DDevice7*,DX::D3DTRAN
 		if(15==workshop_mode2 //1015?
 		&&SOM::tool==ItemEdit.exe)
 		{
-			//401C80 looks like could be matrix set up code
+			//c looks like could be matrix set up code (mdo parameters)
 			//00401FF3 E8 88 FC FF FF       call        00401C80
 			//builds translation matrix?
 			//00401DC2 E8 89 2C 00 00       call        00404A50
@@ -2647,7 +2793,7 @@ static void *workshop_SetTransform(HRESULT*,DDRAW::IDirect3DDevice7*,DX::D3DTRAN
 			//y is always changing
 			if(0x426258!=(DWORD)y) //identity I think
 			{
-				/*2020, April: It's changed today?
+				/*2020, April: it's changed today?
 				//19E934 seems to point to the matrix
 				//just happened to notice this memory
 				//it's just local stack memory. seems
@@ -3309,8 +3455,7 @@ extern void PrtsEdit_refresh_1022()
 }
 static void ItemEdit_movesets_enable(WPARAM wp)
 {
-	//2021: extending 1031 to 4 10-bit indices
-	BOOL e = wp>=1032;
+	BOOL e = wp>=1031; 
 	int limit = wp==1033||workshop_category!=1?2:0;	
 	bool move = wp==1031;
 	for(int i=1042;i>=1040;i--,move=false)
@@ -3416,6 +3561,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		//by double-clicking it in the GetOpenFileName box
 		//NOTE: one of those situations where only magical
 		//timer works???
+		if(!IsWindowVisible(hWnd)) //2023
 		SetTimer(hWnd,WM_LBUTTONDBLCLK,25,0);
 		highlight_name:
 		PostMessage(GetDlgItem(hWnd,1006),EM_SETSEL,0,-1);
@@ -3425,7 +3571,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		
 		switch(wParam)
 		{
-		case WM_LBUTTONDBLCLK:
+		case WM_LBUTTONDBLCLK: //WM_APP+0?
 		
 			SendMessage(hWnd,wParam,0,0);
 			break; //KillTimer
@@ -3491,6 +3637,8 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			HDC &dc = (HDC&)wParam;
 			extern HFONT som_tool_charset;
 			SelectObject(dc,som_tool_charset);
+			//NOTE: workshop_xtitles must call InvalidateRect
+			//for this to take in modeless mode (2023)
 			DrawText(dc,workshop->xicard.c_str(),-1,&rc,DT_CENTER|DT_NOPREFIX);			
 			return lParam;
 		}
@@ -3592,6 +3740,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 					//window opens up in a nice place by accident
 					//but not nice if centered on the client area
 					extern void som_tool_recenter(HWND,HWND,int);
+					if(DS_CENTER&GetWindowStyle(hWnd)) //32767?
 					som_tool_recenter(hWnd,workshop_tool,'nc');
 				}
 			}
@@ -3638,17 +3787,9 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 					break;
 					ok:	Edit_SetModify((HWND)lParam,0);
 					GetWindowText((HWND)lParam,som_tool_text,MAX_PATH);
-
-					if(hlp==61000 //ItemEdit					
-					&&ES_NUMBER&GetWindowStyle((HWND)lParam))
-					{
-						//2021: communicate animation ID limit
-						wchar_t *e; int l =
-						wcstol(som_tool_text,&e,10);
-						if(*e||l>65535) 
-						SetDlgItemInt(hWnd,1005,65535,0);
-					}
-					else workshop_model_update();
+					
+					//NOTE: som_art_model opens arm.mdl
+					workshop_model_update();
 
 					if(hlp!=61000) //ItemEdit		
 					return 0;
@@ -3698,6 +3839,19 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				if(wParam==1016) id = 1013;
 				workshop_file_system(id);
 				return 0;
+			}
+			else //arm.mdl?
+			{				
+				if(SOM::tool==ItemEdit.exe //2023: File System?
+				//&&ES_NUMBER&GetWindowStyle(GetDlgItem(som_tool,1005)))
+				&&IsDlgButtonChecked(som_tool,1031))
+				{	
+					//2021: communicate animation ID limit
+					BOOL x = 0;
+					int n = GetDlgItemInt(som_tool,1005,&x,0);
+					if(!x||n>999) //10-bit //65536
+					wcscpy(som_tool_text,n>999?L"999":L"0");
+				}
 			}
 			break;
 
@@ -3771,6 +3925,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				//(its unclear if it's just retaining the drop view's state or
 				//if it doesn't work identically to the player)
 				//workshop_minmax();
+				if(!IsWindowVisible(som_tool)) //2023
 				SendMessage(hWnd,WM_LBUTTONDBLCLK,0,0);
 				workshop_minmax();
 
@@ -3793,20 +3948,25 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		case 1030: case 1031: case 1032: case 1033: 
 
 			if(hlp==61000) //ItemEdit
-			{	  
+			{	
 				if(lParam&&!Button_GetCheck((HWND)lParam)) //WINSANITY
 				break;
-				
+								
 				if(wParam>=1030&&wParam<=1033) //2021
 				{
 					//NOTE: wParam IS OVERRIDDEN BELOW
 
-					windowsex_enable(hWnd,1011,1013,wParam!=1031);
+				//	windowsex_enable(hWnd,1011,1013,wParam!=1031);
 					HWND mdo = GetDlgItem(hWnd,1005);
 					SetWindowStyle(mdo,ES_NUMBER|ES_CENTER,wParam==1031?~0:0);
 					InvalidateRect(mdo,0,1); //doesn't reflect ES_CENTER
 					for(int i=1;i<=4;i<<=1)
 					EnableMenuItem(workshop_menu,34000+i,wParam==1031?MF_GRAYED:0);
+					EnableMenuItem(workshop_menu,32773, //2023: Save Private Profile?
+					wParam==1031&&!som_tool_initializing||!*workshop_savename?MF_GRAYED:0);
+
+					//2023: update perspective?					
+					workshop_minmax();
 				}
 				else if(wParam<=1010) //!!
 				{
@@ -3864,14 +4024,17 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			PrtsEdit_Pen_Mode();
 			break;
 
-		case 36000: case 36001: case 36002:
-
+		/*case 36000: case 36001: case 36002:
 			PrtsEdit_SoftMSM(wParam);
+			break;*/
+		case 36000:	case 36001: //PrtsEdit (2023)
+		workshop_file_system(wParam&1?1006:1005,true);  
 			break;
 
 		case 32767: //Move
 
-			MessageBeep(-1); //UNIMPLEMENTED
+			if(SOM::tool==ItemEdit.exe)
+			workshop_moves_32767();
 			break;
 
 		case 32768: workshop_icard_32768(); 
@@ -3931,8 +4094,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 
 			if(SOM::tool==PrtsEdit.exe)
 			{
-				//if(wParam==32774
-				//&&!PrtsEdit_Open_or_Save_chkstk(1))
+				//if(wParam==32774&&!PrtsEdit_Open_or_Save_chkstk(1))
 				//break;
 				//wParam = 1009;
 				PrtsEdit_Open_or_Save_chkstk(1);
@@ -3948,7 +4110,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		break;
 
 	case WM_LBUTTONDBLCLK:
-	
+
 		workshop_redraw();
 		if(workshop_mode2==16) //1016?
 		if(hlp==61000) //ItemEdit
@@ -3985,8 +4147,14 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 	
 	case WM_LBUTTONDOWN:
 	
-		if(hlp==60000) //PrtsEdit
-		goto PrtsEdit_3x3; 
+		if(GetKeyState(VK_MENU)>>15) //Alt+Click
+		{
+			workshop_file_system(1005,true);
+			return 0;
+		}
+
+		if(hlp==60000) goto PrtsEdit_3x3; //PrtsEdit
+
 		//break;
 	
 	case WM_RBUTTONDOWN: //case WM_LBUTTONDOWN:
@@ -4206,16 +4374,13 @@ PrtsEdit_3x3:
 		}
 		break;		  
 
-	case WM_DESTROY: //workshop_exe support
+	case WM_NCDESTROY: //workshop_exe support
 
 		//workshop_exe is using WM_DESTROY to end its
 		//session. I don't know if doing so destroys the process
 		//but, DestroyWindow only works on the window's own thread
 		//(NOTE: WM_CLOSE is hiding, not closing with workshop_tool)
 		if(hWnd==som_tool) PostQuitMessage(0);
-		break;
-
-	case WM_NCDESTROY:
 
 		RemoveWindowSubclass(hWnd,workshop_subclassproc,scID);		
 		break;
@@ -4579,10 +4744,10 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 		//case 32773: wParam = 40072; goto forward;
 		case 32773: case 40072: assert(0); return 0; 
 		case 32774: wParam = 40073; goto forward;
-		case 32778: wParam = 40023; goto forward;
+		case 32778: wParam = 40023; goto forward;		
 		//Ene/NpcEdit
 		case 40074:	//name/skin
-		workshop_file_system(40074);
+		workshop_file_system(40074); break;
 		case 40075: //texture export utility	
 		//case 40072: //save
 		case 40073: //save-as
@@ -5064,7 +5229,8 @@ static int workshop_103_104_INITDIALOG_chkstk(HWND hw, LPARAM lp)
 	}	
 	//hack: preventing WS_TABSTOP from being added
 	//CheckDlgButton(hw,on_off,1);	
-	SendDlgItemMessage(hw,on_off,BM_CLICK,1,0);	
+	//SendDlgItemMessage(hw,on_off,BM_CLICK,1,0); //glitchy
+	workshop_click_radio(1007,1008,on_off); //2023
 	//MoveWindow
 	RECT rc; GetWindowRect(hw,&rc); 
 	int h = rc.bottom-rc.top, w = rc.right-rc.left;	
@@ -5250,6 +5416,7 @@ static INT_PTR CALLBACK workshop_32768(HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 	case WM_CLOSE: close:
 		
 		GetDlgItemTextW(hwndDlg,1008,som_tool_text+2,97);
+		workshop->xicard = som_tool_text+2; //2023
 		EX::need_ansi_equivalent(932,som_tool_text+2,workshop->icard,97);
 		if(SOM::tool==PrtsEdit.exe)
 		{
@@ -5262,7 +5429,7 @@ static INT_PTR CALLBACK workshop_32768(HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 			Edit_SetModify(ch,0);
 		}
 		*som_tool_text = '\0';
-		
+
 		DestroyWindow(hwndDlg);
 	}
 	return 0;
@@ -5309,7 +5476,8 @@ static void workshop_model_update()
 	{
 	case PrtsEdit.exe: break;
 
-	case ItemEdit.exe: case ObjEdit.exe:
+	case ItemEdit.exe: 	
+	case ObjEdit.exe:
 			
 		som_tool_initializing++;
 		SendMessage(som_tool,WM_COMMAND,1011,0);
@@ -5394,7 +5562,14 @@ static void workshop_file_update(int id)
 
 	if(id==40074)
 	{
-		workshop_skin(EX::need_ansi_equivalent(932,fn));
+		auto *skin = (char*)EX::need_ansi_equivalent(932,fn);		
+		workshop_skin(skin);
+		extern char *som_MDL_skin;
+		char a[MAX_PATH];
+		som_MDL_skin = a;
+		sprintf(a,SOMEX_(A)"\\data\\%s\\texture\\%ls",topdir,fn);
+		workshop_model_update();
+		som_MDL_skin = nullptr;
 		return;
 	}
 
@@ -5417,7 +5592,42 @@ static BOOL CALLBACK workshop_alt_click_cb(HWND w, LPARAM l)
     GetWindowThreadProcessId(w,(DWORD*)&l);
     if(l=l==*lp) *lp = (DWORD)w; return !l;
 }
-static void workshop_file_system(int id)
+extern bool workshop_edit_model(const wchar_t *path)
+{
+	SHELLEXECUTEINFO si={sizeof(si)};
+	si.lpFile = path; si.nShow = 1;
+	si.fMask = SEE_MASK_NOCLOSEPROCESS|SEE_MASK_NOASYNC|SEE_MASK_WAITFORINPUTIDLE;
+				
+	wchar_t app[MAX_PATH];
+	if(!EX::INI::Editor()->do_not_open_with_mm3d)
+	if(!wcsnicmp(L".MM3D",PathFindExtension(path),6))
+	{
+		swprintf(app,L"%s\\MM3D\\mm3d-portable.exe",Sompaste->get(L".NET"));
+
+		si.lpParameters = app; 
+	}	
+
+	if(!ShellExecuteEx(&si))
+	{
+		if(si.lpParameters)
+		{
+			si.lpParameters = nullptr;
+
+			if(!ShellExecuteEx(&si)) return false;
+		}
+		else return false;	
+	}
+	
+	LPARAM lp = GetProcessId(si.hProcess);
+	AllowSetForegroundWindow(lp);
+	if(!EnumWindows(workshop_alt_click_cb,(LPARAM)&lp))
+	{
+		SetForegroundWindow((HWND)lp);
+		SetActiveWindow((HWND)lp); //???
+	}
+	CloseHandle(si.hProcess); return true;
+}
+static void workshop_file_system(int id, bool alt)
 {
 	bool open_dlg = id>=0; //PrtsEdit_SoftMSM
 	if(!open_dlg) id = -id;
@@ -5434,18 +5644,34 @@ static void workshop_file_system(int id)
 
 	bool subdir2 = false; subdir2: //2022: map/msm or map/mhm?
 
+	int sfx_arm = 'sfx';
+	if(SOM::tool==ItemEdit.exe //2023: File System?
+	//&&ES_NUMBER&GetWindowStyle(GetDlgItem(som_tool,1005)))
+	&&IsDlgButtonChecked(som_tool,1031)) //workshop_minmax 
+	{
+		//name needs to be an integer too!
+	//	BOOL x = 0;
+		BOOL x = 1;
+	//	GetDlgItemInt(som_tool,1005,&x,0);
+		if(x) sfx_arm = 'arm';
+		if(x) wcscpy(som_tool_text,L"arm.mdl");
+	}
+	
 	if(id==40074)
 	{
 		char *skin = SOM::tool==NpcEdit.exe?
 		NpcEdit_41761C->skinTXR:EneEdit_4173DC->skinTXR;		
 		EX::need_unicode_equivalent(932,skin[-1]?skin:"",som_tool_text,31);
+	}	
+	else if(sfx_arm!='arm')
+	{
+		GetDlgItemText(som_tool,id,som_tool_text,31);
 	}
-	else GetDlgItemText(som_tool,id,som_tool_text,31);
 	som_tool_text[30] = '\0';
 	char a[MAX_PATH+1];
 	const char *slash = "\\"+(*som_tool_text?0:1);
-	miss:
-	sprintf(a,"%s\\%s%s%ls",workshop_directory('sfx'),subdir,slash,som_tool_text);
+	miss:	
+	sprintf(a,"%s\\%s%s%ls",workshop_directory(sfx_arm),subdir,slash,som_tool_text);
 	if(!EX::data(a,som_tool_text+(*slash?0:1)))
 	{
 		if(*slash)
@@ -5495,28 +5721,9 @@ static void workshop_file_system(int id)
 
 	if(!open_dlg) return; //return som_tool_text?
 
-	if(GetKeyState(VK_MENU)>>15) //2022: open 3D models?
+	if(alt||GetKeyState(VK_MENU)>>15) //2022: open 3D models?
 	{
-		SHELLEXECUTEINFO si={sizeof(si)};
-		si.lpFile = som_tool_text; si.nShow = 1;
-		si.fMask = SEE_MASK_NOCLOSEPROCESS|SEE_MASK_NOASYNC|SEE_MASK_WAITFORINPUTIDLE;
-
-		#ifdef NDEBUG
-//		#error need DROP solution?
-		#endif
-		//https://stackoverflow.com/questions/17166178/shell-execute-bring-window-to-front
-		//if(32>(int)ShellExecute(0,0,som_tool_text,0,0,1))
-		if(!ShellExecuteEx(&si)) MessageBeep(-1); else
-		{
-			LPARAM lp = GetProcessId(si.hProcess);
-			AllowSetForegroundWindow(lp);
-			if(!EnumWindows(workshop_alt_click_cb,(LPARAM)&lp))
-			{
-				SetForegroundWindow((HWND)lp);
-				SetActiveWindow((HWND)lp); //???
-			}
-			CloseHandle(si.hProcess);
-		}		
+		workshop_edit_model(som_tool_text);
 		return;
 	}
 
@@ -5553,6 +5760,8 @@ static void workshop_file_system(int id)
 	else if(id==40074)
 	{
 		workshop_skin(0); *som_tool_text = '\0';
+
+		workshop_model_update(); //2023
 	}
 }
 
@@ -5812,39 +6021,46 @@ static void workshop_WriteFile_item()
 				switch(id)
 				{
 				case 1040: //sound
-				(movement?item.SND:item2.SND[j]) = n;
-				break;
+					(movement?item.SND:item2.SND[j]) = n;
+					break;
 				case 1041: //pitch
-				if(n<-24||n>20) //paranoia //Ctrl+S?
-				{
-					n = 0; assert(0);
-				}				
-				if(!n&&!movement)
-				{
-					//HACK: this is how to detect the
-					//presence of movesets
-					//2021: I've been using 127 to mean default
-					//-128 is just any out-of-bounds value which
-					//will be treated as an error?
-					n = -128; //127
-				}
-				(movement?item.SND_pitch:item2.SND_pitch[j]) = n;
-				break;				
+					if(n<-24||n>20) //paranoia //Ctrl+S?
+					{
+						n = 0; assert(0);
+					}				
+					if(!n&&!movement)
+					{
+						//HACK: this is how to detect the
+						//presence of movesets
+						//2021: I've been using 127 to mean default
+						//-128 is just any out-of-bounds value which
+						//will be treated as an error?
+						n = -128; //127
+					}
+					(movement?item.SND_pitch:item2.SND_pitch[j]) = n;
+					break;				
 				case 1042: //move
 
-					if(move) if(j) //2021
-					{	
-						item.movement2&=~(0x3ff<<10*(i-1));
-						item.movement2|=(n&0x3ff)<<10*(i-1);
-						continue;
-					}
-					else
+					if(move) 
 					{
-						if(my3d==-1) itoa(n,item.model,10);
+						if(j) //2021
+						{	
+							item.movement2&=~(0x3ff<<10*(i-1));
+							item.movement2|=(n&0x3ff)<<10*(i-1);
+							continue;
+						}
+						else
+						{
+							if(my3d==-1) itoa(n,item.model,10);
 		
-						item.movement2&=~(3<<30);
-						item.movement2|=n>>8<<30;
-						n&=0xFF;
+							item.movement2&=~(3<<30);
+							item.movement2|=n>>8<<30;
+							n&=0xFF;
+						}
+					}
+					else if(!item2.SND_pitch[j]) //2023
+					{
+						item2.SND_pitch[j] = 127;						
 					}
 					item2.move[j] = n; break;
 				}	
@@ -6134,7 +6350,9 @@ extern BOOL APIENTRY workshop_GetSaveFileNameA(LPOPENFILENAMEA a)
 
 	EXLOG_LEVEL(7) << "workshop_GetSaveFileNameA()\n";
 	
-	wcscpy(som_tool_text,workshop_savename);		
+	if(IsDlgButtonChecked(som_tool,1031)) //my/arm?	
+	wcscpy(som_tool_text,SOMEX_L(B)L"\\data\\my\\arm");
+	else wcscpy(som_tool_text,workshop_savename);
 	bool skin = (void*)0x416068==a->lpstrFilter;
 	if(skin) //40075
 	wcscpy(PathFindExtension(som_tool_text)+1,L"bmp");
@@ -6184,23 +6402,19 @@ extern bool workshop_exe(int hlp)
 {
 	//MessageBeep(-1);
 
+	/*REFERENCE (workshop_edit_model)
 	//HACK: open built-in SOM_PRM viewer 
 	//2021: debug only until som_art.cpp
 	//works for this path
 	if(EX::debug&&GetKeyState(VK_MENU)>>15)
 	{
-		#ifdef NDEBUG
-		//signal workshop_file_system and hide?
-//		#error can this open the 3D model file?
-		#endif
-
 		//window is white/without picture for 
 		//some reason when Alt is held down. F10
 		//is like an Alt key, so should be harmless
 		keybd_event(VK_F10,0,0,0);
 		keybd_event(VK_F10,0,KEYEVENTF_KEYUP,0);
 		return false;
-	}
+	}*/
 
 	//HACK: repurposing so not to keep
 	//trying to dig into the language package
@@ -6215,7 +6429,7 @@ extern bool workshop_exe(int hlp)
 		//thread... so this may just be a hint to have
 		//workshop_subclassproc quit itself
 		//DestroyWindow(som_tool_workshop);
-		PostMessage(som_tool_workshop,WM_DESTROY,0,0);
+		PostMessage(som_tool_workshop,WM_NCDESTROY,0,0);
 		som_tool_workshop = 0;
 		return true;
 	}		
@@ -6245,6 +6459,32 @@ extern bool workshop_exe(int hlp)
 	som_tool_profile(_=ws,minor,major);
 
 	new_profile:
+
+	if(GetKeyState(VK_MENU)>>15) 
+	{			
+		int e = 0; if(FILE*f=_wfopen(ws,L"rb"))
+		{		
+			char a[62]; if(fread(a,62,1,f)) //my/prof?
+			{
+				const char *dir = workshop_directory(0,hlp);
+				
+				char b[31]; memcpy(b,a+(hlp==40000?0:31),31);
+				b[30] = '\0';
+				a[61] = '\0';
+				sprintf(a,"data\\%s\\model\\%s",dir,b);
+
+				extern int som_art_model(const char*, wchar_t[MAX_PATH]);
+				strcpy(PathFindExtensionA(a),".*");
+				e = som_art_model(a,som_tool_text);
+			}						
+			fclose(f); 
+		}
+		if(e) workshop_edit_model(som_tool_text);
+		if(e) return true;
+	}
+	
+	HWND gf = IsWindowVisible(som_tool_workshop)?GetFocus():0;
+
 	if(IsWindow(som_tool_workshop))
 	{					
 		struct hdrop : DROPFILES
@@ -6258,6 +6498,7 @@ extern bool workshop_exe(int hlp)
 		hd->pFiles = sizeof(DROPFILES);
 		GlobalUnlock(h);
 		PostMessage(som_tool_workshop,WM_DROPFILES,(WPARAM)hd,0);
+		//GlobalFree(h);
 
 		//BLACK MAGIC
 		//this is a lot of trial and error to eliminate flicker...
@@ -6289,12 +6530,15 @@ extern bool workshop_exe(int hlp)
 		{
 			EX::vblank(); //better?
 
-			EnableWindow(som_tool_workshop,1);		
+			EnableWindow(som_tool_workshop,1);	
 			//cannot seem do this attractively, as when 
 			//opened for the first time :(
 			ShowWindow/*Async*/(som_tool_workshop,SW_SHOW);		
 		}
-		
+
+		//2023: work with WM_APP+'ws' to make modeless
+		EnableWindow(som_tool,1);
+
 		return true;
 	}
 
@@ -6323,7 +6567,7 @@ extern bool workshop_exe(int hlp)
 
 		workshop_cursor = 1; return false;
 	}
-	
+
 	goto maybe_disable;	
 }
 
@@ -6539,6 +6783,14 @@ extern void workshop_reprogram()
 		//overwrite "\data\enemy\model" path
 		memcpy((char*)0x416108+6,"sfx\\model",10);
 	}
+
+	if(SOM::tool==ObjEdit.exe) //workshop_click_radio_timer
+	{
+		//00409CA2 E8 03 7C 01 00       call        004218AA 
+		//00409C93 E8 12 7C 01 00       call        004218AA
+		*(DWORD*)0x409CA3 = (DWORD)workshop_click_radio_timer-0x409CA7;
+		*(DWORD*)0x409C94 = (DWORD)workshop_click_radio_timer-0x409C98;
+	}
 }
 
 //HACK: theses are defined in workshop.cpp only because the data 
@@ -6645,7 +6897,7 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 	bool arm60 = other||60==SOM::arm[0];	
 
 	//REMOVE ME
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	//UNFINISHED: this needs to be able to change on the fly
 	extern float som_MDL_arm_fps; //0.06f	
 	int armX = 1+(int) 

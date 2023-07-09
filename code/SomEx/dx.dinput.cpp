@@ -1,6 +1,6 @@
 
 #include "directx.h" 
-DX_TRANSLATION_UNIT
+DX_TRANSLATION_UNIT //(C)
 
 #define DIRECTINPUT_VERSION 0x0700
 
@@ -40,7 +40,7 @@ static char *DINPUT::error(HRESULT err)
 #undef CASE_
 }
 
-#define DX_INPUT_FORMAT(c)\
+#define DX_INPUT_FORMAT(c) \
 extern const DX::DIDATAFORMAT &DX::c = *(DX::DIDATAFORMAT*)&::c;
 
 DX_INPUT_FORMAT(c_dfDIMouse)
