@@ -1,6 +1,6 @@
 
 #include "directx.h" 
-DX_TRANSLATION_UNIT
+DX_TRANSLATION_UNIT //(C)
 
 	//PREAMBLE: this file implements conversion from
 	//D3D7 to OpenGL ES 3 (via ANGLE) with semantics
@@ -1637,6 +1637,9 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 				//DDRAW::do2ndSceneBuffer?
 				if(d->query9->effects[1])
 				{
+					//REMINDER: som_status_ddraw_is_pausing() is
+					//entered differently for OpenGL so that the
+					//fx2ndSceneBuffer=0 comes too late
 					IDirect3DTexture9 *p2 =
 					d->query9->effects[DDRAW::fx2ndSceneBuffer];
 					if(X)
@@ -3899,6 +3902,9 @@ extern void DDRAW::fx9_effects_buffers_require_reevaluation()
 	{
 		ww = DDRAW::PrimarySurface7->queryX->width;
 		hh = DDRAW::PrimarySurface7->queryX->height;
+
+		if(ww%2) ww++; if(hh%2) hh++; //2023: ItemEdit.exe?
+
 		DDRAW::doSuperSamplingMul(ww,hh);
 	}
 	assert(ww%2==0&&hh%2==0); //mipmaps?

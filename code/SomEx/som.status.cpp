@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <Winsock2.h> //PSVR
 #pragma comment(lib,"Ws2_32.lib")
@@ -192,6 +192,11 @@ static bool som_status_ddraw_is_pausing()
 	//hack? maybe could do in dx.ddraw.cpp	
 	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_STENCILENABLE,0);
 	DDRAW::Direct3DDevice7->GetRenderState(DX::D3DRENDERSTATE_STENCILENABLE,&som_status_interlace);*/
+	//
+	//	FIX ME: som_status_ddraw_is_pausing() is
+	//	entered differently for OpenGL so that the
+	//	fx2ndSceneBuffer=0 comes too late
+	//
 	DDRAW::fx2ndSceneBuffer = 0;
 
 	//TODO: 43fd00/43fe70 has code for displaying

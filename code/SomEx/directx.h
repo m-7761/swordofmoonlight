@@ -1,4 +1,7 @@
 
+#define __COPYRIGHT__ \
+"Copyright (C) 2009-2023 Swordofmoonlight.net. All rights reserved."
+
 #ifndef DIRECTX_INCLUDED
 #define DIRECTX_INCLUDED
 
@@ -55,11 +58,11 @@ static EX::Prefix dx;
 #define DX_WIDEN2(x) L ## x
 #define DX_WIDEN(x) DX_WIDEN2(x)
 #define __WFILE__ DX_WIDEN(__FILE__)
-#define DX_LOG(NS,_)\
+#define DX_LOG(NS,_) \
 EX::including_log(__WOBJECT__,L#NS,\
 &debug,&error,&panic,&alert,&hello,&sorry)
-//define this after the precompiled header inclusion (in every file)
-#define DX_TRANSLATION_UNIT static const wchar_t *__WOBJECT__ = __WFILE__;
+#define DX_TRANSLATION_UNIT \
+static const wchar_t *__WOBJECT__ = (__COPYRIGHT__,__WFILE__);
 
 #define DX_ARRAYSIZEOF(array) (sizeof(array)/sizeof(array[0])) //2021
 

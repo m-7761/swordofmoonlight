@@ -124,13 +124,16 @@ namespace DSOUND
 	extern unsigned noLoops; //times paused with looping
 
 	//pause outstanding sound buffers
-	extern void Stop(bool looping=true);
-	extern void Play(bool looping=true); 
+	extern void Stop(bool looping_bgm=true);
+	extern void Play(bool looping_bgm=true); 
 
 	//adjust volume of paused buffers
 	extern void Sync(LONG mBs, LONG mBs3D);
 
 	extern void playing_delays();
+	class IDirectSoundBuffer;
+	extern void play_delay(IDirectSoundBuffer*, bool loop); 
+	extern void fade_delay(IDirectSoundBuffer*, int volome, int pitch); 
 
 	//there can be only one knockout timeout
 	//so 0 effectively cancels the knockout request
@@ -371,7 +374,7 @@ DSOUND_INTERFACE(IDirectSoundBuffer) //public
 	bool isLocked;
 	
 	DWORD isPaused; //bool
-	DWORD isLooping; //if(isPaused)
+	DWORD isLooping; //if(isPaused) //OBSOLETE
 
 	int pauserefs;
 
@@ -479,7 +482,7 @@ public:
 
 	char *pausefwds; //pauserefs per forward 
 
-	void playfwd7(IDirectSoundBuffer*dup,DWORD,DWORD,DWORD);
+	void playfwd7(IDirectSoundBuffer*dup,bool loop);
 	void stopfwd7(IDirectSoundBuffer*dup);
 
 	void movefwd7(float delta[3]); //2022

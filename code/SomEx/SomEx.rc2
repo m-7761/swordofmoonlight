@@ -36,7 +36,7 @@ BEGIN
             VALUE "FileDescription", "Sword of Moonlight Extended Warranty"
             VALUE "FileVersion", SOMEX_VSTRING
             VALUE "InternalName", "SomEx.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2011-2022"
+            VALUE "LegalCopyright", "Copyright (C) 2011-2023"
             VALUE "OriginalFilename", "SomEx.dll"
             VALUE "ProductName", "SomEx"
             VALUE "ProductVersion", SOMEX_VSTRING

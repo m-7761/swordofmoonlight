@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <algorithm>
 
@@ -27,10 +27,10 @@ extern SOMPASTE Sompaste;
 
 namespace DSOUND
 {
-	//REMOVE ME?
 	extern void playing_delays(); 
 	extern bool doForward3D;
 	extern void Sync(LONG,LONG);
+	class IDirectSoundBuffer;
 }	   
 namespace EX 
 {		
@@ -540,7 +540,7 @@ SOM::Game::Game()
 
 		#ifdef NDEBUG
 		//#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif
 
 			if(1||!EX::debug) //2021
@@ -3151,7 +3151,7 @@ static MMRESULT WINAPI som_game_mmioClose(HMMIO A, UINT B)
 }
 
 static DWORD __cdecl som_game_43fa30(DWORD _1, INT32 _2, const DWORD snd) //stack
-{
+{	
 	EX::INI::Sample se;
 	if(&se->sample_pitch_adjustment)
 	{
@@ -3179,6 +3179,24 @@ static DWORD __cdecl som_game_43fa30(DWORD _1, INT32 _2, const DWORD snd) //stac
 		if(_2>127) return (UINT32)_2;
 	}
 	return ((DWORD(__cdecl*)(DWORD,INT32))0x43fa30)(_1,_2); //snd is on the stack
+}
+extern void som_game_volume_level(int snd, int &_2)
+{	
+	EX::INI::Sample se;
+
+	if(&se->sample_volume_adjustment)
+	{
+		_2 = min(0,max(-10000,_2));
+
+		//TODO? can this be logarithmic?
+		_2 = se->sample_volume_adjustment(snd,_2/100.0f)*100;
+		_2 = min(0,_2);
+	}
+	_2+=SOM::millibels[1]; _2 = min(0,max(-10000,_2));
+}
+extern void som_game_pitch_to_frequency(int snd, int &_3)
+{	
+	SOM::Struct<9> *sb = SOM::L.snd_bank; _3 = som_game_43fa30(*(WORD*)&sb[snd].i[3],_3,snd);
 }
 static void __cdecl som_game_44c100(DWORD _1, INT32 _2, DWORD _3, DWORD _4, FLOAT _5, FLOAT _6, FLOAT _7)
 {
@@ -3208,15 +3226,7 @@ static void __cdecl som_game_44c100(DWORD _1, INT32 _2, DWORD _3, DWORD _4, FLOA
 		else _2 = 0;
 	}
 
-	EX::INI::Sample se;
-	if(&se->sample_volume_adjustment)
-	{
-		//TODO? can this be logarithmic?
-		_2 = se->sample_volume_adjustment(_1,_2/100.0f)*100;
-		_2 = min(0,_2);
-	}
-	_2+=SOM::millibels[1];
-	_2-=mute;
+	som_game_volume_level(_1,_2); _2-=mute;
 
 	if(_2>-10000)
 	((void(__cdecl*)(DWORD,INT32,DWORD,DWORD,FLOAT,FLOAT,FLOAT))0x44c100)(_1,_2,_3,_4,_5,_6,_7);
@@ -3233,7 +3243,11 @@ static void __cdecl som_game_44b6f0(DWORD _1, INT32 _2, DWORD _3, DWORD _4)
 			if(-10000==SOM::se_volume) return;
 		}
 		else _2 = 0;
-	}	
+	}
+	//2023
+	{
+		if(SOM::se_looping) _4 = 1;
+	}
 	
 	//EXTENSION?
 	//menu sound effects are very grating
@@ -5865,7 +5879,7 @@ extern bool __cdecl som_game_42cf40()
 			if(it.nonempty&&!SOM::L.items_MDO_table[it.mdo][0])
 			{
 				//ISSUE WARNING
-				int todolist[SOMEX_VNUMBER<=0x1020408UL];
+				int todolist[SOMEX_VNUMBER<=0x102040cUL];
 
 				if(it.item<256) //try to repair?
 				{
@@ -7138,7 +7152,7 @@ extern void som_game_reprogram()
 		//close anyway, it just wastes time)
 		#ifdef NDEBUG
 //		#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif
 
 		//this routine tears down d3d/ddraw and zeroes a

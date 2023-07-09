@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 //TODO: See if it's not possible to use disasm.cpp from Detours 
 //as a lightweight alternative to BeaEngine minus f11 disassembly.

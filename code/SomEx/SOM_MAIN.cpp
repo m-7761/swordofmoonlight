@@ -1,6 +1,6 @@
 	
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <set>
 #include <map>
@@ -6266,7 +6266,7 @@ static INT_PTR CALLBACK SOM_MAIN_153(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 		case 12321: case 1211: case 1212: 
 		{
 			//TODO: use SOM_MAIN_copy (notes in record)
-			int todolist[SOMEX_VNUMBER<=0x1020408UL];
+			int todolist[SOMEX_VNUMBER<=0x102040cUL];
 
 			//REMOVE ME??
 			sel = SOM_MAIN_tree[param][tv];
@@ -7019,7 +7019,7 @@ static INT_PTR CALLBACK SOM_MAIN_154(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			ListView_SortItems(lv,SOM_MAIN_sortbyText,aspect[0]);
 			else //this solution is for one release only
 			{
-			int todolist[SOMEX_VNUMBER<=0x1020408UL];			
+			int todolist[SOMEX_VNUMBER<=0x102040cUL];			
 			EXML::Attribs lp = EXML::attribs(aspect.c_str()); 
 			switch(lp)
 			{
@@ -10150,7 +10150,7 @@ inline int SOM_MAIN_skipspace(const char* &u, int &s)
 static bool SOM_MAIN_po(const char *p, const char *eof, int msgfmt)
 {		
 	//todo: SOM_MAIN_skipspace
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 
 	const char bom[4] = "\xef\xbb\xbf";
 	if(eof-p>=3&&!strncmp(p,bom,3)) p+=3;

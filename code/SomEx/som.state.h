@@ -1571,6 +1571,17 @@ namespace SOM
 		//the first so many of these are general use (working) buffers
 		//I think it's 1+4, meaning BGM+4 SFX buffers (sound is originally
 		//limited to 4 mixed sounds)
+		//
+		// unknown0
+		// unknown1
+		// unknown2
+		// unknown3
+		// unknown4
+		// unknown5
+		// unknown6
+		// IDirectSoundBuffer* (duplicates)
+		// IDirectSound3DBuffer*
+		//
 		State<0X1D69D84,SOM::Struct<9>*> snd_bank;
 
 		State<0X1D69D88,void*> dsound_listener;
@@ -1578,6 +1589,7 @@ namespace SOM
 		//44bea0 relates this to DirectSound something (buffers?) at 1d685f8
 		//there's currently 5 (seems to map to snd_bank/1d69d84?)
 		//the first so many of snd_bank must be general purpose buffers
+		//(44AF8d is 5 in program memory)
 		State<0X1D69D8C,DWORD> snd_dups_limit;
 
 		//NOTE: 44cf30 clears a structure at 1D69Da8 and another at 1d6a248
@@ -2059,7 +2071,7 @@ namespace SOM
 	extern bool surmountedcrawlspace(float futurepos[3]); //UNUSED
 
 	//REMOVE ME?
-	extern int se_volume;
+	extern int se_volume,se_looping;
 	
 	//2022: these are now implemented in som.MPX.cpp
 	extern void se(int snd, int pitch=0, int vol=0);

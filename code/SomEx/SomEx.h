@@ -3,11 +3,11 @@
 //number is never 0 but I can't recall
 //why! odd is for demos, so 2 is lowest?
 #ifndef SOMEX_VERSION
-#define SOMEX_VERSION 1,2,4,8
-#define SOMEX_VNUMBER 0x1020408UL
-#define SOMEX_VSTRING "1, 2, 4, 8"
-#define SOMEX_WSTRING L"1, 2, 4, 8"
-extern int SOMEX_vnumber; //0x1020408UL
+#define SOMEX_VERSION 1,2,4,12
+#define SOMEX_VNUMBER 0x102040cUL
+#define SOMEX_VSTRING "1, 2, 4, 12"
+#define SOMEX_WSTRING L"1, 2, 4, 12"
+extern int SOMEX_vnumber; //0x102040cUL
 #endif
 
 #ifndef SOMEX_INCLUDED

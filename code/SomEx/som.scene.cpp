@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <vector>
 #include <algorithm>
@@ -396,7 +396,7 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 		assert(se->ai!=150||se->npc<2);
 	}*/
 	
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
@@ -2964,7 +2964,7 @@ static float som_scene_depth2(float a[3], float b[3])
 static void __cdecl som_scene_44d5a0(som_scenery *ts) //depth-sort
 {
 	//TODO! MAKE lightselector MORE ACCURATE
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 
 	EX::INI::Option op;
 
@@ -3117,7 +3117,7 @@ extern int som_scene_volume_select(DWORD txr, int vg=-1)
 	if(1&&som_scene_batchelements) return -1;
 	#else
 	//batch?
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	#endif
 
 	if(SOM::volume_textures&&txr!=65535)	
@@ -3637,7 +3637,7 @@ extern DWORD som_MDL_449d20_swing_mask(bool);
 static bool som_scene_swing_mirror(bool mirror, som_scenery &tes)
 {
 	auto ses = *tes.ses;
-	int n = n = tes.se_commit;
+	int n = tes.se_commit;
 	for(int i=0,j=0;i<n;i=j)
 	{
 		auto mirror2 = ses[i]->npc;
@@ -3661,6 +3661,8 @@ static bool som_scene_swing_mirror(bool mirror, som_scenery &tes)
 }
 extern void som_scene_swing(bool clear, float alpha)
 {  	
+	auto test = SOM::frame;
+
 	auto &mdl = *SOM::L.arm_MDL;
 
 	auto tes = som_scene_transparentelements3;
@@ -3678,7 +3680,9 @@ extern void som_scene_swing(bool clear, float alpha)
 		}
 		//sometimes som_scene_transparentelements3 isn't empty 
 		//after changing maps
-		assert(tes->empty()); tes->clear();
+	//	assert(tes->empty()); 
+		
+		tes->clear();
 	}
 	else if(alpha||tes&&!tes->empty()) 
 	{
@@ -4215,16 +4219,8 @@ static void __cdecl som_scene_425d50()
 		//int images[3] = {weapon?mdl.d:mdl.ext.d2}; //hack?
 		int images[3] = {mdl.d};
 		int images2[3] = {mdl.ext.d2};
-		//0.9f posed big problems for shield with KF2's Iron Gloves and
-		//what I determined was it does more harm than good, and I can't
-		//really see a difference without it for SOM's built-in weapons
-		//the first image is the same as the previous frame's third one
-		//they only serve to reinforce the double exposure image, but it
-		//seems to be a problem to be able to see the future image when
-		//it's in front of the present image, and when the shield stops
-		//and so can't show after images it feel like a real bad glitch
-		float alpha[3] = {1,1,0.9f}; //0.9f
-		//float alpha[3] = {1,1,0.0f};
+		//float alpha[3] = {0.5f,1,0.9f};	
+	float alpha[3] = {0,1,0}; //2023: DISABLING FOR NOW :(	
 		if(DDRAW::fx2ndSceneBuffer //double exposure		
 		&&!DDRAW::isPaused)		
 		{
@@ -4235,8 +4231,8 @@ static void __cdecl som_scene_425d50()
 					//redraw earlier frame without advancing the animation?
 					if(dir) images[0] = mdl.d-dir;
 					if(dir2) images2[0] = mdl.ext.d2-dir2;
-					//alpha[0] = 0.5f; //25% (lower is invisible unblended)
-					alpha[0] = alpha[2]?0.6f:0.5f;
+				//	alpha[0] = 0.5f; //25% (lower is invisible unblended)
+				//	assert(alpha[0]==0.5f);
 					for(int i=0;i<fps;i++)
 					{
 						if(dir) images[i+1] = images[i]+dir;
@@ -4246,6 +4242,7 @@ static void __cdecl som_scene_425d50()
 				else alpha[0] = 0; //NEW: just hide it?
 			}
 		}
+		else alpha[0] = 1;
 
 		bool once = false; //REMOVE ME
 
@@ -4257,6 +4254,12 @@ static void __cdecl som_scene_425d50()
 			//backbuffer was cleared
 			alpha[images[1]||images2[1]?1:0] = 0;
 		}
+		else
+		{
+			dir = dir; //breakpoint
+		}
+		assert(!alpha[1]||!images[1]);
+
 		for(int i=0;i<3;i++) if(images[i]||images2[i])
 		{
 			if(weapon&&images[i])
@@ -4817,7 +4820,7 @@ extern void som_scene_reprogram()
 		//UNFINSHED
 		#ifdef NDEBUG
 		//#error do_red? som_scene_volume_select?
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif
 	}
 	//TEARDOWN

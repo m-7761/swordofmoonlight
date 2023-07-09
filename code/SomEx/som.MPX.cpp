@@ -1,6 +1,6 @@
 	
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <vector>
 #include <bitset>
@@ -675,14 +675,24 @@ extern void SOM::se(int snd, int pitch, int vol)
 		//((void(__cdecl*)(DWORD))0x423480)(snd);
 		((void(__cdecl*)(DWORD,INT32))0x43f540)(snd,pitch);		
 	}
+	else if(EX::debug) //debugging
+	{
+		som_MPX_43f420(snd,1); //breakpoint
+	}
 }
 extern void SOM::se3D(float pos[3], int snd, int pitch, int vol)
 {
 	se_volume = vol; assert(pitch>=-24&&pitch<=24&&vol<=0);
 
 	if(som_MPX_43f420(snd,1))
-	((void(__cdecl*)(DWORD,INT32,float,float,float))0x43F5B0)
-	(snd,pitch,pos[0],pos[1],pos[2]);
+	{
+		((void(__cdecl*)(DWORD,INT32,float,float,float))0x43F5B0)
+		(snd,pitch,pos[0],pos[1],pos[2]);
+	}
+	else if(EX::debug) //debugging
+	{
+		som_MPX_43f420(snd,1); //breakpoint
+	}
 }
 
 static HBITMAP som_MPX_bitmap(EX::INI::bitmap &b, HBITMAP hbm)
@@ -912,7 +922,7 @@ SOM::MT *SOM::MT::lookup(const char *v)
 								//to the same textures by treating single count
 								//files as redirects. the file name redirects to
 								//the name in the file
-								int todolist[SOMEX_VNUMBER<=0x1020408UL];
+								int todolist[SOMEX_VNUMBER<=0x102040cUL];
 								#endif 
 
 								/*this code would detect a redirect... for now
@@ -1837,7 +1847,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 				//2022: it seems MapComp may not restrict chunks to
 				//the size of som_db.exe's buffer
 				#ifdef NDEBUG
-				int todolist[SOMEX_VNUMBER<=0x1020408UL];
+				int todolist[SOMEX_VNUMBER<=0x102040cUL];
 				#endif
 				//Moratheia's first map exceeds both
 				//assert(q->triangle_indicesN<=2688);
@@ -1913,7 +1923,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 		//not really som_db's style?
 		#ifdef NDEBUG
 		//#error log. MessageBox? 
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif 
 
 		assert(0); return false; //2022
@@ -2059,7 +2069,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 					//without KFII's unusual gamut
 					#ifdef NDEBUG					
 					//#error I almost forgot about this??? (2022)
-					int todolist[SOMEX_VNUMBER<=0x1020408UL];
+					int todolist[SOMEX_VNUMBER<=0x102040cUL];
 					#endif
 					for(int i=3;i-->0;) if(1) //KF2: less contrast?
 					{
@@ -2160,7 +2170,7 @@ static void som_MPX_prepare_for_42dd40_in_critical_section()
 	//risk degrading the frame rate (computing
 	//2 CPU frames in one) so instead textures
 	//in play need to be computed by hand here
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	//HACK: this prevents drawing to speed up load times
 	//I don't know if the overhead is worth it thereafter
 	//som_scene_update_texture is used to update textures
@@ -2329,15 +2339,15 @@ _(0)		memset(SOM::L.SFX_images,0x00,144*512); //sfx_images
 			sfx_models = 0;
 		}
 
-	som_MPX_new = mem&&!mem->empty()?mem:0;
-	{
-		//unload models (and instances)
-_(3)   	((void(__cdecl*)())0x428e60)(); //npcs
-	   	((void(__cdecl*)())0x406530)(); //enemies
-_(4)   	((void(__cdecl*)())0x42aac0)(); //objects
-_(5)   	((void(__cdecl*)())0x410230)(); //items
-	}	
-	som_MPX_new = 0; if(mem) mem->clear();
+		som_MPX_new = mem&&!mem->empty()?mem:0;
+		{
+			//unload models (and instances)
+	_(3)   	((void(__cdecl*)())0x428e60)(); //npcs
+	   		((void(__cdecl*)())0x406530)(); //enemies
+	_(4)   	((void(__cdecl*)())0x42aac0)(); //objects
+	_(5)   	((void(__cdecl*)())0x410230)(); //items
+		}	
+		som_MPX_new = 0; if(mem) mem->clear();
 
 		/*I forgot som_MPX_413190_ltd does this 
 		{
@@ -2700,7 +2710,7 @@ _(22)
 		//#error what are the exact criteria?		
 		//TODO: SOM::warp should cancel sounds
 		//if taking the 0== path below
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif
 		if(0==(dst.settingmask&16))
 		{
@@ -2876,7 +2886,7 @@ extern void som_MPX_once_per_frame() //som.game.cpp
 			auto &cmp = (*som_MPX_swap::maps)[i];
 
 			//maybe use the play clock for this?
-			int todolist[SOMEX_VNUMBER<=0x1020408UL];
+			int todolist[SOMEX_VNUMBER<=0x102040cUL];
 			if(cmp.wip)
 			if(now-cmp.last_tick>1000*60*3) //3 minutes?
 			{
@@ -3093,7 +3103,7 @@ void som_MPX_swap::mpx::load_sky(int m)
 		//it's loaded... the Standby Map event can
 		//be of use here
 		#ifdef NDEBUG
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif
 	//	for(int i=1;i<=4;i++)
 	//	som_MPX_load_sky(i);
@@ -3900,7 +3910,7 @@ extern void som_MPX_reprogram()
 		//som_MPX_swap is implemented
 		#ifdef NDEBUG
 		//#error consider removing this stuff around MHM reads
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif
 		//REMOVE ME? (401500)
 		//00412E63 E8 98 E6 FE FF       call        00401500
@@ -3990,7 +4000,7 @@ extern void som_MPX_reprogram()
 		//animation frames may not be unloaded and may also
 		//increase the ref counts for each instance so that
 		//in theory they could reach 65535		
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		#endif
 		
 		//load SND (bug fix)

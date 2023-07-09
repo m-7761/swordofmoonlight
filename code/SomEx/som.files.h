@@ -95,7 +95,7 @@ namespace SOM
 					//swapped in this data structure
 					//to simplify the alignment
 					WORD mid,mvs[4];
-					BYTE _reserved[31-10];
+					BYTE _reserved[21];
 					char description[31];
 
 					BYTE equip,my;
@@ -106,6 +106,12 @@ namespace SOM
 					CHAR _nz,_rem2[3];
 
 				}records[records_s];
+
+				struct file //2023
+				{
+					wchar_t name[31],data;
+
+				}files[records_s];
 
 				//NOTE: for tools this reads my/arm
 				//for games it reads PARAM/ITEM.ARM

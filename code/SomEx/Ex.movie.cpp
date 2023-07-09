@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include "dx.dinput.h" //todo: graceful movie cancel
 #include "Ex.window.h"

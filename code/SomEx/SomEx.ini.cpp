@@ -1,6 +1,6 @@
 
 #include "Ex.h"
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include <vector>
 #include <algorithm>
@@ -73,7 +73,7 @@ static void Ex_ini_foreach(Ex_ini_e e, T t, mF mf)
 		//2021: [Number] is passing these to Ex.number.cpp
 		//for some reason all spaces are stripped out...
 		//probably should fix lib/swordofmoonlight.h/cpp
-		int todolist[SOMEX_VNUMBER<=0x1020408UL];
+		int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		if(*p=='#') continue; 
 
 		//NEW: '.' reinitializes p+1
@@ -1832,8 +1832,9 @@ void EX::INI::Editor::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 	case MAP_ENEMIES_LIMIT: EX_INI_MENTION_(int,q,nc->map_enemies_limit); break;
 
+	case DO_NOT_OPEN_WITH_MM3D: nc->do_not_open_with_mm3d = q; break;
 	case DO_NOT_GENERATE_ICONS: nc->do_not_generate_icons = q; break;
-
+	
 	case MAP_ICON_BRIGHTNESS: EX_INI_MENTION_(dec,q,nc->map_icon_brightness); break;
 	}
 }
@@ -3241,6 +3242,8 @@ void EX::INI::Sample::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 	case SAMPLE_PITCH_ADJUSTMENT: nc->sample_pitch_adjustment = q; break; 
 	case SAMPLE_VOLUME_ADJUSTMENT: nc->sample_volume_adjustment = q; break; 
+
+	case HEADWIND_AMBIENT_WIND_EFFECT: nc->headwind_ambient_wind_effect = q; break;
 	}
 }
 	

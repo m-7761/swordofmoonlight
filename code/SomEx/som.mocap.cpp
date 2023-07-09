@@ -1,5 +1,5 @@
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #include "Ex.ini.h"
 #include "Ex.input.h"
@@ -26,6 +26,13 @@ namespace DDRAW
 	extern bool inStereo;
 	extern bool stereo_locate_OpenXR(float,float,float[4+3],float[4]=0);
 	extern float(*stereo_locate_OpenXR_mats)[4][4];
+}
+namespace DSOUND
+{
+	//REMOVE ME?
+	extern void playing_delays(); 
+	class IDirectSoundBuffer;
+	extern void fade_delay(IDirectSoundBuffer*,int,int); 
 }
 
 //HACK: make the C++ type quaternion
@@ -1016,7 +1023,7 @@ static void som_mocap_footstep_soundeffect()
 	#ifdef NDEBUG
 	//do this with frequency and left Ex.ini define
 	//desired range
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	#endif
 
 	//2017: this plays at very fast stutters under
@@ -3038,7 +3045,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 			#ifdef NDEBUG
 			//do this with frequency and let Ex.ini define
 			//desired range
-			int todolist[SOMEX_VNUMBER<=0x1020408UL];
+			int todolist[SOMEX_VNUMBER<=0x102040cUL];
 			#endif
 			//HACK: historically the original arm resets to 1
 			//somehow/somewhere it's being set to 0 (this is
@@ -3616,7 +3623,8 @@ static float som_mocap_v() //initial
 
 //REMOVE ME? 
 static float som_mocap_elevator = 0;
-
+extern void som_game_volume_level(int, int &_2);
+extern void som_game_pitch_to_frequency(int, int &_3);
 void som_mocap::engine::prolog::operator()(float step)
 {
 	assert(step); //if(!step) return; //hack??
@@ -3679,6 +3687,62 @@ void som_mocap::engine::prolog::operator()(float step)
 		mc.speed2 = sqrtf(mc.speed2);
 	}
 	else mc.speed = mc.speed2 = sqrtf(mc.speed2); 
+
+	//2023: do_wind //how fast?
+	{
+		EX::INI::Sample se;
+
+		int snd; if(&se->headwind_identifier)
+		{
+			float f = se->headwind_identifier(SOM::motions.floor_object); 
+			//todo: check high 12 bits for heel+toe model
+			//2020: going ahead and masking this for now
+			snd = EX::isNaN(f)?0:(int)f&0xfff; 
+		}
+		else snd = 1000; if(snd)
+		{
+			SOM::Struct<9> *sb = SOM::L.snd_bank;
+			auto **i = (DSOUND::IDirectSoundBuffer**)sb[snd].i[7];
+			if(!i||!*i)
+			{
+				int sz = SOM::L.snd_bank_size;
+				//2023: init/play wind sound effect (0 volume)
+				SOM::se_looping = 1; SOM::se(snd,0,0); //-10000
+				SOM::se_looping = 0;			
+			}
+			if(i&&*i) 
+			{
+				//float speed = mc.speed+powf(mc.speed-mc.speed2,2);
+				float speed = max(mc.speed2,mc.speed-mc.speed2);				
+
+				float f = speed/8;
+			//	float g = 1-powf(max(0,1-f),2); //2
+				float g = powf(min(1,f),0.333f);
+
+				float aw = se->headwind_ambient_wind_effect;
+				static float aw2 = aw; //just in case
+				aw = aw2 = lerp(aw2,aw,mc.antijitter);
+
+				//YUCK: reshaping to boost to footstep levels
+				float h = 0.75f-aw*0.25f;
+				g = (g*g)*h+(1-g*g)*(1-h); g*=1/h;
+
+				//som_game_pitch_to_frequency returns 2 always???
+			//	int _3 = mc.analogbob*3;
+				int _3 = 0;
+				int _2 = (1-g)*-10000;
+
+				som_game_volume_level(snd,_2);
+				som_game_pitch_to_frequency(snd,_3);
+
+				_3 = (int)(mc.analogbob*3*(_3?_3:1));
+
+				EX::dbgmsg("wind: %f=>%f/%f (%d/%d)",f,g,mc.analogbob,_2,(int)(mc.analogbob*4));
+
+				DSOUND::fade_delay(*i,_2,_3);
+			}
+		}
+	}
 
 	//0.33333 is SOM's value for SOM::g
 	float g = do_g?*SOM::g:0.333333f;		
@@ -6799,7 +6863,7 @@ float som_mocap::camera::operator()
 			// pi/9 is too little in VR but jumping
 			// seems too much or too fast
 			// 
-			int todolist[SOMEX_VNUMBER<=0x1020408UL];
+			int todolist[SOMEX_VNUMBER<=0x102040cUL];
 		//	if(zoom<70||EX::debug) //VR? //???
 			if(zoom<70||1) //2022
 			dip2 = lerp(pi/9,dip2,(zoom-30)/32);

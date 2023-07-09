@@ -1,6 +1,6 @@
 
 #include "directx.h" 
-DX_TRANSLATION_UNIT
+DX_TRANSLATION_UNIT //(C)
 
 	//PREAMBLE: since July 2021 this file is no longer
 	//used when DDRAW::shader is 0, indicating shaders
@@ -3103,12 +3103,16 @@ reset:	int i;
 						dx_d3d9c_direct3d_swapchain[i].dwFlags|=DDSD_HEIGHT;						
 						x->dwHeight = //2021
 						dx_d3d9c_direct3d_swapchain[i].dwHeight = client.bottom;
+
+						if(x->dwHeight%2) x->dwWidth++; //2023
 					}
 					//if(!(x->dwFlags&DDSD_WIDTH))
 					{
 						dx_d3d9c_direct3d_swapchain[i].dwFlags|=DDSD_WIDTH;
 						x->dwWidth = //2021
 						dx_d3d9c_direct3d_swapchain[i].dwWidth = client.right;
+
+						if(x->dwWidth%2) x->dwWidth++; //2023: ItemEdit.exe?
 					}
 				}
 				else //UNFINISHED? //SetDisplayMode?

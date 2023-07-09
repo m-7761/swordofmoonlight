@@ -1,6 +1,6 @@
 
 #include "directx.h" 
-DX_TRANSLATION_UNIT
+DX_TRANSLATION_UNIT //(C)
 
 #include <mmsystem.h> //WAVEFORMATEX
 
@@ -66,7 +66,7 @@ static IDirectSoundBuffer **dx_dsound_delay7 = 0;
 
 static DWORD *dx_dsound_delayz = 0;
 
-static void dx_dsound_delay(::IDirectSoundBuffer *play, DWORD z=0)
+static void dx_dsound_delay(::IDirectSoundBuffer *play, DWORD z)
 {
 	if(!play) return;
 
@@ -92,7 +92,7 @@ static void dx_dsound_delay(::IDirectSoundBuffer *play, DWORD z=0)
 	}
 
 	dx_dsound_delay7[dx_dsound_delays] = play;
-	dx_dsound_delayz[dx_dsound_delays] = z;
+	dx_dsound_delayz[dx_dsound_delays] = z; //DSBPLAY_LOOPING?
 
 	dx_dsound_delays++;
 }
@@ -238,7 +238,7 @@ extern void DSOUND::knocking_out_delay(DWORD timeout_tick)
 	dx_dsound_knockout = timeout_tick;
 }
 
-void DSOUND::IDirectSoundMaster::playfwd7(IDirectSoundBuffer *p, DWORD x, DWORD y, DWORD z)
+void DSOUND::IDirectSoundMaster::playfwd7(IDirectSoundBuffer *p, bool loop)
 {		
 	if(target!='dx7'||!proxy7) return;
 	
@@ -427,7 +427,7 @@ void DSOUND::IDirectSoundMaster::playfwd7(IDirectSoundBuffer *p, DWORD x, DWORD 
 	if(xx==2) 
 	{
 		auto f8 = (IDirectSoundBuffer8*)forward7[i];
-		IDirectSoundFXI3DL2Reverb *i;
+		IDirectSoundFXI3DL2Reverb *i; //SHADOWING i
 
 		//TODO: blend these together
 		if(~doReverb_mask&1)
@@ -509,9 +509,9 @@ void DSOUND::IDirectSoundMaster::playfwd7(IDirectSoundBuffer *p, DWORD x, DWORD 
 
 		if(DSOUND::doDelay)
 		{
-			dx_dsound_delay(forward7[i]);
+			dx_dsound_delay(forward7[i],loop);
 		}
-		else forward7[i]->Play(x,y,z);
+		else forward7[i]->Play(0,0,loop); //x,y,z
 	}
 	if(xx==2&&++i%2)
 	{
@@ -698,6 +698,11 @@ HRESULT DSOUND::IDirectSound::CreateSoundBuffer(DX::LPCDSBUFFERDESC x, DX::LPDIR
 	HRESULT out = proxy->CreateSoundBuffer(x,y?&q:0,z);
 	/*REMOVE ME
 	if(out&&in) out = proxy->CreateSoundBuffer(in,y?&q:0,z);*/
+
+	if(x->lpwfxFormat&&x->lpwfxFormat->nChannels>1)
+	{
+		x = x; //breakpoint
+	}
 
 	if(out) DSOUND_LEVEL(7) << "IDirectSound::CreateSoundBuffer() Failed\n"; 		
 	if(out) return out; 
@@ -1089,6 +1094,8 @@ HRESULT DSOUND::IDirectSoundBuffer::Lock(DWORD x, DWORD y, LPVOID *z, LPDWORD w,
 }
 HRESULT DSOUND::IDirectSoundBuffer::Play(DWORD x, DWORD y, DWORD z)
 {
+	(void)x; (void)y; //x/y = "reserved" z = DSBPLAY_LOOPING flag
+
 	DSOUND_LEVEL(7) << "IDirectSoundBuffer::Play()\n";
 
 	DSOUND_IF_NOT_TARGET_RETURN(!DS_OK);
@@ -1106,7 +1113,7 @@ HRESULT DSOUND::IDirectSoundBuffer::Play(DWORD x, DWORD y, DWORD z)
 
 		if(master)
 		{
-			master->playfwd7(this,x,y,z);
+			master->playfwd7(this,(z&1)!=0);
 
 			return DS_OK;
 		}
@@ -1117,6 +1124,35 @@ HRESULT DSOUND::IDirectSoundBuffer::Play(DWORD x, DWORD y, DWORD z)
 		dx_dsound_delay(proxy7,z); return DS_OK; //assuming
 	}
 	else return proxy->Play(x,y,z); 
+}
+extern void DSOUND::play_delay(DSOUND::IDirectSoundBuffer *p, bool loop)
+{
+	if(p) p->Play(0,0,loop);
+}
+extern void DSOUND::fade_delay(DSOUND::IDirectSoundBuffer *p, int vol, int freq)
+{
+	int vol2 = vol-100<DSBVOLUME_MIN?vol+100:vol-100;
+
+	if(p) if(auto*m=p->master)
+	{
+		m->SetFrequency(freq); 
+
+		m->SetVolume(vol2); m->SetVolume(vol); //HACK: necessary?
+		
+		for(int i=m->forwarding;i-->0;)
+		{
+			if(m->forward7[i]) //capacity?
+			{
+				m->forward7[i]->SetFrequency(freq); 
+
+				m->forward7[i]->SetVolume(vol2); m->forward7[i]->SetVolume(vol);				
+			}
+		}
+	}
+	else 
+	{
+		p->SetFrequency(freq); p->SetVolume(vol2); p->SetVolume(vol);
+	}
 }
 HRESULT DSOUND::IDirectSoundBuffer::SetCurrentPosition(DWORD x)
 {
@@ -1918,7 +1954,7 @@ extern void DSOUND::Stop(bool looping)
 		}
 	}
 }
-extern void DSOUND::Play(bool looping)
+extern void DSOUND::Play(bool looping_bgm)
 {
 	assert(DSOUND::noStops);
 
@@ -1926,7 +1962,7 @@ extern void DSOUND::Play(bool looping)
 
 	DSOUND::noStops--;		
 
-	if(looping)
+	if(looping_bgm)
 	{
 		assert(DSOUND::noLoops);
 
@@ -1954,22 +1990,24 @@ extern void DSOUND::Play(bool looping)
 						
 			for(int i=0;i<p->master->forwarding;i++) if(p->master->forward7[i])
 			{
-				if(p->isLooping&&looping) continue; 
+				//2023: looping was for BGM, but now the running/falling
+				//sound effect needs to loop (it would be nice to loop
+				//other sournces too)
+			//	if(p->isLooping&&looping_bgm) continue; 
 
-				//Woops: shadowing looping argument
-				int looping = p->isLooping&(1<<i)?DSBPLAY_LOOPING:0;
+				int looping2 = p->isLooping&(1<<i)?DSBPLAY_LOOPING:0;
 				
 				if(p->isPaused&(1<<i))
 				if(!p->master->pausefwds||p->master->pausefwds[i]<2)
 				{
 					if(p->master->pausefwds) p->master->pausefwds[i]--;
 
-					if(p->master->forward7[i]->Play(0,0,looping)==DSERR_BUFFERLOST)
+					if(p->master->forward7[i]->Play(0,0,looping2)==DSERR_BUFFERLOST)
 					{
 						DSOUND_ALERT(0) << "DirectSoundBuffer contents were lost!!\n";
 
 						p->master->forward7[i]->Restore(); 					
-						p->master->forward7[i]->Play(0,0,looping);
+						p->master->forward7[i]->Play(0,0,looping2);
 					}
 
 					p->isLooping&=~(1<<i);
@@ -1992,21 +2030,22 @@ extern void DSOUND::Play(bool looping)
 		}
 		else 
 		{
-			if(p->isLooping&&!looping) continue; 
+			//HACK: assuming BGM if not forwarding (2023)
+			assert(DSOUND::doForward3D);
+			if(p->isLooping&&!looping_bgm) continue; 
 
-			//Woops: shadowing looping argument
-			int looping = p->isLooping?DSBPLAY_LOOPING:0;			
+			int looping2 = p->isLooping?DSBPLAY_LOOPING:0;			
 
 			if(p->isPaused)
 			if(p->pauserefs<2)
 			{
 				p->pauserefs--; assert(p->pauserefs==0); 
 				
-				if(p->proxy->Play(0,0,looping)==DSERR_BUFFERLOST)
+				if(p->proxy->Play(0,0,looping2)==DSERR_BUFFERLOST)
 				{
 					DSOUND_ALERT(0) << "DirectSoundBuffer contents were lost!!\n";
 
-					p->proxy->Restore(); p->proxy->Play(0,0,looping);
+					p->proxy->Restore(); p->proxy->Play(0,0,looping2);
 				}
 
 				p->isPaused = p->isLooping = false; 

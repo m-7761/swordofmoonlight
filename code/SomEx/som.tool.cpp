@@ -1,6 +1,6 @@
 
 #include "Ex.h" 
-EX_TRANSLATION_UNIT
+EX_TRANSLATION_UNIT //(C)
 
 #pragma comment(lib,"Imm32.lib") //IME?
 
@@ -858,6 +858,11 @@ SOM::Tool::Tool()
 		}
 	//	else if(SOM::tool==SOM_SYS.exe)
 	//	WriteFile = SOM_SYS_WriteFile;
+
+		if(SOM::tool>=EneEdit.exe) //icon/skin with BMP
+		{
+			LoadImageA = som_map_LoadImageA;
+		}
 
 		//Too soon to initialize EX::INI::Editor //2018
 		//if(2000!=EX::INI::Editor()->time_machine_mode)	
@@ -2740,6 +2745,11 @@ static LRESULT CALLBACK som_tool_comboboxproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		int out = DefSubclassProc(hWnd,uMsg,wParam,lParam);
 
 		if(out==CB_ERR) som_map_codesel = wParam; 
+		
+		if(wParam!=0xffffffff) //-1
+		if(1002==id&&SOM::tool==SOM_PRM.exe) //2023		
+		if(IsWindowVisible(som_tool_workshop))
+		workshop_exe(30000);
 
 		return out;
 	}
@@ -6689,7 +6699,16 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 	{	
 	case WM_APP+'ws':
 
-		som_tool_workshop = (HWND)wParam;
+		//NOTE: workshop_moves_32767 spawns more tool windows
+		if(!som_tool_workshop)
+		{
+			som_tool_workshop = (HWND)wParam;
+		}
+		//2023: make modeless? see also workshop_exe
+		EnableWindow(som_tool,1);	
+	//	SetParent((HWND)wParam,som_tool);
+		SetWindowLong((HWND)wParam,GWL_HWNDPARENT,(LONG)som_tool);
+	
 		break;
 
 	case WM_ENABLE:
@@ -6850,6 +6869,15 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			if(wParam==1080 //Alt Play button?
 			||wParam==3000) //Make overlay button push down?
 			out = som_tool_drawitem(dis,175);
+			if(wParam==1263 //checkpoint overlay
+			||wParam==1264) //arrows overlay
+			{
+				st = dis->hwndItem==GetFocus();
+				int mask = WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME;
+				SetWindowExStyle(dis->hwndItem,mask,st?WS_EX_CLIENTEDGE:WS_EX_DLGMODALFRAME);
+			//	RedrawWindow(dis->hwndItem,0,0,RDW_FRAME|RDW_INVALIDATE);
+				out = som_tool_drawitem(dis,175,st);
+			}
 			break;	 
 
 		case 41000:
@@ -7297,7 +7325,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		//rationale: SELCHANGE is spammed each
 		//time the keyboard highlights an item
 		case CBN_SELENDOK: case C8N_SELCHANGE:
-			 
+			
 			//REMINDER: LBN_SELCHANGE==CBN_SELCHANGE
 			//prevent SELCHANGE when not accompanied by ENDOK
 			//note: SOM isn't generally concerned about ENDOK
@@ -7633,6 +7661,10 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 					if(!ComboBox_GetItemData(lp,sel)) //CB_ERR==
 					ComboBox_SetCurSel(lp,sel+1); //skip
 
+					if(sel!=-1) //goto profile_enable?
+					if(IsWindowVisible(som_tool_workshop)) 
+					workshop_exe(30000); //2023
+
 					//NOTE: technically this should apply to 
 					//all screens, and will probably need to
 					//in the future
@@ -7642,6 +7674,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 					
 						SOM_PRM_extend(1013); goto profile_enable;
 					}
+
 					break;
 				}
 				case MAKEWPARAM(1171,EN_CHANGE): //Strength
@@ -8931,11 +8964,12 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 
 	case WM_DESTROY:
 
-		if(hWnd==som_tool)
+		if(SOM::tool==SOM_PRM.exe&&hWnd==som_tool_stack[1])
 		{
-			if(SOM::tool==SOM_PRM.exe&&hWnd==som_tool_stack[1])
 			workshop_exe(0);
-
+		}
+		else if(hWnd==som_tool)
+		{
 			//2023: SOM_MAP big editor isn't getting this message
 			if(40000==GetWindowContextHelpId(som_tool))
 			{
@@ -9712,7 +9746,7 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 			//UNFINISHED
 			//I need to reduce the Kraken size so it
 			//can move in its cave
-			int todolist[SOMEX_VNUMBER<=0x1020408UL];			
+			int todolist[SOMEX_VNUMBER<=0x102040cUL];			
 			if(EX::debug) //2021: add 1 decimal place
 			{
 				//this works but requires reprogramming to save it
@@ -10556,15 +10590,23 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE A, LPCDLGTEMPLA
 			}			
 			
 			if(workshop_tool&&!C)
-			{
+			if(SOM::tool>=PrtsEdit.exe) //2023
+			{				
 				C = workshop_tool;
 				peek->exStyle&=~WS_EX_APPWINDOW;
-				if(GetEnvironmentVariableW(L".WS",0,0)>1)
+				auto *ws = Sompaste->get(L".WS");
+				if(*ws)
 				{
 					peek->style|=WS_MINIMIZEBOX;
 					peek->style&=~WS_MAXIMIZEBOX;
-				}				
+				}
+				if(wcsstr(ws,L"\\my\\arm\\")) //workshop_moves_32767?
+				{
+					peek->style&=~DS_CENTER;
+					peek->style|=DS_CENTERMOUSE;
+				}
 			}
+			else assert(0);
 
 			if(1) //EXPERIMENTAL
 			//NEW: taskbar will not minimize without a minimize
@@ -10622,6 +10664,11 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE A, LPCDLGTEMPLA
 			{
 				peek->exStyle&=~WS_EX_APPWINDOW;	
 			}
+
+			#ifdef NDEBUG
+			#error fix me
+			#endif
+			if(C==workshop_tool) C = 0; //TESTING
 		}
 		VirtualProtect((void*)B,16,rsrc,&rsrc); //!
 	}
@@ -10826,16 +10873,19 @@ static BOOL WINAPI som_tool_SetWindowTextA(HWND A, LPCSTR C)
 			}
 			if(control==1010) //[Profile] Description
 			{
+				short i = atoi(C+1);
+				assert(i>=0);					
+				const wchar_t *p = som_map_profile(i);
+				//REPURPOSING: save for workshop_exe
+				//REPURPOSING: som_files_wrote too (2022)
+				extern WORD workshop_category;  
+				workshop_category = som_map_workshop_number(p); 
+				if(IsWindowVisible(som_tool_workshop)) //2023
+				workshop_exe(40000); 
+
 				if(!som_tool_classic)
 				if(C[0]=='['&&isdigit(C[1])) //test +12
-				{
-					short i = atoi(C+1);
-					assert(i>=0);					
-					const wchar_t *p = som_map_profile(i);
-					//REPURPOSING: save for workshop_exe
-					//REPURPOSING: som_files_wrote too (2022)
-					extern WORD workshop_category;  
-					workshop_category = som_map_workshop_number(p); 
+				{					
 					wchar_t *sep = PathFindExtensionW(wcscpy(x,Sompaste->longname(p)));
 					//&: underlines the first letter in the description
 					wcscpy(wcscpy(sep,L" &")+2,som_map_description(p));				
@@ -11408,7 +11458,7 @@ static BOOL APIENTRY som_tool_GetOpenFileNameA(LPOPENFILENAMEA a)
 		if(!*wcscpy(som,workshop_savename))
 		{
 			char a[16];			
-			extern const char *workshop_directory(int=0);
+			extern const char *workshop_directory(int=0,int=SOM::tool);
 			sprintf(a,"%s\\%s",workshop_directory(),SOM::tool==PrtsEdit.exe?"parts":"prof");
 			EX::data(a,som+1);
 			*som = '\0'; w.lpstrInitialDir = som+1;
@@ -14023,16 +14073,27 @@ extern HANDLE WINAPI som_map_LoadImageA(HINSTANCE hi, LPCSTR in, UINT uType, int
 
 	EXLOG_LEVEL(3) << "Loading "<< in << '\n';
 
-	const wchar_t *w = SOM::Tool::file(in);
-
-	//NEW: virtual data directory
-	/*static*/ wchar_t vname[MAX_PATH]; 
-	if(w&&!wcsnicmp(w,L"DATA\\",5)) 
+	const wchar_t *w;
+	wchar_t vname[MAX_PATH];
+	extern wchar_t *som_art_CreateFile_w; //2021
+	extern wchar_t *som_art_CreateFile_w_cat(wchar_t[],const char*);
+	if(som_art_CreateFile_w)
 	{
-		//2018: assuming not returning this
-		//static wchar_t v[MAX_PATH] = L"";
-		if(EX::data(w+5,vname))
-		w = vname;
+		//NOTE: I added this for EneEdit skins but I think art should
+		//go down the TXR path (som_TXR_4485e0)
+		w = som_art_CreateFile_w_cat(vname,in); assert(0); //REMOVE ME?		
+	}
+	else
+	{
+		w = SOM::Tool::file(in);
+
+		//NEW: virtual data directory		
+		if(w&&!wcsnicmp(w,L"DATA\\",5)) 
+		{
+			//2018: assuming not returning this
+			//static wchar_t v[MAX_PATH] = L"";
+			if(EX::data(w+5,vname)) w = vname;
+		}
 	}
 
 	if(!w||som_tool_file_appears_to_be_missing(in,w,0))
@@ -14331,7 +14392,7 @@ extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022
 	memcpy(p->description,tile+100,127);
 
 	//TODO: still need to update icons (this is experimental)
-	int todolist[SOMEX_VNUMBER<=0x1020408UL];
+	int todolist[SOMEX_VNUMBER<=0x102040cUL];
 	//40f8dc has code for inserting an icon... it would take 
 	//a bit of work to implement it (it's probably worthwhile
 	//to reprogram 40f8dc because it's potentially very slow)
@@ -16254,22 +16315,37 @@ extern int som_tool_drawitem(DRAWITEMSTRUCT *dis, int bitmap, int st)
 		SetTextColor(dc,tc);
 		SetBkMode(dc,TRANSPARENT);	
 		SelectObject(som_tool_dc,(HGDIOBJ)bt); 		
-		if(&dc==&db.dc) //focused/white
+		db.size(cr.right,cr.bottom); 
+		int ex;
+		if(ex=GetWindowExStyle(dis->hwndItem)&(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME))
 		{
-			db.size(cr.right,cr.bottom); 
-			StretchBlt(db.dc,0,0,cr.right,cr.bottom,som_tool_dc,st?sz.bmWidth:0,0,sz.bmWidth,sz.bmHeight,SRCCOPY);
-			if(st) OffsetRect(&cr,1,1); 
+			//REMINDER: for SOM_MAP arrow/check overlay
+			st = 0;
+			int flags = 0;
+			if(ex&WS_EX_CLIENTEDGE) flags|=BDR_SUNKENOUTER|BDR_SUNKENINNER;
+			if(ex&WS_EX_DLGMODALFRAME) flags|=BDR_RAISEDOUTER|BDR_RAISEDINNER;
+			//InvalidateRect(dis->hwndItem,&cr,0);
+			//doesn't look like ResEdit/initial drawing
+			DrawEdge(dc,&cr,flags,BF_RECT|BF_MIDDLE|BF_SOFT);
+		//	ExcludeClipRect(dc,0,0,cr.right,cr.bottom);
+			InflateRect(&cr,-3,-3);
+		//	InvalidateRect(dis->hwndItem,&cr,0);
+		//	InflateRect(&cr,3,3);
+			BLENDFUNCTION bf = {0,0,164,0};
+			AlphaBlend(dc,cr.left-1,cr.top-1,cr.right-cr.left+1,cr.bottom-cr.top+1,som_tool_dc,st?sz.bmWidth:0,0,sz.bmWidth,sz.bmHeight,bf);
+		}
+		else StretchBlt(dc,cr.left,cr.top,cr.right-cr.left,cr.bottom-cr.top,som_tool_dc,st?sz.bmWidth:0,0,sz.bmWidth,sz.bmHeight,SRCCOPY);
+		if(st) OffsetRect(&cr,1,1); 
+		if(&dc==&db.dc) //focused/white
+		{			
 			SelectObject(db.dc,(HGDIOBJ)GetWindowFont(dis->hwndItem));
-			DrawTextA(db.dc,"??",1,&cr,dt|DT_VCENTER|DT_SINGLELINE);
+			DrawTextA(dc,"??",1,&cr,dt|DT_VCENTER|DT_SINGLELINE);
 			if(st) OffsetRect(&cr,-1,-1);
+			if(ex) InflateRect(&cr,3,3);
 			BitBlt(dis->hDC,0,0,cr.right,cr.bottom,db.dc,0,0,SRCCOPY);
 		}
-		else
-		{				
-			StretchBlt(dis->hDC,0,0,cr.right,cr.bottom,som_tool_dc,st?sz.bmWidth:0,0,sz.bmWidth,sz.bmHeight,SRCCOPY);
-			if(st) OffsetRect(&cr,1,1); 
-			DrawTextA(dis->hDC,"??",1,&cr,dt|DT_VCENTER|DT_SINGLELINE);
-		}
+		else DrawTextA(dis->hDC,"??",1,&cr,dt|DT_VCENTER|DT_SINGLELINE);
+
 		som_tool_DrawTextA_item = 0; //NEW
 		return 1;
 	}
