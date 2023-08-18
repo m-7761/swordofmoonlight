@@ -12,6 +12,7 @@ EX_TRANSLATION_UNIT //(C)
 #include "Ex.output.h"
 
 #include "som.932.h"
+#include "som.932w.h"
 #include "som.state.h"
 #include "som.extra.h"
 #include "som.files.h" 
@@ -476,12 +477,9 @@ static void workshop_moves_32767()
 		MessageBeep(-1); return;
 	}
 
-	#ifdef NDEBUG
-	#error japanese
-	#endif
 	wchar_t open[30];
 	if(!GetDlgItemText(som_tool,32767,open,30))
-	wcscpy(open,L"&Open Profile");
+	wcscpy(open,som_932w_open_arm_prf);
 
 	for(int i=1;i<10;i++) //ARBITRARY
 	if(32767==GetMenuItemID(workshop_menu,i))
@@ -518,9 +516,7 @@ static void workshop_moves_32767()
 
 		int mv = ~TrackPopupMenuEx(hm,TPM_RETURNCMD|TPM_NONOTIFY,rc.left,rc.bottom,som_tool,0);
 
-		for(int i=1024;i-->0;) if(sm[i]) DestroyMenu(sm[i]);
-
-		DestroyMenu(hm); 
+		DestroyMenu(hm); //RECURSIVE 
 
 		if(mv!=~0)
 		{
@@ -917,7 +913,6 @@ static VOID CALLBACK workshop_32772_timer(HWND win, UINT, UINT_PTR id, DWORD)
 }
 static void workshop_32772()
 {
-	assert(!*som_tool_text);
 	*som_tool_text = '\0';
 	*workshop_savename = '\0';
 	SetEnvironmentVariableW(L".WS",L"");
@@ -947,10 +942,24 @@ static void EneEdit_default_descriptions(workshop_cpp::enemy_prf &enemy)
 	for(int i=enemy.indirect;i<3;i++)
 	sprintf(enemy.descriptions[3+i],som_932_EneEdit_attack123,kanji,som_932_Numerals[1+i]);		
 }
+static char *workshop_generate(char *io, char *icon)
+{
+	char &sep = io[strlen(icon)];
+	extern const char *SOM_MAIN_generate();
+	memcpy(io,icon,&sep-io);
+	memcpy(&sep,SOM_MAIN_generate(),23);
+	switch(sep)
+	{
+	case '@': sep = 'A'; break;
+	case '$': sep = 'S'; break;
+	}
+	return io;
+}
 static HANDLE workshop_CreateFile_32772()
 {
 	union
 	{
+		workshop_cpp::part_prt prt;
 		workshop_cpp::my_prf my;
 		workshop_cpp::npc_prf npc;
 		workshop_cpp::enemy_prf enemy;
@@ -961,7 +970,11 @@ static HANDLE workshop_CreateFile_32772()
 
 	size_t sz; switch(SOM::tool)
 	{
-	case PrtsEdit.exe: sz = 228; break; 
+	case PrtsEdit.exe: sz = 228;
+		
+		workshop_generate(prt.bmp,"ico0683!"); //column
+		break; 
+
 	case ItemEdit.exe: sz = 88;
 		
 		item.SND = -1; 
@@ -1413,15 +1426,46 @@ extern HANDLE WINAPI workshop_CreateFileA(LPCSTR in, DWORD A, DWORD B, LPSECURIT
 	}
 	else workshop_reading = out; return out;
 }
+extern int PrtsEdit_punc(char *pp, char **sep=nullptr)
+{
+	if(*PathFindExtensionA(pp)) return 0;
+
+	char *p = pp, *d = p+30;
+	while(isalpha(*p)&&p<pp+3) 
+	p++;
+	if(sep) *sep = p;
+	while(p-pp<=7&&isdigit(*p)&&p<d)
+	p++;
+	if(p-pp<=7) switch(*p)
+	{	
+	default: return 0;
+	case '!': case '@': case '#': case '$': 
+	case '%': case '^': case '?': case '*':	break; //&&
+	case '&': *p = '?'; break; //&&
+	}
+	else return 0; return p-pp;		
+}
 static bool workshop_ReadFile_part(workshop_cpp::part_prt &part, size_t part_s)
 {
 	if(part_s<228) return false; assert(sizeof(part)==228);
 
 	assert(!part._unused1&&!part._unused2&&!part._unused3/*&&!part._unused4*/);
 
-	//HACK: coax icons to updating themself
-	PostMessage(GetDlgItem(som_tool,1013),EM_SETMODIFY,1,0);
+	HWND bmp = GetDlgItem(som_tool,1013);
+	
+	//HACK: coax icon to updating itself
+	PostMessage(bmp,EM_SETMODIFY,1,0);
 	PostMessage(som_tool,WM_COMMAND,IDOK,0);
+
+	//2023: add UUID framework to icon file
+	if(workshop_SetWindowTextA(GetDlgItem(som_tool,1017),part.bmp))
+	{
+		//ShowWindow(bmp,SW_HIDE);
+		//SetWindowRedraw(bmp,0);
+		MoveWindow(bmp,0,0,0,0,1);
+		if(int punc=PrtsEdit_punc(part.bmp))
+		memcpy(part.bmp+punc,".bmp",5);
+	}
 
 	memcpy(workshop->icard,part.text_and_history,96);
 
@@ -2357,6 +2401,8 @@ static void workshop_DROPFILES(WPARAM wParam)
 }
 static void workshop_MOUSEWHEEL(int delta)
 {
+	if(!DDRAW::Direct3DDevice7) return; //PrtsEdit?
+
 	DWORD rs; if(delta) //WM_MBUTTONDOWN?
 	{
 		float amount = delta/WHEEL_DELTA*0.005f;
@@ -3287,6 +3333,7 @@ extern HWND workshop_ipchangeling(int id, int i, HWND ch, HWND ip)
 	DestroyWindow(ch); //EnableWindow(ch,0); ShowWindow(ch,0);
 	return ch2;
 }
+static int workshop_drawitem_hue = 0;
 static void workshop_drawitem(DRAWITEMSTRUCT *dis)
 {
 	switch(int id=dis->CtlID)
@@ -3307,18 +3354,35 @@ static void workshop_drawitem(DRAWITEMSTRUCT *dis)
 					Edit_SetModify(ec,0); 
 					char a[MAX_PATH] = "data\\map\\icon\\";
 					SOM::Tool.GetWindowTextA(ec,a+14,MAX_PATH-14);
-					if(HBITMAP bm2=(HBITMAP)som_map_LoadImageA(0,a,0,0,0,LR_LOADFROMFILE))
+					if(HBITMAP bm2=(HBITMAP)som_map_LoadImageA(0,a,0,20,20,LR_LOADFROMFILE|LR_CREATEDIBSECTION))
 					{
-						HDC tmp = //dis->hDC 
-						CreateCompatibleDC(som_tool_dc); 
-						HGDIOBJ so2 = SelectObject(tmp,bm2);
-						SetStretchBltMode(som_tool_dc,COLORONCOLOR);
-						SOM::Tool.StretchBlt(som_tool_dc,0,0,dis->rcItem.right,dis->rcItem.bottom,tmp,0,0,20,20,SRCCOPY);
-						SelectObject(tmp,so2); DeleteDC(tmp);
-						DeleteObject(bm2); 
+						extern HWND som_tool_dialog(HWND=0);
+						extern int SOM_MAP_icons_hue(HBITMAP,int);
+						int auto_hue = 0;
+						std::swap(auto_hue,workshop_drawitem_hue);
+						if(GetDlgItemTextA(som_tool_dialog(),1017,a,31))						
+						if(int punc=PrtsEdit_punc(a))
+						{
+							workshop_drawitem_hue = SOM_MAP_icons_hue(bm2,a[punc]);
+
+							if('?'==auto_hue) //HACK
+							SetDlgItemInt(som_tool_stack[1],1008,workshop_drawitem_hue,0);
+						}
+
+						if(dis->hDC) //auto_hue? //WM_INITDIALOG
+						{
+							HDC tmp = //dis->hDC 
+							CreateCompatibleDC(som_tool_dc); 
+							HGDIOBJ so2 = SelectObject(tmp,bm2);
+							SetStretchBltMode(som_tool_dc,COLORONCOLOR);
+							SOM::Tool.StretchBlt(som_tool_dc,0,0,dis->rcItem.right,dis->rcItem.bottom,tmp,0,0,20,20,SRCCOPY);
+							SelectObject(tmp,so2); DeleteDC(tmp);
+							DeleteObject(bm2); 
+						}
 					}
 					else FillRect(som_tool_dc,&dis->rcItem,(HBRUSH)GetStockObject(BLACK_BRUSH));				
 				}
+				if(dis->hDC) //auto_hue?
 				BitBlt(dis->hDC,0,0,dis->rcItem.right,dis->rcItem.bottom,som_tool_dc,0,0,SRCCOPY);
 			}
 			else 
@@ -3452,6 +3516,30 @@ extern void PrtsEdit_refresh_1022()
 	if(SOM::tool==PrtsEdit.exe)
 	if(HWND pw=GetDlgItem(som_tool,1022))
 	InvalidateRect(pw,0,0);
+}
+static void PrtsEdit_wheel_1021(int wh)
+{
+	wh = wh<0?-1:+1; //WHEEL_DELTA?
+
+	char a[32];
+	if(GetDlgItemTextA(som_tool,1017,a,31))
+	{
+		if(int i=PrtsEdit_punc(a,0))
+		{
+			char map[] = "!@#$%^?*"; //&&
+			
+			int j = a[i]=='&'?6:strchr(map,a[i])-map;
+
+			j+=wh; j = (j+8)%8;
+
+			a[i] = map[j];
+
+			SetDlgItemTextA(som_tool,1017,a);
+			Edit_SetModify(GetDlgItem(som_tool,1013),1);
+			InvalidateRect(GetDlgItem(som_tool,1021),0,0);
+		}
+		else MessageBeep(-1);
+	}
 }
 static void ItemEdit_movesets_enable(WPARAM wp)
 {
@@ -3936,6 +4024,22 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			}
 			break;
 
+		case 1017: //UUID
+
+			if(hlp==60000) //PrtsEdit
+			{
+				HRSRC found = FindResource(0,MAKEINTRESOURCE(103),RT_DIALOG);
+				if(DLGTEMPLATE*locked=(DLGTEMPLATE*)LockResource(LoadResource(0,found)))
+				{
+					extern windowsex_DIALOGPROC workshop_103_prt;
+					//som_tool_CreateDialogIndirectParamA
+					CreateDialogIndirectParamA(0,locked,som_tool,workshop_103_prt,wParam);
+					return 0;
+				}
+				else assert(locked);
+			}
+			break;
+
 		case 1018: //HACK
 
 			if(hlp==61000) //ItemEdit
@@ -4138,11 +4242,30 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 	case WM_MBUTTONDOWN: //2021: mimicking SOM_MAP_scroll3D
 		
 		wParam = 0; //break;
-			
+	
 	case WM_MOUSEWHEEL:
 		
+		if(IsWindowEnabled(hWnd))
 		if(hWnd==som_tool||hWnd==workshop_host)
-		workshop_MOUSEWHEEL(GET_WHEEL_DELTA_WPARAM(wParam));
+		{
+			POINT pt = {GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
+			MapWindowPoints(0,hWnd,&pt,1);
+			HWND ch = RealChildWindowFromPoint (hWnd,pt);
+			if(SOM::tool==PrtsEdit.exe)
+			{
+				switch(GetDlgCtrlID(ch))
+				{
+				case 1021: 
+
+					PrtsEdit_wheel_1021(GET_WHEEL_DELTA_WPARAM(wParam));
+					break;
+				}
+			}
+			else if(!ch||DLGC_STATIC&&SendMessage(ch,WM_GETDLGCODE,0,0))
+			{
+				workshop_MOUSEWHEEL(GET_WHEEL_DELTA_WPARAM(wParam));
+			}
+		}
 		return 0;
 	
 	case WM_LBUTTONDOWN:
@@ -4339,7 +4462,20 @@ PrtsEdit_3x3:
 			workshop_redraw();
 		}
 		return 0;
-	
+
+	case WM_NOTIFY:
+	{
+		NMUPDOWN *p = (NMUPDOWN*)lParam;
+
+		if(hlp==60000)
+		if(p->hdr.idFrom==1027)
+		if(p->hdr.code==UDN_DELTAPOS)
+		{
+			PrtsEdit_wheel_1021(-p->iDelta);
+			return 1;
+		}
+		break;
+	}
 	case WM_DROPFILES: 
 
 		//REMINDER! EneEdit/NpcEdit processes WM_DROPFILES
@@ -4389,7 +4525,6 @@ PrtsEdit_3x3:
 def: return DefSubclassProc(hWnd,uMsg,wParam,lParam);
 }
 
-static windowsex_DIALOGPROC workshop_103_104;
 static bool workshop_null_and_void(HWND a, WCHAR *w, LPCWSTR nul)
 {
 	if(a==som_tool) return wcscmp(w,nul); if(!*w) wcscpy(w,nul); return true;
@@ -4574,6 +4709,7 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			HRSRC found = FindResource(0,MAKEINTRESOURCE(wParam==1015?104:103),RT_DIALOG);
 			if(DLGTEMPLATE*locked=(DLGTEMPLATE*)LockResource(LoadResource(0,found)))
 			{
+				extern windowsex_DIALOGPROC workshop_103_104;
 				//som_tool_CreateDialogIndirectParamA
 				CreateDialogIndirectParamA(0,locked,som_tool,workshop_103_104,wParam);
 				return 0;
@@ -5270,7 +5406,7 @@ static int workshop_103_104_INITDIALOG_chkstk(HWND hw, LPARAM lp)
 	ListView_SetExtendedListViewStyle(lv,LVS_EX_GRIDLINES|LVS_EX_FULLROWSELECT);
 	return workshop_103_reset(hw);
 }
-static INT_PTR CALLBACK workshop_103_104(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+extern INT_PTR CALLBACK workshop_103_104(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {	
 	switch(uMsg)
 	{	
@@ -5361,6 +5497,235 @@ static INT_PTR CALLBACK workshop_103_104(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 	return 0;
 }
 
+extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	//WARNING: som_tool_msgfilterproc fixes VK_TAB on this dialog
+	//PrtsEdit may have a Tab hook installed on its sub-dialogs 
+	//that are no longer shown (129, 130, 131, 133)
+
+	char *sep,*e;
+	union{ char a[32]; RECT wr; }; 
+	switch(uMsg)
+	{	
+	case WM_INITDIALOG:
+	
+		GetWindowRect(GetDlgItem(som_tool,1021),&wr);
+		SetWindowPos(hwndDlg,som_tool,wr.right,wr.bottom+2,0,0,SWP_NOSIZE);
+
+		GetDlgItemTextA(som_tool,1017,a,31);
+		SetDlgItemTextA(hwndDlg,1017,a);
+		if(*(e=PathFindExtensionA(a)))
+		{
+			SendDlgItemMessage(hwndDlg,1017,EM_SETSEL,e-a,strlen(a)); //-1;
+			SetFocus(GetDlgItem(hwndDlg,1017)); //???
+		}
+		SendDlgItemMessage(hwndDlg,1006,EM_LIMITTEXT,3,0);
+		SendDlgItemMessage(hwndDlg,1007,EM_LIMITTEXT,4,0);
+		SendDlgItemMessage(hwndDlg,1026,UDM_SETRANGE32,0,9999);
+		SendDlgItemMessage(hwndDlg,1008,EM_LIMITTEXT,1,0);
+		SendDlgItemMessage(hwndDlg,1027,UDM_SETRANGE32,1,8);
+		SendDlgItemMessage(hwndDlg,1009,EM_LIMITTEXT,22,0);
+
+		if(0&&EX::debug||lParam==1013||GetKeyState(VK_MENU)>>15)
+		{
+			som_tool_initializing--; //HACK
+			SetWindowRedraw(hwndDlg,0);
+			SendMessage(hwndDlg,WM_COMMAND,1014,0);
+			if(workshop_drawitem_hue=='?')
+			{
+				DRAWITEMSTRUCT dis = {}; //HACK: auto_hue?
+				dis.CtlID = 1021;
+				dis.hwndItem = GetDlgItem(som_tool,1021);
+				workshop_drawitem(&dis);
+			}
+			SendMessage(hwndDlg,WM_COMMAND,IDOK,0);
+			Edit_SetModify(GetDlgItem(som_tool,1013),1);
+			SetWindowRedraw(hwndDlg,1);
+			InvalidateRect(hwndDlg,0,0);
+			som_tool_initializing++; //HACK
+			return 1;
+		}
+
+		goto edit;
+				
+	case WM_COMMAND:
+		
+		switch(wParam)
+		{
+		case MAKEWPARAM(1017,EN_KILLFOCUS): edit:
+		
+			som_tool_initializing++; //HACK#1
+			GetDlgItemTextA(hwndDlg,1017,a,31); //lParam?
+			if(int i=PrtsEdit_punc(a,&sep))
+			{
+				char p = a[i]; a[i] = '\0';
+				char s = *sep; *sep = '\0';
+				SetDlgItemTextA(hwndDlg,1006,a);
+				*sep = s;				
+			//	SetDlgItemTextA(hwndDlg,1007,sep);
+				switch(p)
+				{
+				case '!': p =  1; break; case '@': p =  2; break;
+				case '#': p =  3; break; case '$': p =  4; break;
+				case '%': p =  5; break; case '^': p =  6; break;
+				case '&': //&&
+				case '?': p =  7; break; case '*': p =  8; break;
+				}
+				SetDlgItemInt(hwndDlg,1008,p,0);
+				SetDlgItemTextA(hwndDlg,1009,a+i+1);
+
+				int j = strtol(sep,&e,10);
+			//	if(!*e&&e!=sep)
+				sprintf(sep,"%04d",j);
+				SetDlgItemTextA(hwndDlg,1007,sep);
+				memcpy(a+i,".bmp",5);
+			}
+			som_tool_initializing--; //HACK#2
+			icon:
+			SetDlgItemTextA(som_tool,1013,a);
+			Edit_SetModify(GetDlgItem(som_tool,1013),1);
+			InvalidateRect(GetDlgItem(som_tool,1021),0,0);
+			break;
+
+		case MAKEWPARAM(1006,EN_UPDATE): 
+		
+			if(som_tool_initializing) break;
+			GetDlgItemTextA(hwndDlg,1017,a,31);
+			if(int i=PrtsEdit_punc(a,&sep))
+			{
+				memmove(a+4,sep,4+1+22+1);
+				GetDlgItemTextA(hwndDlg,1006,a,4);
+				memmove(a+strlen(a),a+4,4+1+22+1);
+				SetDlgItemTextA(hwndDlg,1017,a);
+				memcpy(a+i,".bmp",5);
+				goto icon;
+			}
+			break;
+
+		case MAKEWPARAM(1007,EN_UPDATE): 
+		
+			if(som_tool_initializing) break;
+			GetDlgItemTextA(hwndDlg,1017,a,31);
+			if(int i=PrtsEdit_punc(a,&sep))
+			{
+				memmove(sep+5,a+i,1+22+1);
+				GetDlgItemTextA(hwndDlg,1007,sep,5);
+				int j = strtol(sep,&e,10);
+			//	if(!*e&&e!=sep)
+				sprintf(sep,"%04d",j);
+				memmove(sep+strlen(sep),sep+5,1+22+1);
+				SetDlgItemTextA(hwndDlg,1017,a);
+				memcpy(a+i,".bmp",5);
+				workshop_drawitem_hue = '?'; //HACK
+				goto icon;
+			}
+			break;
+
+		case MAKEWPARAM(1008,EN_UPDATE): 
+		
+			if(som_tool_initializing) break;
+			GetDlgItemTextA(hwndDlg,1017,a,31);
+			if(int i=PrtsEdit_punc(a,&sep))
+			{
+				switch(GetDlgItemInt(hwndDlg,1008,0,0))
+				{
+				case 1: a[i] = '!'; break;
+				case 2: a[i] = '@'; break;
+				case 3: a[i] = '#'; break;
+				case 4: a[i] = '$'; break;
+				case 5: a[i] = '%'; break;
+				case 6: a[i] = '^'; break;
+				case 7: a[i] = '?'; break; //&&
+				default:
+				case 8: a[i] = '*'; break;
+				}
+				SetDlgItemTextA(hwndDlg,1017,a);
+				memcpy(a+i,".bmp",5);
+				goto icon;
+			}
+			break;
+
+		case 1014:
+
+			GetDlgItemTextA(hwndDlg,1017,a,31);
+			if(int i=PrtsEdit_punc(a,&sep))
+			{
+			sel:a[i+1] = '\0';
+				workshop_generate(a,a);
+				SetDlgItemTextA(hwndDlg,1009,a+i+1);
+				SetDlgItemTextA(hwndDlg,1017,a);
+			}
+			else if(i=LOWORD(SendDlgItemMessage(hwndDlg,1017,EM_GETSEL,0,0)))
+			{
+				a[i] = '*'; a[i+1] = '\0';				
+				SetDlgItemTextA(hwndDlg,1017,a);
+				SendMessage(hwndDlg,WM_COMMAND,MAKEWPARAM(1017,EN_KILLFOCUS),0);
+				workshop_drawitem_hue = '?'; //HACK
+				goto sel;
+			}
+			break;
+		
+		case IDOK: 
+
+			GetDlgItemTextA(hwndDlg,1017,a,31);
+			SetDlgItemTextA(som_tool,1017,a);
+
+			if(int i=PrtsEdit_punc(a))
+			{
+				memcpy(a+i,".bmp",5);
+				SetDlgItemTextA(som_tool,1013,a);
+				InvalidateRect(GetDlgItem(som_tool,1021),0,0);
+			}
+			DestroyWindow(hwndDlg);
+			break;
+
+		case IDCANCEL: cancel:
+		{
+			char saved[sizeof(a)];
+			GetDlgItemTextA(som_tool,1017,saved,31);
+			memcpy(a,saved,sizeof(a));
+			if(int i=PrtsEdit_punc(a))
+			{
+				memcpy(a+i,".bmp",5);
+			}
+			DestroyWindow(hwndDlg);
+			goto icon;
+		}}
+		break;
+		
+	case WM_CTLCOLOREDIT:
+
+		if(1008==GetDlgCtrlID((HWND)lParam))
+		{
+			union
+			{
+				COLORREF cr; BYTE cb[4];
+			};
+			switch(GetDlgItemInt(hwndDlg,1008,0,0))
+			{
+			case 1: cr = 0x6F2555; break; //red	(320/300) (0666)
+			case 2: cr = 0x68372C; break; //orange (20/360)
+			case 3: cr = 0x66771D; break; //yellow (70/50)
+			case 4: cr = 0x167F26; break; //green (110/90) (grass)
+			case 5: cr = 0x34615A; break; //blue (170/150)
+			case 6: cr = 0x214873; break; //indigo (210/190)
+			case 7: cr = 0x443461; break; //violet (260/240)
+			default:
+			case 8: cr = 0x808080; break;
+			}
+			std::swap(cb[0],cb[2]);
+			//SetBkColor((HDC)wParam,cr);
+			static HBRUSH hb = 0; DeleteObject(hb);
+			SetTextColor((HDC)wParam,0xffffff);
+			return (INT_PTR)(hb=CreateSolidBrush(cr));
+		}
+		break;
+
+	case WM_CLOSE: goto cancel;
+	}
+	return 0;
+}
+
 static INT_PTR CALLBACK workshop_32768(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch(uMsg)
@@ -5371,7 +5736,6 @@ static INT_PTR CALLBACK workshop_32768(HWND hwndDlg, UINT uMsg, WPARAM wParam, L
 		
 		//good grief
 		SendMessage(ch,EM_SETEVENTMASK,0,ENM_KEYEVENTS|SendMessage(ch,EM_GETEVENTMASK,0,0));
-
 		
 		Edit_LimitText(ch,96);		
 		SetWindowText(ch,EX::need_unicode_equivalent(932,workshop->icard));
@@ -5579,8 +5943,25 @@ static void workshop_file_update(int id)
 	{
 	case PrtsEdit.exe: //icon?
 
-		if(id==1013) Edit_SetModify(ch,1);
-		if(id==1013) SendMessage(som_tool,WM_COMMAND,IDOK,0);		
+		if(id==1013)
+		{
+			Edit_SetModify(ch,1);
+			SendMessage(som_tool,WM_COMMAND,IDOK,0);		
+			
+			//2023: auto set hue and reassign UUID? (1013)
+			if(SetWindowText(GetDlgItem(som_tool,1017),fn)) 
+			{
+				HRSRC found = FindResource(0,MAKEINTRESOURCE(103),RT_DIALOG);
+				if(DLGTEMPLATE*locked=(DLGTEMPLATE*)LockResource(LoadResource(0,found)))
+				{
+					extern windowsex_DIALOGPROC workshop_103_prt;
+					//som_tool_CreateDialogIndirectParamA
+					CreateDialogIndirectParamA(0,locked,som_tool,workshop_103_prt,1013); //!
+					//return 0;
+				}
+				else assert(locked);
+			}
+		}
 		break;
 
 	default: workshop_model_update();
@@ -5588,6 +5969,7 @@ static void workshop_file_update(int id)
 }
 static BOOL CALLBACK workshop_alt_click_cb(HWND w, LPARAM l)
 {
+	if(!IsWindowVisible(w)) return 1;
     auto lp = (DWORD*)l;
     GetWindowThreadProcessId(w,(DWORD*)&l);
     if(l=l==*lp) *lp = (DWORD)w; return !l;
@@ -5599,8 +5981,8 @@ extern bool workshop_edit_model(const wchar_t *path)
 	si.fMask = SEE_MASK_NOCLOSEPROCESS|SEE_MASK_NOASYNC|SEE_MASK_WAITFORINPUTIDLE;
 				
 	wchar_t app[MAX_PATH];
-	if(!EX::INI::Editor()->do_not_open_with_mm3d)
-	if(!wcsnicmp(L".MM3D",PathFindExtension(path),6))
+	bool mm3d = !wcsnicmp(L".MM3D",PathFindExtension(path),6);
+	if(mm3d&&!EX::INI::Editor()->do_not_open_with_mm3d)
 	{
 		swprintf(app,L"%s\\MM3D\\mm3d-portable.exe",Sompaste->get(L".NET"));
 
@@ -5617,8 +5999,14 @@ extern bool workshop_edit_model(const wchar_t *path)
 		}
 		else return false;	
 	}
-	
+
 	LPARAM lp = GetProcessId(si.hProcess);
+	if(mm3d)
+	if(HWND fw=FindWindowA(0,"Hidden - FindWindow(Multimedia3D)"))
+	{
+		DWORD lp2;
+		if(GetWindowThreadProcessId(fw,&lp2)) lp = lp2;
+	}	
 	AllowSetForegroundWindow(lp);
 	if(!EnumWindows(workshop_alt_click_cb,(LPARAM)&lp))
 	{
@@ -5790,6 +6178,9 @@ static void workshop_WriteFile_part()
 	workshop_cpp::part_prt part = {};
 	workshop_WriteFile_text(1005,part.msm);
 	workshop_WriteFile_text(1006,part.mhm);
+	if(GetDlgItem(som_tool,1017))
+	workshop_WriteFile_text(1017,part.bmp);
+	else
 	workshop_WriteFile_text(1013,part.bmp);
 	workshop_WriteFile_text(1008,part.single_line_text);
 	char*p,*n;if(n=strchr(p=part.single_line_text,'\n'))
@@ -6302,7 +6693,7 @@ static bool workshop_WriteFile(const wchar_t *to)
 	//HACK: signaling modification flag to workshop_tool (SOM_PRM)
 	//this is just a trick to force the PR2 files to track changes
 	//in most instances, although imperfect
-	SetWindowLong(som_tool,GWL_USERDATA,1);
+	PostMessage(workshop_tool,WM_APP+'ws+w',0,0);
 
 	DWORD wr = 2*som_tool_wector.size();
 	if(SOM::tool==PrtsEdit.exe) 
@@ -6533,7 +6924,13 @@ extern bool workshop_exe(int hlp)
 			EnableWindow(som_tool_workshop,1);	
 			//cannot seem do this attractively, as when 
 			//opened for the first time :(
-			ShowWindow/*Async*/(som_tool_workshop,SW_SHOW);		
+			ShowWindow/*Async*/(som_tool_workshop,SW_SHOW);
+
+			if(0&&EX::debug)
+			{
+				PostMessage(som_tool_workshop,WM_COMMAND,1017,0);
+				PostMessage(som_tool_workshop,WM_COMMAND,32773,1);
+			}
 		}
 
 		//2023: work with WM_APP+'ws' to make modeless
@@ -6791,6 +7188,16 @@ extern void workshop_reprogram()
 		*(DWORD*)0x409CA3 = (DWORD)workshop_click_radio_timer-0x409CA7;
 		*(DWORD*)0x409C94 = (DWORD)workshop_click_radio_timer-0x409C98;
 	}
+
+	if(SOM::tool==PrtsEdit.exe) //prevent FindFirstFile for menu
+	{
+		//this menu never displays itself and it is always built
+		//I think it closes if a file is opened, which New File does
+		//case 60100 sends IDOK
+		
+		//00401140 6A FF
+		*(BYTE*)0x401140 = 0xc3; //ret
+	}
 }
 
 //HACK: theses are defined in workshop.cpp only because the data 
@@ -6897,7 +7304,7 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 	bool arm60 = other||60==SOM::arm[0];	
 
 	//REMOVE ME
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 	//UNFINISHED: this needs to be able to change on the fly
 	extern float som_MDL_arm_fps; //0.06f	
 	int armX = 1+(int) 

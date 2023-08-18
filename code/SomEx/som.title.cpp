@@ -514,7 +514,7 @@ static const char *som_title_sub(const char *in, int in_s)
 	{
 		//have to distinguish between action titles
 		//with identical text
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		/*2022: won't work (423ce0 buffers subtitles)
 		int i = -1;
 		if(in>=SOM::L.sys_dat_messages_0_8[0]

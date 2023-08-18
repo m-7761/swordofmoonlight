@@ -3103,16 +3103,12 @@ reset:	int i;
 						dx_d3d9c_direct3d_swapchain[i].dwFlags|=DDSD_HEIGHT;						
 						x->dwHeight = //2021
 						dx_d3d9c_direct3d_swapchain[i].dwHeight = client.bottom;
-
-						if(x->dwHeight%2) x->dwWidth++; //2023
 					}
 					//if(!(x->dwFlags&DDSD_WIDTH))
 					{
 						dx_d3d9c_direct3d_swapchain[i].dwFlags|=DDSD_WIDTH;
 						x->dwWidth = //2021
 						dx_d3d9c_direct3d_swapchain[i].dwWidth = client.right;
-
-						if(x->dwWidth%2) x->dwWidth++; //2023: ItemEdit.exe?
 					}
 				}
 				else //UNFINISHED? //SetDisplayMode?
@@ -3123,6 +3119,8 @@ reset:	int i;
 					assert(DDRAW::window);
 				}
 			}
+			if(x->dwHeight%2) x->dwHeight++; //2023: ItemEdit.exe?
+			if(x->dwWidth%2) x->dwWidth++;
 
 			p->query9->group9 = dx_d3d9c_virtual_group;
 

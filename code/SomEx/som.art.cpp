@@ -447,6 +447,7 @@ static bool som_art_X2MDL_UPTODATE(FILETIME &t2)
 	WORD dt[3] = {X2MDL_UPTODATE};
 	return st.wYear>=dt[0]||st.wMonth>=dt[1]||st.wDay>=dt[2];
 }
+extern bool som_art_nofollow = false; //DEBUGGING
 //extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH], WCHAR *ico)
 extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 {
@@ -489,7 +490,11 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 	int e = 0;
 
 	bool art = false, exact = false; 
-	bool nofollow = false; nofollow:
+//	#ifdef _DEBUG
+	bool nofollow = som_art_nofollow; nofollow:
+//	#else
+//	bool nofollow = false; nofollow:
+//	#endif
 
 	FILETIME t1,t2,t3;		
 	wchar_t lnk[MAX_PATH]; do
@@ -530,7 +535,10 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 		case '.msm': e|=_msm; continue;
 		case '.mhm': e|=_mhm; continue;
 		}
-		if(nofollow||exact) continue;
+		if(exact||nofollow)
+		{
+			if(!som_art_nofollow) continue;
+		}
 
 		#ifdef NDEBUG
 //		#error disable BMP extensions overwritten by TXR //???

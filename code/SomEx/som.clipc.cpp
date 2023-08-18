@@ -406,6 +406,10 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 			if(open) SOM::shoved = SOM::frame; //testing
 		}				
 
+		if(obj==63)
+		{
+			obj = obj; //breakpoint
+		}
 		if(!som_clipc_x40dff0
 		(_1,_2-som_clipc_haircut,_3,obj,_5,_6,_7))
 		return 0;
@@ -1235,7 +1239,7 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 //a full investigation even though I'm going to publish v1.2.2.14 anyway
 //NOTE: surmounting_staging solves this problem okay in a roundabout way
 //#error fix me
-int todolist[SOMEX_VNUMBER<=0x102040cUL]; //I think this can be removed?
+int todolist[SOMEX_VNUMBER<=0x1020504UL]; //I think this can be removed?
 #endif
 			//REMINDER: it's too messy to try to rule out crawlspaces
 			//return false;

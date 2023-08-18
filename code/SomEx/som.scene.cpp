@@ -396,7 +396,7 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 		assert(se->ai!=150||se->npc<2);
 	}*/
 	
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
@@ -2964,7 +2964,7 @@ static float som_scene_depth2(float a[3], float b[3])
 static void __cdecl som_scene_44d5a0(som_scenery *ts) //depth-sort
 {
 	//TODO! MAKE lightselector MORE ACCURATE
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 
 	EX::INI::Option op;
 
@@ -3117,7 +3117,7 @@ extern int som_scene_volume_select(DWORD txr, int vg=-1)
 	if(1&&som_scene_batchelements) return -1;
 	#else
 	//batch?
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 	#endif
 
 	if(SOM::volume_textures&&txr!=65535)	
@@ -4820,7 +4820,7 @@ extern void som_scene_reprogram()
 		//UNFINSHED
 		#ifdef NDEBUG
 		//#error do_red? som_scene_volume_select?
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif
 	}
 	//TEARDOWN

@@ -2103,7 +2103,7 @@ static DWORD __cdecl som_state_42bca0() //42AE60
 				{
 					//42bca0 detects the closest object, and perhaps inert objects
 					//should be given lower priority (this isn't event activation)
-					int todolist[SOMEX_VNUMBER<=0x102040cUL];
+					int todolist[SOMEX_VNUMBER<=0x1020504UL];
 
 					switch(type[1])
 					{
@@ -3966,7 +3966,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	//TODO: these could change dynamically so
 	//that they should be reset on the event
 	//cycle
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 	SOM::L.shape = pc->player_character_shape; //0.25			
 	SOM::L.hitbox = pc->player_character_shape2; //0.25
 	SOM::L.hitbox2 = pc->player_character_shape3; //0.25
@@ -4313,7 +4313,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	{
 		*range = pc->player_character_radius-1.5f;
 		//44ce30 does event test (return to this)
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		//2020: it's possible this is doing nothing
 		//since I changed do_fix_boxed_events after
 		//learning 42bca0 tests from  the center of

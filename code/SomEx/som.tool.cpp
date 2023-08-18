@@ -68,6 +68,10 @@ extern int som_prm_tab = 0, som_sys_tab = 0, som_map_tab = 0;
 extern void SOM_PRM_extend(int=0);
 extern std::vector<BYTE> SOM_PRM_items;
 
+extern int SOM_MAP_ini;
+extern int SOM_MAP_alpha[2];
+extern HBITMAP SOM_MAP_overlay_BMP;
+
 //som.state.cpp and som.hacks.cpp
 extern HWND som_map_tileview = 0;
 extern HWND som_map_tileviewport = 0;
@@ -93,6 +97,7 @@ extern char som_tool_space = 0;
 
 /*extern*/ std::vector<WCHAR> som_tool_wector; 
 extern HDC som_tool_dc = CreateCompatibleDC(0);
+extern HDC som_tool_dc2 = 0;
 extern HFONT som_tool_charset = 0, som_tool_typeset = 0;
 extern int som_tool_charset_height = 0;
 
@@ -227,14 +232,14 @@ static SHORT WINAPI som_tool_GetKeyState(int vk)
 
 static BOOL WINAPI som_tool_GetMessageA(LPMSG A,HWND B,UINT C,UINT D);
 static BOOL WINAPI som_tool_PeekMessageA(LPMSG A,HWND B,UINT C,UINT D,UINT E);
-static BOOL WINAPI som_tool_IsDialogMessageA(HWND A,LPMSG B)
+static BOOL WINAPI som_tool_IsDialogMessageA(HWND A, LPMSG B)
 {
 	if(SOM::tool==PrtsEdit.exe&&workshop_accel)
 	if(TranslateAccelerator(A,workshop_accel,B)) 
 	return 1;
 	return IsDialogMessageW(A,B); 
 }
-static LRESULT WINAPI som_tool_DispatchMessageA(CONST MSG*A)
+static LRESULT WINAPI som_tool_DispatchMessageA(CONST MSG *A)
 {
 	return DispatchMessageW(A);
 }
@@ -454,9 +459,19 @@ static LRESULT CALLBACK som_tool_msgfilterproc(int code, WPARAM wParam, LPARAM l
 			if(msg.lParam&1<<30) out = 1; 	
 
 			//WTH Windows???!!!! seems VK_TAB just doesn't work anymore
-			extern windowsex_TIMERPROC som_tool_repair_tab_navigation_hack;
+			extern windowsex_TIMERPROC som_tool_repair_tab_navigation_hack_timer;
 			if(VK_TAB==msg.wParam)
-			SetTimer(0,0,0,som_tool_repair_tab_navigation_hack);
+			SetTimer(0,0,0,som_tool_repair_tab_navigation_hack_timer);
+
+			if(SOM::tool==PrtsEdit.exe) //???
+			if(som_tool_stack[1])
+			if(VK_TAB==msg.wParam) //2023: PrtsEdit tab is broken on 103
+			{
+				out = 1; //!
+
+				SetFocus(GetNextDlgTabItem
+				(GetParent(msg.hwnd),msg.hwnd,GetKeyState(VK_SHIFT)>>15));
+			}
 
 			break;
 
@@ -2749,7 +2764,7 @@ static LRESULT CALLBACK som_tool_comboboxproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		if(wParam!=0xffffffff) //-1
 		if(1002==id&&SOM::tool==SOM_PRM.exe) //2023		
 		if(IsWindowVisible(som_tool_workshop))
-		workshop_exe(30000);
+		workshop_exe(GetWindowContextHelpId(som_tool_stack[1]));
 
 		return out;
 	}
@@ -4094,8 +4109,9 @@ static LRESULT CALLBACK som_tool_trackbarproc(HWND hWnd, UINT uMsg, WPARAM wPara
 	case TBM_SETPOS: case TBM_SETPOSNOTIFY: 
 	{
 		//HACK: too complicated reversed
-		if(id==1005) switch(hlp) 
+		if(id==1005) switch(hlp) //1005?
 		{		
+		case 12500: //2023???
 		case 42000: case 44000: //assert?
 		case 46400: case 46900: case 47300: //2022
 				
@@ -4656,7 +4672,7 @@ static LRESULT CALLBACK som_tool_pushlikeproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			DRAWITEMSTRUCT dis = {ODT_BUTTON,plpid,0,0,ods,hWnd,ps.hdc,{0},0};
 			GetClientRect(hWnd,&dis.rcItem); 			
 			SelectObject(ps.hdc,(HGDIOBJ)GetWindowFont(hWnd));
-			SendMessage(GetParent(hWnd),WM_DRAWITEM,plpid,(LPARAM)&dis);		
+			SendMessage(GetParent(hWnd),WM_DRAWITEM,id,(LPARAM)&dis);		
 			EndPaint(hWnd,&ps);
 		}
 		return 0;
@@ -4728,10 +4744,11 @@ static LRESULT CALLBACK som_tool_pushlikeproc(HWND hWnd, UINT uMsg, WPARAM wPara
 	}
 	case WM_LBUTTONUP: //continued from above
 	{
+		RedrawWindow(hWnd,0,0,RDW_INVALIDATE|RDW_NOERASE); //2023
 		if(hWnd!=GetCapture()) break; 		
 		if(BST_PUSHED&~Button_GetState(hWnd)) 
 		return 0|ReleaseCapture();
-		RedrawWindow(hWnd,0,0,RDW_INVALIDATE|RDW_NOERASE);
+	//	RedrawWindow(hWnd,0,0,RDW_INVALIDATE|RDW_NOERASE);
 		break;
 	}
 	/////end: WM_PAINT is bypassed
@@ -4748,6 +4765,21 @@ static LRESULT CALLBACK som_tool_staticproc(HWND hWnd, UINT uMsg, WPARAM wParam,
 {
 	switch(uMsg)
 	{
+	case WM_NCHITTEST: //2023
+
+		if(WS_EX_TRANSPARENT&GetWindowExStyle(hWnd))
+		if(GetKeyState(VK_LBUTTON)>>15)
+		{
+			if(som_sys_tab==1021)
+			if(id>=3001&&id<=3016)
+			{
+				SetFocus(GetDlgItem(som_tool_stack[1],id==3001?1017:id-3002+1022));
+				extern void CALLBACK som_tool_bm_click_timer(HWND,UINT,UINT,DWORD);
+				SetTimer(GetDlgItem(som_tool_stack[1],1043),'play',100,som_tool_bm_click_timer);
+			}
+		}
+		break;
+
 	case WM_SETTEXT:
 
 		if(IsWindowVisible(hWnd)) //Strength & Magic
@@ -4784,24 +4816,39 @@ static LRESULT CALLBACK som_tool_staticproc(HWND hWnd, UINT uMsg, WPARAM wParam,
 		if(ss&SS_RIGHT) dt|=DT_RIGHT;
 		if(ss&SS_CENTER) dt|=DT_CENTER; dt|=DT_NOCLIP; //!
 		if(ss&SS_NOPREFIX) dt|=DT_NOPREFIX;		
-		if(ss&SS_CENTERIMAGE) dt|=DT_VCENTER|DT_SINGLELINE;		
-		
-		HBRUSH bg = (HBRUSH)SendMessage 
-		(GetParent(hWnd),WM_CTLCOLORSTATIC,(WPARAM)dc,(LPARAM)hWnd);			
-		FillRect(dc,&rc,bg?bg:GetSysColorBrush(COLOR_3DFACE));
+		if(ss&SS_CENTERIMAGE) dt|=DT_VCENTER|DT_SINGLELINE;
 
-		if(!trans) //this is towards &mnemonics for labels
+		if(trans&&text[0]=='@') //2023
 		{
-			SetTextColor(dc,GetSysColor(COLOR_WINDOWTEXT));			
-			if(bg&&!(dt&3)) rc.left+=1; //hack? have a 1px margin
-		}
+			//"observed behavior"
+			if(dt&SS_RIGHT) rc.right-=1;
+			if(~ss&SS_CENTERIMAGE) rc.bottom-=1;
 
-		//observed behavior
-		if(dt&SS_RIGHT) rc.right-=1;
-		if(~ss&SS_CENTERIMAGE) rc.bottom-=1;		
-		//FOR SOME REASON WRAPPING JUST DOESN'T WORK???
-		if(trans) som_tool_drawstatictext(dc,&rc,text,text_s,dt);
-		if(!trans) DrawTextW(dc,text,text_s,&rc,dt|DT_EXPANDTABS);			
+			DRAWITEMSTRUCT i = {};
+			i.hwndItem = hWnd;
+			som_tool_DrawTextA_item = &i;
+			som_tool_DrawTextA(dc,EX::need_ansi_equivalent(932,text),-1,&rc,dt);
+			som_tool_DrawTextA_item = 0;
+		}
+		else
+		{		
+			HBRUSH bg = (HBRUSH)SendMessage 
+			(GetParent(hWnd),WM_CTLCOLORSTATIC,(WPARAM)dc,(LPARAM)hWnd);			
+			FillRect(dc,&rc,bg?bg:GetSysColorBrush(COLOR_3DFACE));
+
+			if(!trans) //this is towards &mnemonics for labels
+			{
+				SetTextColor(dc,GetSysColor(COLOR_WINDOWTEXT));			
+				if(bg&&!(dt&3)) rc.left+=1; //hack? have a 1px margin
+			}
+
+			//observed behavior
+			if(dt&SS_RIGHT) rc.right-=1;
+			if(~ss&SS_CENTERIMAGE) rc.bottom-=1;		
+			//FOR SOME REASON WRAPPING JUST DOESN'T WORK???
+			if(trans) som_tool_drawstatictext(dc,&rc,text,text_s,dt);
+			if(!trans) DrawTextW(dc,text,text_s,&rc,dt|DT_EXPANDTABS);			
+		}
 
 		//ReleaseDC(hWnd,dc);
 		EndPaint(hWnd,&ps);
@@ -4846,7 +4893,7 @@ static COLORREF som_tool_readonly(WPARAM ro=1)
 {
 	return ro?som_tool_gray():som_tool_white();
 }
-static void CALLBACK som_tool_shopcell(HWND,UINT,UINT,DWORD);
+static void CALLBACK som_tool_shopcell_timer(HWND,UINT,UINT,DWORD);
 static LRESULT CALLBACK som_tool_editcellproc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR scID, DWORD_PTR listview)
 {
 	HWND &lv = (HWND&)listview;
@@ -4905,7 +4952,7 @@ static LRESULT CALLBACK som_tool_editcellproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				PostMessage(lv,WM_KEYDOWN,VK_RETURN,0);
 				if(wp!=wParam) //up/down?
 				if(1031==GetDlgCtrlID(lv)) //SOM_PRM?
-				SetTimer(lv,wp,50,som_tool_shopcell);
+				SetTimer(lv,wp,50,som_tool_shopcell_timer);
 				return 0;
 			}
 		}
@@ -6035,6 +6082,10 @@ static ATOM som_tool_button(HWND bt=0)
 
 	int bs = GetWindowStyle(bt);
 	int ex = GetWindowExStyle(bt);
+
+	//HACK: hide/restore some ex styles from common-controls?
+	if(ex&WS_EX_CONTROLPARENT)
+	SetWindowExStyle(bt,WS_EX_DLGMODALFRAME|(ex&~WS_EX_CONTROLPARENT));
 	
 	switch(bs&BS_TYPEMASK)
 	{
@@ -6582,24 +6633,24 @@ static ATOM som_tool_ipaddress(HWND ip=0)
 #define SOM_TOOL_TIMER(x,...) \
 extern void CALLBACK x(HWND win,UINT,UINT kill,DWORD)\
 {if(!KillTimer(win,kill))assert(0);else{__VA_ARGS__}}
-SOM_TOOL_TIMER(som_map_showtileview,
+SOM_TOOL_TIMER(som_map_showtileview_timer,
 {
 	HWND tv = GetDlgItem(win,1052);
 	SendMessage(tv,TVM_SELECTITEM,TVGN_CARET,0);
 	SendMessage(tv,TVM_SELECTITEM,TVGN_CARET,(LPARAM)TreeView_GetChild(tv,TVI_ROOT));			
 })
-SOM_TOOL_TIMER(som_prm_enemywizard,
+SOM_TOOL_TIMER(som_prm_enemywizard_timer,
 {
 	HWND f = GetFocus(); SOM::xxiix ex;
 	ex = GetWindowLong(GetDlgItem(som_tool,som_prm_tab),GWL_USERDATA);		
 	SendMessage(win,WM_COMMAND,ex.ii==0?1101:1103+ex.ii,0);
 	SetFocus(f); 
 })
-SOM_TOOL_TIMER(som_map_mousewheel,
+SOM_TOOL_TIMER(som_map_mousewheel_timer,
 {
 	SendMessage(win,WM_VSCROLL,MAKEWPARAM(SB_THUMBPOSITION,GetScrollPos(win,1)),0); 
 })
-SOM_TOOL_TIMER(som_tool_shopcell, //EXPERIMENTAL
+SOM_TOOL_TIMER(som_tool_shopcell_timer, //EXPERIMENTAL
 {
 	if(GetFocus()!=win||GetKeyState(VK_CONTROL)>>15)
 	return;
@@ -6607,13 +6658,27 @@ SOM_TOOL_TIMER(som_tool_shopcell, //EXPERIMENTAL
 	if(i<=0||i>=249)
 	return;
 	PostMessage(win,WM_KEYDOWN,kill,0);
-	PostMessage(win,WM_KEYDOWN,VK_RETURN,0); SetTimer(win,kill,50,som_tool_shopcell);
+	PostMessage(win,WM_KEYDOWN,VK_RETURN,0); SetTimer(win,kill,50,som_tool_shopcell_timer);
 })
-SOM_TOOL_TIMER(som_tool_repair_tab_navigation_hack, //DESPERATION
+SOM_TOOL_TIMER(som_tool_repair_tab_navigation_hack_timer, //DESPERATION
 {
 	HWND gf = GetFocus();
 	if(gf) InvalidateRect(gf,0,0);
 	if(gf) SendMessage(gf,WM_UPDATEUISTATE,MAKEWPARAM(UIS_CLEAR,UISF_HIDEFOCUS),0);	
+})
+SOM_TOOL_TIMER(som_map_alpha_timer,
+{
+	int i = SOM_MAP_overlay_BMP?1:0;
+	wchar_t w[8]; _itow(SOM_MAP_alpha[i],w,10);	
+	WritePrivateProfileString(L"editor",i?L"mixer2":L"mixer1",w,SOM::Game::title('.ini'));
+})
+SOM_TOOL_TIMER(som_tool_bm_click_timer,
+{
+	SendMessage(win,BM_CLICK,0,0);
+})
+SOM_TOOL_TIMER(som_tool_enable_timer,
+{
+	EnableWindow(win,1);
 })
 
 static int som_sys_slideshow = 0; 
@@ -6703,24 +6768,32 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		if(!som_tool_workshop)
 		{
 			som_tool_workshop = (HWND)wParam;
-		}
+		}			
 		//2023: make modeless? see also workshop_exe
-		EnableWindow(som_tool,1);	
-	//	SetParent((HWND)wParam,som_tool);
+		//SetParent((HWND)wParam,som_tool);
 		SetWindowLong((HWND)wParam,GWL_HWNDPARENT,(LONG)som_tool);
+				
+		//August 2023: stopped working (WM_ENABLE isn't entered)
+		//EnableWindow(som_tool,1);
+		SetTimer(som_tool,'ws/e',1000,som_tool_enable_timer); //???
 	
+		break; //...
+
+	case WM_APP+'ws+w':
+
+		if(SOM::tool==SOM_PRM.exe)  //HACK: update PR2 file?
+		{
+			windowsex_notify(som_tool_stack[1],1002,CBN_SELENDOK);
+		}
+		if(SOM::tool==SOM_MAP.exe)
+		{
+			//TODO: maybe update some things here
+		}
 		break;
 
 	case WM_ENABLE:
 
-		if(wParam&&som_tool_workshop)
-		if(GetWindowLong(som_tool_workshop,GWL_USERDATA))
-		{
-			SetWindowLong(som_tool_workshop,GWL_USERDATA,0);
-			assert(hWnd==som_tool);
-			if(som_tool_stack[1]) //HACK: update PR2 file?
-			windowsex_notify(som_tool_stack[1],1002,CBN_SELENDOK);
-		}
+		wParam = wParam; //testing
 		break;
 
 	case WM_PAINT: //SOM_PRM 
@@ -6869,15 +6942,9 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			if(wParam==1080 //Alt Play button?
 			||wParam==3000) //Make overlay button push down?
 			out = som_tool_drawitem(dis,175);
-			if(wParam==1263 //checkpoint overlay
-			||wParam==1264) //arrows overlay
-			{
-				st = dis->hwndItem==GetFocus();
-				int mask = WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME;
-				SetWindowExStyle(dis->hwndItem,mask,st?WS_EX_CLIENTEDGE:WS_EX_DLGMODALFRAME);
-			//	RedrawWindow(dis->hwndItem,0,0,RDW_FRAME|RDW_INVALIDATE);
-				out = som_tool_drawitem(dis,175,st);
-			}
+			if(wParam>=1263 //checkpoint overlay
+			&&wParam<=1264) //arrows overlay, grid overlay
+			out = som_tool_drawitem(dis,175,st);
 			break;	 
 
 		case 41000:
@@ -6969,7 +7036,8 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		}
 		if(!out)
 		{
-			if(som_tool_pushlikepseudoid==wParam) 
+			//if(som_tool_pushlikepseudoid==wParam) 
+			if(som_tool_pushlikepseudoid==dis->CtlID) 
 			{							
 				int bm = 0; switch(SOM::tool)
 				{
@@ -7663,7 +7731,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 
 					if(sel!=-1) //goto profile_enable?
 					if(IsWindowVisible(som_tool_workshop)) 
-					workshop_exe(30000); //2023
+					workshop_exe(GetWindowContextHelpId(som_tool_stack[1])); //2023
 
 					//NOTE: technically this should apply to 
 					//all screens, and will probably need to
@@ -7744,6 +7812,18 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				SetCapture(0); //hack/paranoia: seems to be sticky 
 				break;
 
+			case 1263: case 1264:
+			{
+				lParam = 2<<(wParam-1263);
+				if(SendDlgItemMessage(som_tool,wParam,BM_GETCHECK,0,0))
+				SOM_MAP_ini|=lParam; else SOM_MAP_ini&=~lParam;
+				WCHAR w[32]; _itow(SOM_MAP_ini,w,10);
+				WritePrivateProfileStringW(L"editor",L"toggleSets",w,SOM::Game::title('.ini'));				
+				if(wParam==1264&&SOM_MAP_alpha[0]<20&&SOM_MAP_ini&4)
+				SendDlgItemMessage(som_tool,3001,TBM_SETPOS,1,SOM_MAP_alpha[0]=100);
+				InvalidateRect(SOM_MAP.painting,0,0);
+				return 0;
+			}
 			case 1080: //Play button? 
 				
 				som_tool_play = 1;
@@ -7753,11 +7833,8 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 
 			case 3000: //Overlay?
 
-				extern void SOM_MAP_open_overlay(); SOM_MAP_open_overlay();
-				goto overlay;
-				//InvalidateRect(SOM_MAP.painting,0,0); 
-				//HACK: painting is far down below.
-				RedrawWindow(som_tool,0,0,RDW_INVALIDATE|RDW_ALLCHILDREN);
+				extern void SOM_MAP_open_overlay(); 
+				SOM_MAP_open_overlay();				
 				break;
 
 			case MAKEWPARAM(1133,CBN_SELENDOK): //Map Layer?
@@ -8270,7 +8347,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			//HWND tv = GetDlgItem(hWnd,1052);
 			//SendMessage(tv,TVM_SELECTITEM,TVGN_CARET,0);
 			//PostMessage(tv,TVM_SELECTITEM,TVGN_CARET,(LPARAM)TreeView_GetChild(tv,TVI_ROOT));			
-			SetTimer(hWnd,'show',0,som_map_showtileview);	
+			SetTimer(hWnd,'show',0,som_map_showtileview_timer);	
 		}
 		break;
 
@@ -8305,12 +8382,36 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 	case WM_HSCROLL: //trackbars part 2 
 	{
 		int tb = GetDlgCtrlID((HWND)lParam);
-		if(tb==3001) overlay:
-		{
-			//REMOVE ME?
-			extern HWND SOM_MAP_painting;
-			if(SOM_MAP_painting) //SOM_MAIN?
-			InvalidateRect(SOM_MAP_painting,0,0); 
+		if(tb==3001&&SOM_MAP.exe==SOM::tool)
+		{	
+			int &alpha = SOM_MAP_alpha[SOM_MAP_overlay_BMP?1:0];
+			int cmp = alpha;
+			alpha = SendMessage((HWND)lParam,TBM_GETPOS,0,0);
+
+			if(!SOM_MAP_overlay_BMP)
+			{
+				if(cmp<128&&SOM_MAP_alpha[0]==128
+				||cmp>=128&&SOM_MAP_alpha[0]<128)
+				{
+					extern void SOM_MAP_40f830();
+					SOM_MAP_40f830();
+					InvalidateRect(SOM_MAP.palette,0,0);
+				}
+			}
+			else if(SOM_MAP_overlay_BMP)
+			{
+				if(cmp<0&&SOM_MAP_alpha[1]>0
+				||cmp>0&&SOM_MAP_alpha[1]<0)
+				{
+					extern void SOM_MAP_update_illumination();
+					SOM_MAP_update_illumination();
+				}
+			}
+
+			InvalidateRect(SOM_MAP.painting,0,0); 
+
+			SetTimer(hWnd,'mix~',500,som_map_alpha_timer);
+
 			return 0;
 		}			
 		if(SOM_PRM.exe==SOM::tool) switch(tb)
@@ -8326,7 +8427,7 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		}
 		else if(tb==1005) //if(hWnd==som_map_tileview) 
 		{
-			switch(hlp) //SOM_MAP_z_scroll
+			if(SOM_MAP.exe==SOM::tool) switch(hlp) //SOM_MAP_z_scroll
 			{
 			case 42000: case 44000:
 			case 46400: case 46900: case 47300: //2022
@@ -9047,8 +9148,7 @@ static void som_tool_togglemnemonics(HWND of)
 		}
 		else if(BS_GROUPBOX==(ws&BS_TYPEMASK))
 		{
-			//if(som_tool_button()==GetClassAtom(ch))
-			assert(som_tool_button()==GetClassAtom(ch));
+			if(som_tool_button()==GetClassAtom(ch))
 			RedrawWindow(ch,0,0,RDW_INVALIDATE|RDW_ERASE);		
 		}
 	}
@@ -9729,7 +9829,7 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 	
 	case 35100: //SOM_PRM Enemy's Wizard screen
 		
-		SetTimer(hwndDlg,'wiz',0,som_prm_enemywizard);
+		SetTimer(hwndDlg,'wiz',0,som_prm_enemywizard_timer);
 
 		//REMOVE ME?. See item() note.
 		SOM_PRM_47a708.item() = 0;
@@ -9746,7 +9846,7 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 			//UNFINISHED
 			//I need to reduce the Kraken size so it
 			//can move in its cave
-			int todolist[SOMEX_VNUMBER<=0x102040cUL];			
+			int todolist[SOMEX_VNUMBER<=0x1020504UL];			
 			if(EX::debug) //2021: add 1 decimal place
 			{
 				//this works but requires reprogramming to save it
@@ -10331,7 +10431,22 @@ static void som_tool_richedit_etc(void *dlgtemplateex)
 					VirtualProtect(p,sizeof(it),rsrc,&rsrc); 
 				}
 			}*/
-			
+		
+			//2023: overlay toggle buttons
+			if(ch.exStyle&WS_EX_TRANSPARENT) 
+			if(ch.exStyle&WS_EX_DLGMODALFRAME)
+			{
+				if(wc[1]==0x0080) //BUTTON
+				{
+					if(VirtualProtect(p,sizeof(it),PAGE_READWRITE,&rsrc))
+					{
+						ch.exStyle&=~WS_EX_DLGMODALFRAME;
+						ch.exStyle|=WS_EX_CONTROLPARENT;
+					}
+				}
+				else assert(0);
+			}
+
 			//2018: som_tool_bar texts
 			if(wc[1]==0x0082 //Static
 			||wc[1]==0x0080&&BS_GROUPBOX==(ch.style&BS_TYPEMASK))
@@ -10383,7 +10498,7 @@ static void som_tool_richedit_etc(void *dlgtemplateex)
 		}
 		else if(!wcsnicmp(wc,L"RichEdit",8)&&wc[8]) //load v4.1 library
 		{
-			DWORD &es = ((it*)p)->style, rsrc; 
+			DWORD &es = ch.style, rsrc; 
 			if(VirtualProtect(p,sizeof(it),PAGE_READWRITE,&rsrc))
 			{
 				//these can't seem to be enabled once created
@@ -10401,7 +10516,7 @@ static void som_tool_richedit_etc(void *dlgtemplateex)
 				if(wcscmp(wc,L"RICHEDIT50W")) //upgrade to 4.1									
 				if(wmemcpy(wc,L"RICHEDIT",8)[8]=='2') wc[8] = '5';				
 			}			
-		}		
+		}
 		if(rsrc) VirtualProtect(p,sizeof(it),rsrc,&rsrc); 
 
 		if(*wc==0xFFFF) wc+=2; else while(*wc++); //windowClass
@@ -10532,10 +10647,17 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE A, LPCDLGTEMPLA
 				if(40100==peek->helpID)
 				{
 					static bool one_off = false; //???
-					if(!one_off++)
-					peek->exStyle|=WS_EX_APPWINDOW;
-					else
-					peek->exStyle&=~WS_EX_APPWINDOW;
+					if(!one_off)
+					{
+						one_off = true;
+
+						SOM_MAP_ini = GetPrivateProfileInt(L"editor",L"toggleSets",0,SOM::Game::title('.ini'));
+						SOM_MAP_alpha[0] = GetPrivateProfileInt(L"editor",L"mixer1",-50,SOM::Game::title('.ini'));
+						SOM_MAP_alpha[1] = GetPrivateProfileInt(L"editor",L"mixer2",0,SOM::Game::title('.ini'));
+
+						peek->exStyle|=WS_EX_APPWINDOW;
+					}
+					else peek->exStyle&=~WS_EX_APPWINDOW;
 				}
 				//break;
 
@@ -10664,11 +10786,6 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE A, LPCDLGTEMPLA
 			{
 				peek->exStyle&=~WS_EX_APPWINDOW;	
 			}
-
-			#ifdef NDEBUG
-			#error fix me
-			#endif
-			if(C==workshop_tool) C = 0; //TESTING
 		}
 		VirtualProtect((void*)B,16,rsrc,&rsrc); //!
 	}
@@ -10785,6 +10902,18 @@ static BOOL WINAPI som_tool_SetWindowTextA(HWND A, LPCSTR C)
 
 	switch(control) //file system
 	{
+	case 1006: //2023
+
+		if(hlp==40000) //SOM_MAIN
+		{
+			if(SOM_MAP_overlay_BMP)
+			{
+				extern void SOM_MAP_update_illumination();
+				SOM_MAP_update_illumination();
+			}			
+		}
+		break;
+
 	case 1007: case 1008: case 1010:  	
 
 		if(SOM::tool==SOM_MAIN.exe
@@ -12297,10 +12426,11 @@ static void som_map_zentai_rename(size_t name, wchar_t *x, size_t x_s)
 }
 
 static RECT som_map_FrameRgn_palette;
-static HWND som_map_FrameRgn_AfxWnd42s = 0;
+extern HWND som_map_FrameRgn_AfxWnd42s = 0;
 extern HBRUSH som_tool_red = CreateSolidBrush(0xFF);
 extern HBRUSH som_tool_yellow = CreateSolidBrush(0xFFFF);
 extern RECT &workshop_picture_window = som_map_FrameRgn_palette;
+extern HRGN som_map_FrameRgn_copy = 0;
 static BOOL WINAPI som_map_FrameRgn(HDC A,HRGN B,HBRUSH C,int D,int E)
 {
 	if(som_map_FrameRgn_AfxWnd42s)
@@ -12311,12 +12441,12 @@ static BOOL WINAPI som_map_FrameRgn(HDC A,HRGN B,HBRUSH C,int D,int E)
 
 		EXLOG_LEVEL(7) << "som_tool_FrameRgn()\n";
 		
-		//Reminder: Sandwich the overlay between the cursor.
+		/*Reminder: Sandwich the overlay between the cursor
 		if(SOM_MAP.painting==som_map_FrameRgn_AfxWnd42s)
 		{
-			extern void SOM_MAP_sandwich_overlay(HDC,HWND);
-			SOM_MAP_sandwich_overlay(A,som_map_FrameRgn_AfxWnd42s); 
-		}
+			extern void SOM_MAP_sandwich_overlay(HDC);
+			SOM_MAP_sandwich_overlay(A); 
+		}*/
 
 		LOGBRUSH lb;
 		if(GetObject((HGDIOBJ)C,sizeof(lb),&lb))
@@ -12358,7 +12488,14 @@ static BOOL WINAPI som_map_FrameRgn(HDC A,HRGN B,HBRUSH C,int D,int E)
 			//swap the colors used by SOM_MAP (elsewhere yellow means focus)
 			C = f==som_map_FrameRgn_AfxWnd42s?som_tool_yellow:som_tool_red;
 		}
-	}
+	}	
+
+		//NOTE: SOM_MAP_BitBlt_grid now redraws these
+
+		if(!som_map_FrameRgn_copy)
+		som_map_FrameRgn_copy = CreateRectRgn(0,0,0,0);
+		CopyRgn(som_map_FrameRgn_copy,B);
+
 other: return SOM::Tool.FrameRgn(A,B,C,D,E);
 }
 static VOID CALLBACK som_map_opentileview(HWND hWnd, UINT, UINT_PTR id, DWORD)
@@ -12398,7 +12535,7 @@ static LRESULT CALLBACK som_map_AfxWnd42sproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		//ensure border isn't pure black
 		//note: this is the ONLY thing that works
 		//tried WM_NCPAINT etc. might be better to remove 
-		//the borders and draw them in the parent's WM_ERASEBKND
+		//the borders and draw them in the parent's WM_ERASEBKGND
 		HWND gp = GetParent(hWnd); HDC dc = GetDC(gp);
 		RECT wr; GetWindowRect(hWnd,&wr); MapWindowRect(0,gp,&wr);
 		static HBRUSH grey = CreateSolidBrush(0x646464); 
@@ -12450,7 +12587,7 @@ static LRESULT CALLBACK som_map_AfxWnd42sproc(HWND hWnd, UINT uMsg, WPARAM wPara
 
 		if(GetKeyState(VK_SHIFT)>>15) uMsg = 0x20E;
 		if(SOM_MAP.palette==hWnd) //just refresh the MSM view port
-		SetTimer(hWnd,uMsg,100,som_map_mousewheel);
+		SetTimer(hWnd,uMsg,100,som_map_mousewheel_timer);
 		scroll3D: //WM_MBUTTONDOWN?
 		if(hWnd==(som_tool_stack[1]?som_map_tileviewport:SOM_MAP.model)) //2021
 		{
@@ -12480,6 +12617,14 @@ static LRESULT CALLBACK som_map_AfxWnd42sproc(HWND hWnd, UINT uMsg, WPARAM wPara
 
 	case WM_LBUTTONDOWN: case WM_RBUTTONDOWN: 
 		
+		extern bool SOM_MAP_expand_icons;
+		if(SOM_MAP_expand_icons)
+		{
+			auto &pts = (POINTS&)lParam;
+
+			pts.x-=pts.x/21; pts.y-=pts.y/21;
+		}
+
 		if(GetFocus()!=hWnd) SetFocus(hWnd);			
 		break; 
 				
@@ -12541,7 +12686,11 @@ static LRESULT CALLBACK som_map_AfxWnd42sproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		}
 		break;
 
-	//case WM_LBUTTONUP: //2021: SetFocus???
+	case WM_LBUTTONUP: //2023: SOM_MAP_InvertRgn 
+
+		InvalidateRect(hWnd,0,0);
+		break;
+
 	case WM_LBUTTONDOWN: 			
 	
 		if(GetFocus()!=hWnd) SetFocus(hWnd);  		
@@ -12583,9 +12732,9 @@ static LRESULT CALLBACK som_map_AfxWnd42sproc(HWND hWnd, UINT uMsg, WPARAM wPara
 	//	if(som_map_tab!=1220) //TODO! checkpoints?
 		if(SOM::Tool::dragdetect(hWnd,WM_RBUTTONDOWN)) 
 		{
-			int hmin, hmax, vmin, vmax;
-			GetScrollRange(hWnd,SB_HORZ,&hmin,&hmax); //100
-			GetScrollRange(hWnd,SB_VERT,&vmin,&vmax); //99
+			//int hmin, hmax, vmin, vmax;
+			//GetScrollRange(hWnd,SB_HORZ,&hmin,&hmax); //100
+			//GetScrollRange(hWnd,SB_VERT,&vmin,&vmax); //99
 
 			tile = (POINTS&)lParam; 
 			tileview.x = GetScrollPos(hWnd,SB_HORZ);
@@ -14207,8 +14356,18 @@ static bool som_tool_prt(int z, DWORD at, DWORD sz, BYTE *tile)
 	{
 		if(!stricmp(e+1,"msm")) e[2] = islower(e[2])?'h':'H';
 	}
-	if(!*k.icon)
-	EX::need_unicode_equivalent(65001,(char*)tile+68,(wchar_t*)k.icon,31);
+	if(!*k.iconID)
+	{
+		char buf[32],*p = (char*)tile+68;
+		extern int PrtsEdit_punc(char *pp, char **sep=nullptr);
+		if(int punc=PrtsEdit_punc(p))				
+		{
+			auto *swap = p;			
+			p = (char*)memcpy(buf,p+punc+1,strlen(p)-punc-1+1);			
+			memcpy(swap+punc,".bmp",5);
+		}
+		EX::need_unicode_equivalent(65001,p,(wchar_t*)k.iconID,31);
+	}
 	if(!*k.description)
 	EX::need_unicode_equivalent(932,(char*)tile+100,(wchar_t*)k.description,31);
 
@@ -14379,7 +14538,12 @@ extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022
 	{
 		if(!stricmp(e+1,"msm")) e[2] = islower(e[2])?'h':'H';
 	}
-	EX::need_unicode_equivalent(65001,(char*)tile+68,(wchar_t*)k.icon,31);
+	
+	char *q = (char*)tile+68;
+	extern int PrtsEdit_punc(char *pp, char **sep=nullptr);
+	if(int punc=PrtsEdit_punc(q))		
+	memmove(q,q+punc+1,strlen(q)-punc-1+1);
+	EX::need_unicode_equivalent(65001,q,(wchar_t*)k.iconID,31);
 	EX::need_unicode_equivalent(932,(char*)tile+100,(wchar_t*)k.description,31);
 
 	//HACK: SOM_MAP_165 swaps these in order to
@@ -14392,7 +14556,7 @@ extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022
 	memcpy(p->description,tile+100,127);
 
 	//TODO: still need to update icons (this is experimental)
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 	//40f8dc has code for inserting an icon... it would take 
 	//a bit of work to implement it (it's probably worthwhile
 	//to reprogram 40f8dc because it's potentially very slow)
@@ -15391,7 +15555,8 @@ static HMMIO WINAPI som_tool_mmioOpenA(LPSTR A, LPMMIOINFO B, DWORD C)
 	
 	EXLOG_LEVEL(3) << "Opening " << A << '\n';
 
-	const wchar_t *w = SOM::Tool::project(A);
+	//const wchar_t *w = SOM::Tool::project(A);
+	const wchar_t *w = SOM::Tool::file(A); //project
 	
 	if(!w) return SOM::Tool.mmioOpenA(A,B,C);
 	
@@ -15400,7 +15565,7 @@ static HMMIO WINAPI som_tool_mmioOpenA(LPSTR A, LPMMIOINFO B, DWORD C)
 	if(!out) //look in old som_rt.exe style folder?
 	{			
 		char sound[MAX_PATH] = SOMEX_(B)"\\data\\sound\\"; //bgm
-		w = SOM::Tool::project(strcat(sound,A+sizeof(SOMEX_(B))+4+1));
+		w = SOM::Tool::file(strcat(sound,A+sizeof(SOMEX_(B))+4+1)); //project
 		out = mmioOpenW(const_cast<WCHAR*>(w),B,C);
 	}
 	return out;
@@ -16109,8 +16274,7 @@ extern HBRUSH som_tool_erasebrush(HWND hwnd, HDC dc)
 	}
 	if(bitmap==129&&SOM::tool==SOM_MAP.exe) //2023
 	{
-		extern int SOM_MAP_midminmax[];
-		if(SOM_MAP_midminmax[11])
+		if(SOM_MAP_ini&1)
 		{
 			static void *found = //was using 131 before
 			FindResource(0,MAKEINTRESOURCE(130),RT_BITMAP);
@@ -16299,12 +16463,15 @@ extern int som_tool_drawitem(DRAWITEMSTRUCT *dis, int bitmap, int st)
 		if(UISF_HIDEFOCUS&~SendMessage(dis->hwndItem,WM_QUERYUISTATE,0,0))
 		tc = 0x00FFFF; 
 		
+		//HACK: hidden/restored by WS_EX_CONTROLPARENT?
+		int ex = GetWindowExStyle(dis->hwndItem)&WS_EX_DLGMODALFRAME;
+
 		//NEW: classic flickers but only around the focus??
 		//NOTE: could depend on subjectivity / environments
 		//reminder: the black ones do not appear to flicker
 		//but that has to be an optical effect of some kind
 		//(the pushlike checkboxes do flicker if cancelled)
-		HDC &dc = GetFocus()==dis->hwndItem?db.dc:dis->hDC; 
+		HDC &dc = ex||GetFocus()==dis->hwndItem?db.dc:dis->hDC; 
 
 		UINT dt = DT_CENTER; 
 		/*switch(BS_CENTER&GetWindowStyle(dis->hwndItem))
@@ -16314,16 +16481,14 @@ extern int som_tool_drawitem(DRAWITEMSTRUCT *dis, int bitmap, int st)
 
 		SetTextColor(dc,tc);
 		SetBkMode(dc,TRANSPARENT);	
-		SelectObject(som_tool_dc,(HGDIOBJ)bt); 		
+		auto so = SelectObject(som_tool_dc,(HGDIOBJ)bt); 		
 		db.size(cr.right,cr.bottom); 
-		int ex;
-		if(ex=GetWindowExStyle(dis->hwndItem)&(WS_EX_CLIENTEDGE|WS_EX_DLGMODALFRAME))
+		if(ex) //WS_EX_DLGMODALFRAME
 		{
 			//REMINDER: for SOM_MAP arrow/check overlay
-			st = 0;
 			int flags = 0;
-			if(ex&WS_EX_CLIENTEDGE) flags|=BDR_SUNKENOUTER|BDR_SUNKENINNER;
-			if(ex&WS_EX_DLGMODALFRAME) flags|=BDR_RAISEDOUTER|BDR_RAISEDINNER;
+			flags = st&BST_CHECKED?BDR_SUNKEN:BDR_RAISEDOUTER;
+			st = 0; //!
 			//InvalidateRect(dis->hwndItem,&cr,0);
 			//doesn't look like ResEdit/initial drawing
 			DrawEdge(dc,&cr,flags,BF_RECT|BF_MIDDLE|BF_SOFT);
@@ -16345,6 +16510,8 @@ extern int som_tool_drawitem(DRAWITEMSTRUCT *dis, int bitmap, int st)
 			BitBlt(dis->hDC,0,0,cr.right,cr.bottom,db.dc,0,0,SRCCOPY);
 		}
 		else DrawTextA(dis->hDC,"??",1,&cr,dt|DT_VCENTER|DT_SINGLELINE);
+
+		SelectObject(som_tool_dc,so); //2023
 
 		som_tool_DrawTextA_item = 0; //NEW
 		return 1;

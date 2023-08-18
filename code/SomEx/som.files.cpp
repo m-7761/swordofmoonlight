@@ -13,6 +13,8 @@ EX_TRANSLATION_UNIT //(C)
 #include "som.state.h"
 #include "som.files.h"
 
+#include "../lib/swordofmoonlight.h"
+
 extern void som_game_60fps_move(SOM::Struct<22>[250],int);
 
 namespace SOM //2021
@@ -706,7 +708,7 @@ static DWORD WINAPI som_files_threadproc(LPVOID hw)
 
 		//2022: I'm pretty sure I noticed a reason this is 
 		//inefficient (skins maybe? can't recall)
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 
 		for(size_t i=0;i<nChangeHandles;i++)
 		som_files_wrote(0,0,(UINT_PTR)dwChangeFolders[i],0);	

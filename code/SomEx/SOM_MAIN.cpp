@@ -6266,7 +6266,7 @@ static INT_PTR CALLBACK SOM_MAIN_153(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 		case 12321: case 1211: case 1212: 
 		{
 			//TODO: use SOM_MAIN_copy (notes in record)
-			int todolist[SOMEX_VNUMBER<=0x102040cUL];
+			int todolist[SOMEX_VNUMBER<=0x1020504UL];
 
 			//REMOVE ME??
 			sel = SOM_MAIN_tree[param][tv];
@@ -7019,7 +7019,7 @@ static INT_PTR CALLBACK SOM_MAIN_154(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			ListView_SortItems(lv,SOM_MAIN_sortbyText,aspect[0]);
 			else //this solution is for one release only
 			{
-			int todolist[SOMEX_VNUMBER<=0x102040cUL];			
+			int todolist[SOMEX_VNUMBER<=0x1020504UL];			
 			EXML::Attribs lp = EXML::attribs(aspect.c_str()); 
 			switch(lp)
 			{
@@ -8946,7 +8946,7 @@ static HBITMAP SOM_MAIN_spectrum240(WORD l=0, WORD s=0)
 {
 	static WORD oldl = 120, olds = 120;
 	static HBITMAP out = 0; if(!l&&!s&&out) return out;
-	if(!out) out = CreateCompatibleBitmap(som_tool_dc,240,1);
+	if(!out) out = CreateCompatibleBitmap(GetDC(0),240,1); //som_tool_dc //2023???
 	if(!l) l = oldl; if(!s) s = olds;
 	HGDIOBJ so = SelectObject(som_tool_dc,(HGDIOBJ)out);
 	for(WORD h=0;h<240;h++) SetPixel(som_tool_dc,h,0,ColorHLSToRGB(h,l,s));		
@@ -9015,14 +9015,14 @@ static LRESULT CALLBACK SOM_MAIN_179_tabsproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		DRAWITEMSTRUCT *p = (DRAWITEMSTRUCT*)lParam;
 		if(p->CtlType!=ODT_STATIC) break;	
 
-		SelectObject(som_tool_dc,(HGDIOBJ)SOM_MAIN_spectrum240()); 		
+		auto so = SelectObject(som_tool_dc,(HGDIOBJ)SOM_MAIN_spectrum240()); 		
 
 		switch(wParam)
 		{
 		case 1002: case 1003:
 		{
 			extern HBRUSH som_tool_graybrush();
-			static HBRUSH hb = 0; DeleteObject((HGDIOBJ)hb);
+			static HBRUSH hb = 0; DeleteObject((HGDIOBJ)hb); hb = 0;
 			BOOL ok; int h = GetDlgItemInt(hWnd,wParam-2,&ok,0)%240;
 			if(ok) hb = CreateSolidBrush(GetPixel(som_tool_dc,h,0));
 			FillRect(p->hDC,&p->rcItem,ok?hb:som_tool_graybrush());
@@ -9034,6 +9034,9 @@ static LRESULT CALLBACK SOM_MAIN_179_tabsproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			StretchBlt(p->hDC,0,0,p->rcItem.right,p->rcItem.bottom,som_tool_dc,0,0,240,1,SRCCOPY);	
 			break;
 		}	 
+
+		SelectObject(som_tool_dc,so); //2023
+
 		break;
 	}
 	case WM_HSCROLL: //trackbars
@@ -9048,7 +9051,8 @@ static LRESULT CALLBACK SOM_MAIN_179_tabsproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		
 			SOM_MAIN_spectrum240(id&1?pos:0,id&1?0:pos);
 			for(int i=1002;i<=1004;i++)	InvalidateRect(GetDlgItem(hWnd,i),0,0);
-			break;
+			//break;
+			return 1;
 		}
 		break;
 	}
@@ -10150,7 +10154,7 @@ inline int SOM_MAIN_skipspace(const char* &u, int &s)
 static bool SOM_MAIN_po(const char *p, const char *eof, int msgfmt)
 {		
 	//todo: SOM_MAIN_skipspace
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 
 	const char bom[4] = "\xef\xbb\xbf";
 	if(eof-p>=3&&!strncmp(p,bom,3)) p+=3;

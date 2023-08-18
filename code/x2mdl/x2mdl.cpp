@@ -143,6 +143,8 @@ inline int ani2i(const aiString &ani, int def)
 		if(i<0||ani.data[i]!='('||ani.data[i+1]!='#') return def;
 
 		a = i+2;
+
+		if('-'==ani.data[a]) a++; //EXPERIMENTAL //2023
 	}
 		
 	if(ani.data[a]<'0'||ani.data[a]>'9') return def;
@@ -281,6 +283,8 @@ mm3d = false,
 mdo = false, mdl = false,
 msm = false, mhm = false;
 int ico = 0;
+enum{ ico_mipmaps=0 };
+extern int max_anisotropy = 0;
 int binlookup(const aiString &lookup, aiString **sorted, int sz)
 {
 	int cmp, first = 0, last = sz-1, stop = -1;
@@ -437,7 +441,8 @@ bool x2mdo_txr(int,int,int,void*,const wchar_t*);
 void x2mdl_animate(aiAnimation*,aiMatrix4x4*,float);
 void x2mdo_split_XY();
 
-extern bool x2msm_ico(int,WCHAR*,IDirect3DDevice9*,IDirect3DSurface9*,IDirect3DSurface9*);
+extern bool x2msm_ico(int,WCHAR*,IDirect3DDevice9*,IDirect3DSurface9*[3]);
+extern bool x2mdo_ico(int,WCHAR*,IDirect3DDevice9*,IDirect3DSurface9*[3]);
 
 extern HWND X2MDL_MODAL = 0;
 #ifdef _CONSOLE
@@ -561,26 +566,31 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		L"  but this option may be useful as a starting point.\n"
 		L"--tmd-1034=1024 trims fringes from King's Field II level geometry tiles\n";
 		L"--msm-subdivide fully tessellates input MSM files prior to a conversion\n";
-		L"--ico=[Number] generate N x N size icon for SOM_MAP or other use\n";
+		L"--ico=[25 or other Number] generate N x N icon for SOM_MAP or other use\n";
 		return 0;
 	}
 	#endif
 
 	#ifndef _CONSOLE
-	mdl = mdo = true; if(in==argc-1) //x2mdl.dll?
+	mdl = mdo = true; //if(in==argc-1) //x2mdl.dll? //batch?
 	{
-		ico = 0;
-
 		//2022: how to switch to MSM/MHM output???
 		switch(argv[0][3])
 		{
 		default: assert(0); case 'd': msm = false;
 			
+			//WARNING: 100 is treated as not an icon
+			//by Windows Explorer! maybe 128x128?
+			//Note, 50 doesn't have defined bones for
+			//skeleton (e105.mdl)
+
+			ico = 96; //25 is a little too small
+
 			assert(!wcscmp(argv[0],L"x2mdl.dll")); break; 
 
 		case 's': msm = true; mhm = mdl = mdo = false; 
 			
-			ico = 20; //20 //40 is too blurry I think
+			ico = 25; //special value (21+2px border)
 
 			assert(!wcscmp(argv[0],L"x2msm.dll")); break;
 		}
@@ -716,6 +726,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 
 	snapshot = 0; //-1; //_CONSOLE?
 
+	bool has_snapshot = false; //2023
+	int def_snapshot = 0; 
+
 	const wchar_t *input = L""; //???
 
 	#ifdef _CONSOLE
@@ -782,9 +795,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 					return 0;
 				}
 			}
-			else if(!wcsncmp(o+1,L"ico=",4))
+			else if(!wcsncmp(o+1,L"ico=",3)) //4
 			{
-				ico = _wtoi(o+5);
+				ico = o[4]=='='?_wtoi(o+5):25;
 			}
 			else if(!wcscmp(o+1,L"update-texture"))
 			{
@@ -823,6 +836,8 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 	}
 	else if(integer(argv[in]))
 	{
+		has_snapshot = true; //2023
+		def_snapshot = 
 		snapshot = wcstol(argv[in],0,10);
 	}
 	else //2021: HUGE BLOCK (REFACTOR ME)
@@ -869,6 +884,22 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			}
 			if(hr!=D3D_OK) goto d3d_failure;
 
+			D3DCAPS9 caps; 
+			pd3Dd9->GetDeviceCaps(&caps);
+			max_anisotropy = caps.MaxAnisotropy;
+
+			auto mst = D3DMULTISAMPLE_16_SAMPLES;
+			DWORD msq = 0;
+			if(!hr&&ico&&!ms)
+			{
+				while(mst>2&&pd3D9->CheckDeviceMultiSampleType
+				(D3DADAPTER_DEFAULT,D3DDEVTYPE_HAL,D3DFMT_X8R8G8B8,1,mst,&msq))
+				mst = (D3DMULTISAMPLE_TYPE)(mst/2);
+
+				msq = msq?msq-1:0;
+
+				if(mst>=4) pd3Dd9->CreateRenderTarget(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,mst,msq,0,&ms,0);
+			}
 			if(!hr&&ico) for(int i=3;i-->0;) //x2msm_ico?
 			{
 				D3DFORMAT f; switch(i)
@@ -878,7 +909,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 				case 0: f = D3DFMT_D16; break;
 				}
 				if(!pd3Dd9->CreateDepthStencilSurface
-				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,f,D3DMULTISAMPLE_NONE,0,0,&ds,0))
+				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,f,ms?mst:D3DMULTISAMPLE_NONE,ms?msq:0,0,&ds,0))
 				{
 					pd3Dd9->SetDepthStencilSurface(ds); break;
 				}
@@ -2396,6 +2427,21 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		
 		MDL::Anim *takesnapshot = 0;		
 		
+		//2023: -1 is default if unspecified
+		snapshot = def_snapshot; if(!has_snapshot)
+		{
+			int min_type = 10000;
+			for(int i=0;i<X->mNumAnimations;i++)
+			{
+				int type = ani2i(X->mAnimations[i]->mName,i);
+
+				if(min_type&&type>=0) min_type = std::min(min_type,type);
+
+				if(-1==type) snapshot = -1; //preferred pose identifier?
+			}
+			if(snapshot!=-1&&min_type<10000) snapshot = min_type;
+		}
+
 		if(mdl.head.anims)
 		for(int i=0;i<X->mNumAnimations;i++)
 		if(!X->mAnimations[i]->mNumMeshChannels)
@@ -3770,7 +3816,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			if(write||mdl.skins||ico) if(!embed)
 			{	
 				auto hr = D3DXCreateTextureFromFileExW			
-				(pd3Dd9,file,w,h,ico?!0:1, //2022
+				(pd3Dd9,file,w,h,ico?!ico_mipmaps:1, //2022
 				D3DUSAGE_DYNAMIC,//|D3DUSAGE_AUTOGENMIPMAP, //2022
 				D3DFMT_X8R8G8B8,pool,
 				D3DX_FILTER_NONE,D3DX_FILTER_LINEAR, //D3DX_DEFAULT,0 //2022
@@ -3784,7 +3830,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			else
 			{
 				auto hr = pd3Dd9->CreateTexture
-				(w,h,ico?!0:1,D3DUSAGE_DYNAMIC|D3DUSAGE_AUTOGENMIPMAP,//|D3DUSAGE_AUTOGENMIPMAP,
+				(w,h,ico?!ico_mipmaps:1,D3DUSAGE_DYNAMIC|D3DUSAGE_AUTOGENMIPMAP,//|D3DUSAGE_AUTOGENMIPMAP,
 				D3DFMT_X8R8G8B8,pool,&dt,0);
 
 				icotextures.push_back(dt);
@@ -4106,6 +4152,8 @@ tex_failure: //allow user to discard texture if desired
 			}
 		}
 
+		bool YY = Y!=0; //HACK
+
 		mdl.flush(); if(Y) //Y? (x2mdo_split_XY)
 		{
 			(void*&)X->mMaterials = 0; //can Assimp dup aiMaterial?
@@ -4114,34 +4162,31 @@ tex_failure: //allow user to discard texture if desired
 			
 			X = Y; Y = 0; //goto Y; //...
 		}
-		else if(msm&&ico)
+		else if(ico&&!icotextures.empty())
 		{
-			wcscpy(PathFindExtensionW(mdl.name),L".msm"); //YUCK
-
-			if(1)
+			//if(PathFileExistsW(mdl.name)) //HACK: not mhm only?
 			{
+				//assert(PathFileExistsW(mdl.name)); //may be mdo only
+
 				if(!rt) pd3Dd9->CreateRenderTarget //2022: defer?
 				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0);
 				if(!rs)
 				pd3Dd9->CreateOffscreenPlainSurface
-				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);					
-				x2msm_ico(ico,mdl.name,pd3Dd9,rt,rs);
-			}
-			else //black border problem
-			{
-				if(!ms) pd3Dd9->CreateRenderTarget
-				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_4_SAMPLES,0,0,&ms,0);		
-				x2msm_ico(ico,mdl.name,pd3Dd9,ms,0);
-			}
+				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);
 
-			sb->Apply(); //D3DSBT_ALL
-		}
+				IDirect3DSurface9 *ss[3] = {rt,rs,ms};
+
+				(msm?x2msm_ico:x2mdo_ico)(ico,mdl.name,pd3Dd9,ss);
+
+				sb->Apply(); //D3DSBT_ALL
+			}
+		}		
 
 		for(auto&dt:icotextures) dt->Release();
 		
 		icotextures.clear();
 
-			if(Y) goto Y;
+			if(YY) goto Y; //Y
 	}	
 
 _0:	//wchar_t ok; std::wcin >> ok; //debugging
@@ -4165,6 +4210,7 @@ _0:	//wchar_t ok; std::wcin >> ok; //debugging
 	#ifdef _CONSOLE //static?
 	if(rt) rt->Release(); //render target
 	if(rs) rs->Release(); //render surface
+	if(ms) ms->Release(); //render surface
 	if(pd3Dd9) pd3Dd9->Release();
 	if(pd3D9) pd3D9->Release();
 	#else
@@ -5123,7 +5169,7 @@ void MDL::File::flush()
 		{
 			MDL::Anim *anim = *p;
 
-			fwrite(U16(anim->type),f); 
+			fwrite(S16(anim->type),f); //U16 //EXPERIMENTAL //2023 
 			fwrite(U16(anim->steps),f);
 			
 			int stride = anim->steps;
@@ -5973,13 +6019,18 @@ void x2mdl_dll::makelink(const wchar_t *dest)
 		//wcsncat(desc,L" (x2mdl.dll timestamped)",descN);
 		link->SetDescription(desc);
 
-		if(ico)
+		if(!wcscmp(L".txr",PathFindExtensionW(dest)))
+		{
+			link->SetIconLocation(input,0);
+		}
+		else if(ico) //NOTE: also set for TXR shortcuts
 		{
 			wchar_t icon[MAX_PATH];
 			wcscpy(icon,dest);
 			wcscpy(PathFindExtensionW(icon),L".ico");
 			link->SetIconLocation(icon,0);
 		}
+		else link->SetIconLocation(L"",0); //carries over
 
 		wchar_t swap[32];
 		wcscpy(swap,ext);

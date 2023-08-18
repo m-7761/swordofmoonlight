@@ -922,7 +922,7 @@ SOM::MT *SOM::MT::lookup(const char *v)
 								//to the same textures by treating single count
 								//files as redirects. the file name redirects to
 								//the name in the file
-								int todolist[SOMEX_VNUMBER<=0x102040cUL];
+								int todolist[SOMEX_VNUMBER<=0x1020504UL];
 								#endif 
 
 								/*this code would detect a redirect... for now
@@ -1219,101 +1219,112 @@ static BYTE __cdecl som_MPX_42a5f0(void *_1) //load object
 	return 1;
 }
 
-static void som_MPX_411a20_ambient2(const unsigned m)
-{
-	auto &map = (*som_MPX_swap::maps)[m];
-
-	auto &mpx = *map.wip;
-	typedef SOM::MPX::Layer L;
-	L &base = *(L*)&mpx[SOM::MPX::layer_0];	
-
+extern void som_MPX_411a20_ambient2(const unsigned m, int ll=0)
+{	
 	stdext::hash_map<DWORD,DWORD> rgb_index;
 
 	DWORD rgb_mask = 0xFFFFFF, rgb_shift = 0;
 
-	EX::INI::Bitmap bm; EX::INI::bitmap *bitmap = 0;
+	EX::INI::Bitmap bm; 	
+	EX::INI::bitmap *bitmap = 0;
+	if(!&bm->bitmap_ambient) return;
 	
-	for(int ll=0;ll<=6;ll++)
+	BYTE **ambient2; if(SOM::tool)
 	{
-		L &l = *(&base-ll); if(!l.tiles) continue;
-
-		const BYTE *rgb = 0; 
-		extern int som_hacks_shader_model;
-		if(&bm->bitmap_ambient&&som_hacks_shader_model) //2020
+		extern BYTE *SOM_MAP_overlay_ambient2;
+		ambient2 = &SOM_MAP_overlay_ambient2;
+		goto tool;
+	}
+	else for(ll=0;ll<=6;ll++)
+	{
+		if(SOM::game)
 		{
-			//FIX ME: should ll correspond to the SOM_MAP
-			//layer number?!
-			float index = bm->bitmap_ambient(m,ll);
+			extern int som_hacks_shader_model;
+			if(!som_hacks_shader_model) return;
 
-			if(&bm->bitmap_ambient_mask)
-			{
-				rgb_mask = 0xFFFFFF&(int)
-				bm->bitmap_ambient_mask(m,ll,index);
-				rgb_shift = 0;
-				while(rgb_shift<24&&~rgb_mask&1<<rgb_shift) 
-				rgb_shift++;
-				rgb_mask>>=rgb_shift;
-			}
+			auto &map = (*som_MPX_swap::maps)[m];
 
-			int i = EX::isNaN(index)?-1:(int)index;
+			auto &mpx = *map.wip;
+			typedef SOM::MPX::Layer L;
+			L &base = *(L*)&mpx[SOM::MPX::layer_0];	
 
-			if(!bitmap||i!=bitmap->index)
-			{
-				auto it = std::find(bm->bitmaps.begin(),bm->bitmaps.end(),i);
-				bitmap = it==bm->bitmaps.end()?0:const_cast<EX::INI::bitmap*>(&*it);
-				if(bitmap)
-				if(!bitmap->pixels)
-				if(HBITMAP hbm=som_MPX_bitmap(*bitmap,0))
-				{
-					DeleteObject(hbm);
-				}
-				else bitmap = 0;
-			}
+			L &l = *(&base-ll); if(!l.tiles) continue;
 
-			//2022: this used to a global, but now each
-			//map has its own set of ambient bitmaps. I
-			//don't know if everything here makes sense
-			//in this different scenario, but it should
-			//work either way
-			//BYTE* &all = SOM::ambient2[ll];
-			BYTE* &all = map.ambient2[ll];
-			bool owned = false;
-			if(all)
-			for(size_t i=bm->bitmaps.size();i-->0;)				
-			if(all==bm->bitmaps[i].pixels)
-			{
-				owned = true; break;
-			}
-			if(!bitmap||100!=bitmap->width||100!=bitmap->height)
-			{
-				if(!owned) delete[] all; 
-				
-				all = 0;
-			}
-			else if(!&bm->bitmap_ambient_saturation)
-			{
-				if(!owned) delete[] all;
+			ambient2 = &map.ambient2[ll]; tool:;
+		}
 
-				rgb = all = (BYTE*)bitmap->pixels;
-			}
-			else
+		//FIX ME: should ll correspond to the SOM_MAP
+		//layer number?!
+		float index = bm->bitmap_ambient(m,ll);
+
+		if(&bm->bitmap_ambient_mask)
+		{
+			rgb_mask = 0xFFFFFF&(int)
+			bm->bitmap_ambient_mask(m,ll,index);
+			rgb_shift = 0;
+			while(rgb_shift<24&&~rgb_mask&1<<rgb_shift) 
+			rgb_shift++;
+			rgb_mask>>=rgb_shift;
+		}
+
+		int i = EX::isNaN(index)?-1:(int)index;
+
+		if(!bitmap||i!=bitmap->index)
+		{
+			auto it = std::find(bm->bitmaps.begin(),bm->bitmaps.end(),i);
+			bitmap = it==bm->bitmaps.end()?0:const_cast<EX::INI::bitmap*>(&*it);
+			if(bitmap)
+			if(!bitmap->pixels)
+			if(HBITMAP hbm=som_MPX_bitmap(*bitmap,0))
 			{
-				if(owned||!all)
-				all = new BYTE[3*100*100+1]; //+1 for *(DWORD*) cast
-					
-				rgb = bitmap->pixels;
-				BYTE *rgb2 = all;
-				for(int k=100*100;k-->0;rgb+=3,rgb2+=3)
-				{
-					DWORD j = *(DWORD*)rgb>>rgb_shift&rgb_mask;
-					auto ins = rgb_index.insert(std::make_pair(j,0));
-					if(ins.second)
-					ins.first->second = bm->bitmap_ambient_saturation(j);
-					*(DWORD*)rgb2 = ins.first->second;
-				}
-				rgb = all;
+				DeleteObject(hbm);
+			}
+			else bitmap = 0;
+		}
+
+		//2022: this used to a global, but now each
+		//map has its own set of ambient bitmaps. I
+		//don't know if everything here makes sense
+		//in this different scenario, but it should
+		//work either way
+		//BYTE* &all = SOM::ambient2[ll];
+		BYTE* &all = *ambient2, *del = all; 
+		bool owned = false;
+		if(all)
+		for(size_t i=bm->bitmaps.size();i-->0;)				
+		if(all==bm->bitmaps[i].pixels)
+		{
+			owned = true; break;
+		}
+
+		if(!bitmap||100!=bitmap->width||100!=bitmap->height)
+		{
+			all = 0;
+		}
+		else if(!&bm->bitmap_ambient_saturation)
+		{
+			all = (BYTE*)bitmap->pixels;
+		}
+		else
+		{
+			if(!all||owned&&!SOM::tool)
+			all = new BYTE[3*100*100+1]; //+1 for *(DWORD*) cast
+			
+			const BYTE *rgb = bitmap->pixels;
+			BYTE *rgb2 = all;
+			for(int k=100*100;k-->0;rgb+=3,rgb2+=3)
+			{
+				DWORD j = *(DWORD*)rgb>>rgb_shift&rgb_mask;
+				auto ins = rgb_index.insert(std::make_pair(j,0));
+				if(ins.second)
+				ins.first->second = bm->bitmap_ambient_saturation(j);
+				*(DWORD*)rgb2 = ins.first->second;
 			}
 		}
+				
+		if(!owned&&del!=all) delete[] del;
+
+		if(SOM::tool) break;
 	}
 }
 static bool som_MPX_411a20_ltd(const unsigned m) //load
@@ -1847,7 +1858,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 				//2022: it seems MapComp may not restrict chunks to
 				//the size of som_db.exe's buffer
 				#ifdef NDEBUG
-				int todolist[SOMEX_VNUMBER<=0x102040cUL];
+				int todolist[SOMEX_VNUMBER<=0x1020504UL];
 				#endif
 				//Moratheia's first map exceeds both
 				//assert(q->triangle_indicesN<=2688);
@@ -1923,7 +1934,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 		//not really som_db's style?
 		#ifdef NDEBUG
 		//#error log. MessageBox? 
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif 
 
 		assert(0); return false; //2022
@@ -2069,7 +2080,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 					//without KFII's unusual gamut
 					#ifdef NDEBUG					
 					//#error I almost forgot about this??? (2022)
-					int todolist[SOMEX_VNUMBER<=0x102040cUL];
+					int todolist[SOMEX_VNUMBER<=0x1020504UL];
 					#endif
 					for(int i=3;i-->0;) if(1) //KF2: less contrast?
 					{
@@ -2170,7 +2181,7 @@ static void som_MPX_prepare_for_42dd40_in_critical_section()
 	//risk degrading the frame rate (computing
 	//2 CPU frames in one) so instead textures
 	//in play need to be computed by hand here
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 	//HACK: this prevents drawing to speed up load times
 	//I don't know if the overhead is worth it thereafter
 	//som_scene_update_texture is used to update textures
@@ -2710,7 +2721,7 @@ _(22)
 		//#error what are the exact criteria?		
 		//TODO: SOM::warp should cancel sounds
 		//if taking the 0== path below
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif
 		if(0==(dst.settingmask&16))
 		{
@@ -2886,7 +2897,7 @@ extern void som_MPX_once_per_frame() //som.game.cpp
 			auto &cmp = (*som_MPX_swap::maps)[i];
 
 			//maybe use the play clock for this?
-			int todolist[SOMEX_VNUMBER<=0x102040cUL];
+			int todolist[SOMEX_VNUMBER<=0x1020504UL];
 			if(cmp.wip)
 			if(now-cmp.last_tick>1000*60*3) //3 minutes?
 			{
@@ -3103,7 +3114,7 @@ void som_MPX_swap::mpx::load_sky(int m)
 		//it's loaded... the Standby Map event can
 		//be of use here
 		#ifdef NDEBUG
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif
 	//	for(int i=1;i<=4;i++)
 	//	som_MPX_load_sky(i);
@@ -3910,7 +3921,7 @@ extern void som_MPX_reprogram()
 		//som_MPX_swap is implemented
 		#ifdef NDEBUG
 		//#error consider removing this stuff around MHM reads
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif
 		//REMOVE ME? (401500)
 		//00412E63 E8 98 E6 FE FF       call        00401500
@@ -4000,7 +4011,7 @@ extern void som_MPX_reprogram()
 		//animation frames may not be unloaded and may also
 		//increase the ref counts for each instance so that
 		//in theory they could reach 65535		
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif
 		
 		//load SND (bug fix)

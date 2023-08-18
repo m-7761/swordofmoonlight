@@ -229,29 +229,6 @@ struct SOM_CImageList //8B
 	void *_vtable; HIMAGELIST hil;
 };
 
-/*
-	REMINDER: 0x468468 extracts a stack pointer for any window
-	(e.g. the tileview) which may or may not be stack data for
-	that window. this is a good strategy for working out where
-	everything is stored in memory and preempting dynamic data
-	allocation
-*/
-//this was some trouble to track down
-//this is dynamic memory associated with the viewports
-//0x5C holds the width
-//2021: Ghidra thinks this is CWnd
-//inline DWORD *SOM_MAP_window_data(HWND vp)
-inline SOM_CWnd *SOM_MAP_window_data(HWND vp)
-{
-	//this was the result of an effort to remove the old palette gap
-	//00468513 E8 68 FD FF FF       call        00468280
-	//004682BE 8B 7D 08             mov         edi,dword ptr [ebp+8] 
-	//0046830A FF 90 98 00 00 00    call        dword ptr [eax+98h] 
-	//004691EF FF 90 9C 00 00 00    call        dword ptr [eax+9Ch]
-	//0042FABD 8B 4D 5C             mov         ecx,dword ptr [ebp+5Ch]
-	return ((SOM_CWnd*(__stdcall*)(HWND))0x468468)(vp);
-}
-
 union SOM_MAP_model //SOM::Struct?
 {
 	int i[0x81]; float f[0x81]; char c[0x204];
@@ -274,7 +251,10 @@ static struct SOM_MAP_app : SOM_CWinApp //196B header? CWinApp is 192B?
 	//0x466fe2
 	static SOM_CWnd *CWnd(HWND win)
 	{
-		return ((SOM_CWnd*(__stdcall*)(HWND))0x468441)(win);
+		//BOTH OF THESE WORK??? SIDE EFFECTS?
+		//0x468441 calls GetParent??
+		return ((SOM_CWnd*(__stdcall*)(HWND))0x468468)(win);
+		//return ((SOM_CWnd*(__stdcall*)(HWND))0x468441)(win);
 	}
 	static void ***CWnd_stack_ptr(SOM_CWnd *cw) //vtable?
 	{
@@ -843,7 +823,9 @@ struct SOM_MAP_prt
 
 	struct key 
 	{
-		wchar_t icon[31];
+		//2023: just the UUID part
+		//wchar_t icon[31];
+		wchar_t iconID[31];
 		wchar_t profile[15];		
 		wchar_t description[31];		
 		//HACK: refactoring
@@ -867,7 +849,7 @@ struct SOM_MAP_prt
 		key(const wchar_t *p)
 		{
 			index = missing(); //!			
-			*icon = *description = '\0'; 
+			*iconID = *description = '\0'; 
 			wcscpy_s(profile,p);
 		}		
 		inline bool indexed()const //ugly

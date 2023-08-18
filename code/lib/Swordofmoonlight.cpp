@@ -902,7 +902,9 @@ mdo::triple_t *mdo::tnlvertextriples(mdo::image_t &in, signed int ch)
 	{
 		size_t base = chans[ch].ndexblock;
 		if(in>=static_cast<ule16_t*>(*out)+chans[ch].ndexcount) 
-		if(in.test(base%4,false)&&in.test(chans[ch].ndexcount%3,false))		
+		//2023
+	//	if(in.test(base%4,false)&&in.test(chans[ch].ndexcount%3,false))		
+		if(in.test(base%2,false)&&in.test(chans[ch].ndexcount%3,false))		
 		out = (mdo::triple_t*)(in.header<char>()+base); 
 	}
 	return out;

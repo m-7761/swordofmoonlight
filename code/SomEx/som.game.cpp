@@ -540,7 +540,7 @@ SOM::Game::Game()
 
 		#ifdef NDEBUG
 		//#error test me
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif
 
 			if(1||!EX::debug) //2021
@@ -1197,11 +1197,11 @@ UINT SOM::Game::get(const char *lpKeyName, int nDefault, const char *lpAppName)
 
 		if(EX::INI::Option()->do_opengl) //2022
 		{
-			SOM::bpp = GetPrivateProfileIntW(L"config",wKeyName,nDefault,ini);
+			SOM::bpp = GetPrivateProfileInt(L"config",wKeyName,nDefault,ini);
 			
 			return 32; //I think it shouldn't matter... it's too soon to say
 		}
-		int bpp = GetPrivateProfileIntW(L"config",wKeyName,nDefault,ini);
+		int bpp = GetPrivateProfileInt(L"config",wKeyName,nDefault,ini);
 
 		switch(bpp) //if(op->do_highcolor) 
 		{
@@ -1211,7 +1211,7 @@ UINT SOM::Game::get(const char *lpKeyName, int nDefault, const char *lpAppName)
 	}
 	else if(!strcmp(lpKeyName,"seVol"))
 	{
-		SOM::seVol = GetPrivateProfileIntW(L"config",wKeyName,nDefault,ini);
+		SOM::seVol = GetPrivateProfileInt(L"config",wKeyName,nDefault,ini);
 		SOM::seVol = som_game_clamp("seVol",SOM::seVol);
 
 		return SOM::seVol; //SOM::config_bels();
@@ -1220,7 +1220,7 @@ UINT SOM::Game::get(const char *lpKeyName, int nDefault, const char *lpAppName)
 	{
 		//2020: I'm not sure why seVol is clamped above, but may as well do
 		//it for the BGM too
-		SOM::bgmVol = GetPrivateProfileIntW(L"config",wKeyName,nDefault,ini);
+		SOM::bgmVol = GetPrivateProfileInt(L"config",wKeyName,nDefault,ini);
 		SOM::bgmVol = som_game_clamp("bgmVol",SOM::bgmVol);
 
 		//2020: taking over volume levels requires initalization, just not
@@ -1233,7 +1233,7 @@ UINT SOM::Game::get(const char *lpKeyName, int nDefault, const char *lpAppName)
 	{
 		nDefault = 2; //2021
 
-		int device = GetPrivateProfileIntW(L"config",wKeyName,nDefault,ini);
+		int device = GetPrivateProfileInt(L"config",wKeyName,nDefault,ini);
 
 		return som_game_clamp("device",device==0?2:device);
 	}	
@@ -1248,11 +1248,11 @@ UINT SOM::Game::get(const char *lpKeyName, int nDefault, const char *lpAppName)
 
 		if(!wn||!wn->do_force_fullscreen_inside_window)
 		{
-			return GetPrivateProfileIntW(L"config",wKeyName,nDefault,ini);
+			return GetPrivateProfileInt(L"config",wKeyName,nDefault,ini);
 		}
 
-		int width = GetPrivateProfileIntW(L"config",L"width",nDefault,ini);
-		int height = GetPrivateProfileIntW(L"config",L"height",nDefault,ini);
+		int width = GetPrivateProfileInt(L"config",L"width",nDefault,ini);
+		int height = GetPrivateProfileInt(L"config",L"height",nDefault,ini);
 
 		int vw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
 		int vh = GetSystemMetrics(SM_CYVIRTUALSCREEN);
@@ -1290,7 +1290,7 @@ UINT SOM::Game::get(const char *lpKeyName, int nDefault, const char *lpAppName)
 			nDefault = 0x02137645>>4*(wKeyName[6]-'0')&0xf;
 		}
 
-		int got = GetPrivateProfileIntW(L"config",wKeyName,nDefault,ini);
+		int got = GetPrivateProfileInt(L"config",wKeyName,nDefault,ini);
 
 		return som_game_clamp(lpKeyName,got);
 	}
@@ -5879,7 +5879,7 @@ extern bool __cdecl som_game_42cf40()
 			if(it.nonempty&&!SOM::L.items_MDO_table[it.mdo][0])
 			{
 				//ISSUE WARNING
-				int todolist[SOMEX_VNUMBER<=0x102040cUL];
+				int todolist[SOMEX_VNUMBER<=0x1020504UL];
 
 				if(it.item<256) //try to repair?
 				{
@@ -7152,7 +7152,7 @@ extern void som_game_reprogram()
 		//close anyway, it just wastes time)
 		#ifdef NDEBUG
 //		#error test me
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		#endif
 
 		//this routine tears down d3d/ddraw and zeroes a

@@ -396,7 +396,7 @@ extern int EX::is_needed_to_initialize()
 	SOM::cursorY = SOM::config("cursorY",0);
 	SOM::cursorZ = SOM::config("cursorZ",0);
 	SOM::capture = SOM::config("capture",0);
-	int todolist[SOMEX_VNUMBER<=0x102040cUL];
+	int todolist[SOMEX_VNUMBER<=0x1020504UL];
 	//2022: no longer working (January) (maybe just
 	//a temporary Windows 10 bug?) (is this function
 	//only called once?)
@@ -405,7 +405,7 @@ extern int EX::is_needed_to_initialize()
 	{
 		//TESTING: this shows the up arrow... I wish
 		//it would timeout
-		int todolist[SOMEX_VNUMBER<=0x102040cUL];
+		int todolist[SOMEX_VNUMBER<=0x1020504UL];
 		SOM::f10();
 	}
 
