@@ -4,7 +4,7 @@
 #define SOMEX_VNUMBER 0x1000104UL
 #define X2MDL_VSTRING "1, 0, 1, 4"
 #define X2MDL_WSTRING L"1, 0, 1, 4"
-#define X2MDL_UPTODATE 2023,8,14 //x2mdl.dll
+#define X2MDL_UPTODATE 2023,9,20 //x2mdl.dll
 #endif
 
 #ifndef X2MDL_INCLUDED

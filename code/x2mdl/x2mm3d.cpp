@@ -2106,7 +2106,7 @@ void MDL::File::x2mm3d(FILE *output) //MisfitFilter::writeFile
 			uint32_t animSize = 0;
 
 			uint16_t flags = 1; //skeletal
-			float32_t fps = 30;
+			float32_t fps = head.flags&16?60:30;
 			
 			auto off1 = m_dst->offset();
 			m_dst->write(animSize); //HACK

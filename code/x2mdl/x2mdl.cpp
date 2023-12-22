@@ -407,6 +407,23 @@ unsigned pushback(S* &buf, T &len, S cp, int n=1)
 	delete[] swap; len+=n; return len-n;
 }
 
+enum{ hardn_fps=30*2, modern=1 }; //1||mm3d
+
+int hardn(int i)
+{
+	//2023: increasing this to 60 and setting 0x10/16 flag
+	//NOTE: this flag may also optimize the deltas' layout
+
+	auto anim = X->mAnimations[i];
+	int n = !modern+anim->mDuration/anim->mTicksPerSecond*hardn_fps;
+	if(!i&&modern) n++; 
+			
+	//2022: SomLoader.cpp is now subtracting 1 from the duration
+	//which som_db.exe throws out... it needs to be put back now
+	//return n;
+	return n+1;
+};
+
 enum{ cpmaterialsN=16+33 };
 char texindex[cpmaterialsN]; //extern
 WORD texmapsu[cpmaterialsN];
@@ -670,8 +687,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 	// vertices with the same attributes except for their origin
 	//
 	aiSetImportPropertyInteger("SP_GEN_CONNECTIVITY",1);
-
-	const bool modern = 1||mm3d;
+	
 	#ifdef _CONSOLE
 	{
 		int i = modern?-1:0; //POINTLESS?
@@ -1278,6 +1294,10 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			//mdl.head.flags = 2;
 			//bit 4 seems to work with som_db.exe so far
 			mdl.head.flags|=8;
+		}
+		if(hardn_fps!=30&&mdl.head.flags&3) //2023 
+		{
+			mdl.head.flags|=16; //assuming 60 fps
 		}
 
 		memset(texmapsu,d3d_available?0xff:0,sizeof(texmapsu)); //???
@@ -2405,18 +2425,6 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		}
 
 		///// ANIMATION /////
-
-		auto hardn = [=](int i)->int
-		{
-			auto anim = X->mAnimations[i];
-			int n = !modern+anim->mDuration/anim->mTicksPerSecond*30; //15
-			if(!i&&modern) n++; 
-			
-			//2022: SomLoader.cpp is now subtracting 1 from the duration
-			//which som_db.exe throws out... it needs to be put back now
-			//return n;
-			return n+1;
-		};
 
 		if(mdl.head.diffs)
 		mdl.diffs = new MDL::Diff*[mdl.head.diffs+1];
