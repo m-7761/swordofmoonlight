@@ -20,8 +20,10 @@ EX_TRANSLATION_UNIT //(C)
 #include "../lib/swordofmoonlight.h"
 
 enum{ som_MPX_448780_secured=-1024 };
-static void som_MPX_4498d0(SOM::Texture*);
 static void som_MPX_once_per_frame_sky();
+extern void som_MPX_4498d0(SOM::Texture*);
+
+extern bool som_MPX_loading_shadows = false; //2024
 
 //EXPERIMENTAL
 //som_hacks_thread_main pauses/resumes this 
@@ -64,6 +66,10 @@ struct som_MPX_mem
 
 	void *alloc(size_t n)
 	{
+		//HACK: advance ptr just in case
+		//at end of this block
+		if(!n) n = 4;
+
 		while(n%4) n++;
 
 		if(n>rem) return overflow(n);
@@ -129,14 +135,11 @@ struct som_MPX_mem
 		return true;
 		return etc?etc->claim(d):false;
 	}
-	#ifdef NDEBUG
-	inline void check(void*,bool=true){}
-	#else
-	void check(void *d, bool b=true){ assert(b==claim(d)); }
-	#endif
+	bool check(void *d, bool b=true){ return b==claim(d); }
 };
 extern som_MPX_mem *som_MPX_new = 0;
 extern wchar_t *som_art_CreateFile_w;
+extern int som_MPX_operator_new_lock = 0;
 extern void *__cdecl som_MPX_operator_new(size_t sz)
 {
 	if(som_MPX_new)
@@ -146,16 +149,17 @@ extern void *__cdecl som_MPX_operator_new(size_t sz)
 		//through the art system. except audio is
 		//covered by som_MPX_43f420 until it's part
 		//of the art system
-		if(!som_art_CreateFile_w)
+		//if(!som_art_CreateFile_w)
+		if(!som_MPX_operator_new_lock) //2023
 		{
 			return som_MPX_new->alloc(sz); 
 		}
-		else assert(!som_art_CreateFile_w);
+		//else assert(!som_art_CreateFile_w);
 	}
 	return operator new[](sz);
 }
 extern void __cdecl som_MPX_operator_delete(void *p)
-{	
+{
 	if(som_MPX_new)
 	{
 		//can't risk allocating to wrong heap
@@ -163,11 +167,21 @@ extern void __cdecl som_MPX_operator_delete(void *p)
 		//through the art system. except audio is
 		//covered by som_MPX_43f420 until it's part
 		//of the art system
-		if(!som_art_CreateFile_w)
+		//if(!som_art_CreateFile_w)
+		//
+		// TODO: operator_new_lock_raii isn't set
+		// up around models_free calls
+		//
+		if(!som_MPX_operator_new_lock) //2023
 		{
-			return som_MPX_new->check(p); 
+			//assert(som_MPX_new->check(p));
+			if(som_MPX_new->check(p)) return; //2023
+			
+			//assert(!"new->check");
+			EX_BREAKPOINT(new_check)
 		}
-		else assert(!som_art_CreateFile_w);
+		else if(som_MPX_new->check(p)) return; //PARANOIA (2023)
+		//else assert(!som_art_CreateFile_w);
 	}
 	//NOTE: delete[] has its own _BLOCK_TYPE_IS_VALID assert check
 	return operator delete[](p);
@@ -222,7 +236,7 @@ namespace som_MPX_swap //2022
 		return cmp->material_count<65536;
 	}	
 
-	static int &models_refs(void *m)
+	extern int &models_refs(void *m)
 	{
 		if(models_type(m))
 		return ((SOM::MDO::data*)m)->ext.refs;
@@ -235,7 +249,15 @@ namespace som_MPX_swap //2022
 		return ((SOM::MDO::data*)m)->ext.mhm;
 		return ((SOM::MDL::data*)m)->ext.mhm;
 	}
-
+	
+	static void models_unload(void *m)
+	{
+		//delete models_mhm(m);
+		if(auto*mhm=models_mhm(m))
+		SOM::Game.free_401580((mhm->~som_MHM(),mhm));
+		DWORD x = models_type(m)?0x445870:0x4403f0;
+		((BYTE(__cdecl*)(void*))x)(m);
+	}
 	extern void models_free() //som.game.cpp
 	{
 		auto it = models.begin(),itt = models.end();
@@ -245,11 +267,7 @@ namespace som_MPX_swap //2022
 			if(cmp<=0)
 			{
 				assert(cmp==0);
-				//delete models_mhm(it->second);
-				if(auto*mhm=models_mhm(it->second))
-				SOM::Game.free_401580((mhm->~som_MHM(),mhm));
-				DWORD x = models_type(it->second)?0x445870:0x4403f0;
-				((BYTE(__cdecl*)(void*))x)(it->second);
+				models_unload(it->second);
 				it = models.erase(it);
 			}
 			else it++;
@@ -259,6 +277,25 @@ namespace som_MPX_swap //2022
 			//out if a job to load a model exists
 		}
 		else it++; 
+	}
+	extern void kage_release() //som.MPX.cpp
+	{
+		auto it = models.begin(),itt = models.end();
+		for(;it!=itt;it++) if(it->second)
+		{
+			if(!models_type(it->second))
+			{
+				auto *m = ((SOM::MDL::data*)it->second);
+				if(m->ext.kage2)
+				if((unsigned)m->ext.kage2+1u>4096) //deprecated
+				{
+					for(auto&ea:*m->ext.kage2) if(ea.texture)
+					{
+						ea.texture->Release(); ea.texture = nullptr;
+					}
+				}
+			}
+		}
 	}
 	static void images_free()
 	{
@@ -301,12 +338,26 @@ namespace som_MPX_swap //2022
 			rcs[i] = 0; ((BYTE(__cdecl*)(DWORD))0x44b4e0)(i);
 		}
 	}
-	
+
+	static void _normalize64(char(&m64)[64], const char *a, int i=0)
+	{
+		//NOTE: keeping "data\" for right now
+		if(!i&&a[1]==':'&&a[3]=='>') a+=5; //"A:\\>\\" 
+
+		//need to 0 pad and normalize hash
+		for(;(m64[i]=tolower(a[i]))&&i<63;i++)
+		{
+			if(m64[i]=='/') m64[i] = '\\';
+		}
+		while(i&&a[i-1]!='.') i--; //remove extension
+		while(i<64) m64[i++] = 0;
+	}
+
 	static som_MPX_64::map::iterator 
 	models_it(std::pair<som_MPX_64,void*> &ins, int i, const char cp[31]) 
 	{
-		while(ins.first.cmp[i++]=tolower(*cp++));
-		while(i<64) ins.first.cmp[i++] = '\0';
+		_normalize64(ins.first.cmp,cp-i,i);
+		
 		return models.insert(ins).first;
 	}
 	static som_MPX_64::map::iterator 
@@ -314,12 +365,13 @@ namespace som_MPX_swap //2022
 	{
 		int i = bit/1024-2;
 		int j = bit%1024;
-		char cats[4] = {20,22,20,21};
+		char cats[4] = {15,17,15,16}; //20,22,20,21
 		static const DWORD paths[6] = 
 		{0x4c0cc8,0x4c11e4,0x4c0728,0x4c1d1c};
 		char *a = ins.first.cmp;
 		char *b = (char*)paths[i];
-		if(b[10]!=a[10]) memcpy(a+10,b+10,cats[i]-10);
+	//	if(b[10]!=a[10]) memcpy(a+10,b+10,cats[i]-10);
+		if(b[10]!=a[5]) memcpy(a+5,b+10,cats[i]-5); //"data\\"
 		
 		BYTE *cp; switch(i)
 		{
@@ -332,23 +384,16 @@ namespace som_MPX_swap //2022
 		return models_it(ins,cats[i],(char*)cp+31);
 	}
 
-	void _normalize64(char(&m64)[64], char *m)
+	extern void* &models_ins(char *a) //som.MDL.cpp
 	{
-		//need to 0 pad and normalize hash		
-		int i = 0; //char m64[64];
-		while((m64[i]=tolower(m[i]))&&i++<63);
-		while(i<64) m64[i++] = 0;
-	}
-	extern void* &models_ins(char *m) //som.MDL.cpp
-	{
-		char m64[64]; _normalize64(m64,m);
+		char m64[64]; _normalize64(m64,a);
 		void* &ins = models[*(som_MPX_64*)m64];
 		if(ins) models_refs(ins)++;
 		return ins;
 	}
-	extern SOM::Texture* &images_ins(char *m) //som.MDL.cpp
+	extern SOM::Texture* &images_ins(char *a) //som.MDL.cpp
 	{
-		char m64[64]; _normalize64(m64,m);
+		char m64[64]; _normalize64(m64,a);
 		auto* &ins = (SOM::Texture*&)images[*(som_MPX_64*)m64];
 		if(ins) 
 		{
@@ -372,11 +417,24 @@ namespace som_MPX_swap //2022
 	}
 
 	//NOTICE: REF-COUNT IS UNMODIFIED
-	static bool images_erase(char *m)
+	static bool images_erase(char *a)
 	{
-		char m64[64]; _normalize64(m64,m);
+		char m64[64]; _normalize64(m64,a);
 		return images.erase(*(som_MPX_64*)m64)!=0;
 	}
+	static bool models_erase(char *a)
+	{
+		char m64[64]; _normalize64(m64,a);
+		return models.erase(*(som_MPX_64*)m64)!=0;
+	}
+
+	extern void *models_data(char *a)
+	{
+		char m64[64]; _normalize64(m64,a);
+		auto it = models.find(*(som_MPX_64*)m64);
+		return it!=models.end()?it->second:nullptr;
+	}
+	extern void models_refresh(char *a);
 
 	typedef swordofmoonlight_mpx_npcs_t::_item npc;
 	typedef swordofmoonlight_mpx_items_t::_item item;
@@ -384,7 +442,7 @@ namespace som_MPX_swap //2022
 
 	struct mpx : SOM::mpx_defs_t
 	{
-		mpx():mem(),wip(),ambient2()
+		mpx():mem(),wip(),evt(),ambient2()
 		{
 			_sky_instance = 0;
 			corridor_mask = 0;			
@@ -425,12 +483,13 @@ namespace som_MPX_swap //2022
 		//PRIVATE IMPLEMENTATION//
 		std::bitset<5376> loading;
 		size_t load,loaded;
-		bool load_canceled;		
+		bool load_canceled;
 		void load_models_etc(),unload_models_etc();
 	//	void load_models_atlas(),load_mpx_atlas(WORD*,DWORD);
 		bool load_bgm(); //2023
 		bool load_finished(){ return !corridor_mask; }
-		void load_sky(int);		
+		void load_sky(int);
+		bool reload_evt(int); //2023
 
 		size_t instance_mat_estimate;
 		size_t instance_mem_estimate;
@@ -455,6 +514,7 @@ namespace som_MPX_swap //2022
 		//other (g)
 		//1: texture
 		//2: sky
+		//3: model refresh
 		unsigned map:6,f:2, g:8, index:10,:6;
 
 		operator const int&()const{ return *(int*)this; }
@@ -534,7 +594,7 @@ SOM::mpx_defs_t &SOM::mpx_defs(int i)
 	return o;
 }
 
-static void __cdecl som_MPX_4498d0(SOM::Texture *s)
+extern void __cdecl som_MPX_4498d0(SOM::Texture *s)
 {
 	//som_game_4498d0() //PIGGYBACKING
 	{
@@ -693,6 +753,142 @@ extern void SOM::se3D(float pos[3], int snd, int pitch, int vol)
 	{
 		som_MPX_43f420(snd,1); //breakpoint
 	}
+}
+
+//2023: som_db refreshes models in som.files.cpp
+static std::vector<std::string> som_MPX_refresh;
+struct som_MPX_refresh_t{ int *refs, otype, ntype; };
+void som_MPX_refresh_swap(int c, void **p, void *d, som_MPX_refresh_t &t)
+{
+	*t.refs+=c; while(c-->0)
+	{
+		void *o = *p;
+
+		if(t.ntype) //atomic?
+		*p = ((SOM::MDO*(__cdecl*)(void*))0x4458d0)(d);
+		else *p = ((SOM::MDL*(__cdecl*)(void*))0x440520)(d);
+
+		extern void som_MDL_4409d0_free(SOM::MDL*);
+		extern BYTE som_MDO_445ad0_free(SOM::MDO*);
+		if(t.otype) som_MDO_445ad0_free((SOM::MDO*)o);
+		else som_MDL_4409d0_free((SOM::MDL*)o);
+	}
+}
+const void *SOM::L::zero = 0; //HACK
+void som_MPX_refresh_model(int index)
+{
+	auto a = (char*)som_MPX_refresh[index].c_str();
+	
+	//if(void *d=som_MPX_swap::models_data(a))
+	//{
+		char m64[64]; som_MPX_swap::_normalize64(m64,a);
+		auto it = som_MPX_swap::models.find(*(som_MPX_64*)m64);
+	//	return it!=som_MPX_swap::models.end()?it->second:nullptr;
+	//}
+	if(it!=som_MPX_swap::models.end()) 
+	{		
+		void* &d = it->second;
+
+		int cmp = som_MPX_swap::models_refs(d);
+
+		void *n,*o = d; //new/old
+
+		som_MPX_swap::models_erase(a);
+
+		extern void *som_MDL_401300_maybe_mdo(char*,int*);
+		if(n=som_MDL_401300_maybe_mdo(a,nullptr))
+		{
+			som_MPX_refresh_t t;
+			t.otype = som_MPX_swap::models_type(o);
+			t.ntype = som_MPX_swap::models_type(n);
+			t.refs = &som_MPX_swap::models_refs(n);
+			{
+				assert(*t.refs==1);
+
+				#define _2(c,x,y) \
+				if((!c||x)&&o==*(void**)&y)\
+				som_MPX_refresh_swap(c,(void**)&x,*(void**)&y=n,t);
+				#define _1(c,x,y) _2(c,SOM::L.x,SOM::L.y)
+
+				_1(1,arm_MDL,arm_MDL_file);
+				for(int i=4;i-->0;)
+				_1(1,arm_MDO[i],arm_MDO_files[i]);
+				for(int i=4;i-->0;)
+				_1(1,arm2_MDO[i],arm2_MDO[i]->i[0]);
+				for(int i=250;i-->0;)
+				_1(64,items_MDO_table[i],item_MDO_files[i]);
+				_1(32,gold_MDO,gold_MDO_file);
+				for(int i=255;i-->0;)
+				if(1==SOM::L.SFX_refs[i].type)
+				_1(16,SFX_refs[i].mdl_instances,SFX_refs[i].mdl_or_txr)				
+				for(int i=SOM::L.ai_size;i-->0;)
+				{
+					auto &ai = SOM::L.ai[i];
+					_2(1,ai[SOM::AI::mdl],ai[SOM::AI::mdl])
+					_2(1,ai[SOM::AI::kage_mdl],SOM::L.kage_mdl_file)
+				}
+				for(int i=1024;i-->0;)
+				_1(0,zero,enemy_mdl_files[i])
+				for(int i=SOM::L.ai2_size;i-->0;)
+				{
+					auto &ai = SOM::L.ai2[i];
+					_2(1,ai[SOM::AI::mdl2],ai[SOM::AI::mdl2])
+					_2(1,ai[SOM::AI::kage_mdl2],SOM::L.kage_mdl_file)
+				}
+				for(int i=1024;i-->0;)
+				_1(0,zero,NPC_mdl_files[i])
+				_1(0,zero,kage_mdl_file);
+				for(int i=SOM::L.ai3_size;i-->0;)
+				{
+					auto &ai = SOM::L.ai3[i];
+					_2(1,ai[SOM::AI::mdl3],ai[SOM::AI::mdl3])
+					_2(1,ai[SOM::AI::mdo3],ai[SOM::AI::mdo3])
+				}
+				for(int i=1024;i-->0;)
+				{
+					_1(0,zero,obj_MDO_files[i])
+					_1(0,zero,obj_MDL_files[i])
+				}
+				for(int i=4;i-->0;)
+				_2(1,som_MPX_skies[i].instance,som_MPX_skies[i].data);
+				
+				assert(SOM::menupcs); //menu object
+				char *i = (char*)SOM::menupcs-0xA8+0x3c;
+				char *j = i-4; //lvalue
+				_2(1,i,j)
+
+				#undef _1
+				#undef _2 //finished?
+			}
+			d = n; som_MPX_swap::models_unload(o);
+
+			*t.refs = cmp; //assert(*t.refs==cmp); //todo: background loaded mpx models?
+		}
+		else //restore?
+		{
+			som_MPX_swap::models_ins(a) = o; assert(0);
+		}
+	}
+	else assert(0); som_MPX_refresh[index].clear();
+}
+void som_MPX_swap::models_refresh(char *a) //som.files.cpp
+{
+	int i = (int)som_MPX_refresh.size();
+	while(i-->0)
+	{
+		if(som_MPX_refresh[i].empty())
+		{
+			som_MPX_refresh[i] = a; break;
+		}
+	}
+	if(i==-1)
+	{
+		i = som_MPX_refresh.size();
+		som_MPX_refresh.push_back(a);		
+	}
+
+	som_MPX_swap::job j = {0,3,3,i}; //other/model
+	som_MPX_swap::jobs->push_back(j);
 }
 
 static HBITMAP som_MPX_bitmap(EX::INI::bitmap &b, HBITMAP hbm)
@@ -922,7 +1118,7 @@ SOM::MT *SOM::MT::lookup(const char *v)
 								//to the same textures by treating single count
 								//files as redirects. the file name redirects to
 								//the name in the file
-								int todolist[SOMEX_VNUMBER<=0x1020504UL];
+								int todolist[SOMEX_VNUMBER<=0x1020602UL];
 								#endif 
 
 								/*this code would detect a redirect... for now
@@ -1029,7 +1225,17 @@ static size_t som_MPX_chardata(char *prf, WORD(*sfx)[2], WORD(*snd)[2], std::bit
 	}
 	return load;
 }
-static BYTE __cdecl som_MPX_428950(void *_1) //load npc
+static BYTE som_MPX_load_event_target(DWORD f, void *p, DWORD &sz)
+{
+	DWORD cmp = sz, ret = ((BYTE(__cdecl*)(void*))f)(p);
+	
+	if(sz==cmp+1) return 1; assert(!ret==(sz==sz));
+
+	*(WORD*)((BYTE*)p+(f==0x42a5f0?0:8)) = 0xffff; //TODO: fill in?
+
+	((BYTE(__cdecl*)(void*))f)(p); return 0; //just clobber it?
+}
+static BYTE __cdecl som_MPX_428950(void *_1) //load npc instance
 {
 	auto rec = (swordofmoonlight_mpx_enemies_t::_item*)_1;
 	if(rec->kind==0xffff)
@@ -1053,7 +1259,8 @@ static BYTE __cdecl som_MPX_428950(void *_1) //load npc
 		//SOMEX_(A)"npc\\texture\\%s"
 		sprintf(som_MDL_skin,"%s%s",0x4c2030,prf->skinTXR);
 	}
-	BYTE ret = ((BYTE(__cdecl*)(void*))0x428950)(_1);
+	//BYTE ret = ((BYTE(__cdecl*)(void*))0x428950)(_1);
+	BYTE ret = som_MPX_load_event_target(0x428950,_1,SOM::L.ai2_size);
 	{
 		if(som_MDL_skin)
 		{
@@ -1069,8 +1276,28 @@ static BYTE __cdecl som_MPX_428950(void *_1) //load npc
 		
 	mdl.ext.subtract_base_control_point = true;
 	
+	if(mdl.ext.kage=(som_MDL*)ai[SOM::AI::kage_mdl2])
+	{
+		if(auto*e=mdl.ext.kage->ext.mdo_elements)
+		{
+			e->texture = mdl->ext.kage; //TEMPORARY
+			e->kage = 1;
+			e->ai = ~(SOM::L.ai2_size-1);
+			if(mdl->ext.kage) for(int i=3;i-->0;)
+			{		
+				if(prf->shadow)	mdl.ext.kage->scale[i]/=prf->shadow; //zero divide
+			}
+		}
+	}
+
+	mdl.xyzuvw[3] = rec->xyzuvw[3];
+	mdl.xyzuvw[5] = rec->xyzuvw[5];
+		
 	return 1;
 }
+//REMINDER: 405de0 applies skins to the 
+//shared model, so a map can't have more
+//than 1 version (skin) of skinned models
 static void *som_MPX_singular_skin(char *a, int npc) //preload skin?
 {
 	DWORD path;
@@ -1107,7 +1334,7 @@ static void *som_MPX_singular_skin(char *a, int npc) //preload skin?
 	som_MDL_skin = 0; som_MDL_skin2 = 0;	
 	return l;
 }
-static BYTE __cdecl som_MPX_405de0(void *_1) //load enemy
+static BYTE __cdecl som_MPX_405de0(void *_1) //load enemy instance
 {
 	auto rec = (swordofmoonlight_mpx_enemies_t::_item*)_1;
 	if(rec->kind==0xffff)
@@ -1131,7 +1358,8 @@ static BYTE __cdecl som_MPX_405de0(void *_1) //load enemy
 		//SOMEX_(A)"enemy\\texture\\%s"
 		sprintf(som_MDL_skin,"%s%s",0x4c0990,prf->skinTXR);
 	}
-	BYTE ret = ((BYTE(__cdecl*)(void*))0x405de0)(_1);
+	//BYTE ret = ((BYTE(__cdecl*)(void*))0x405de0)(_1);
+	BYTE ret = som_MPX_load_event_target(0x405de0,_1,SOM::L.ai_size);
 	{
 		if(som_MDL_skin)
 		{
@@ -1145,7 +1373,20 @@ static BYTE __cdecl som_MPX_405de0(void *_1) //load enemy
 	auto &ai = SOM::L.ai[SOM::L.ai_size-1];
 	auto &mdl = *(SOM::MDL*)ai[SOM::AI::mdl];
 	mdl.ext.subtract_base_control_point = true;
-
+	
+	if(mdl.ext.kage=(som_MDL*)ai[SOM::AI::kage_mdl])
+	{
+		if(auto*e=mdl.ext.kage->ext.mdo_elements)
+		{
+			e->texture = mdl->ext.kage; //TEMPORARY
+			e->kage = 1;
+			e->ai = SOM::L.ai_size-1;
+			if(mdl->ext.kage) for(int i=3;i-->0;)
+			{
+				if(prf->shadow)	mdl.ext.kage->scale[i]/=prf->shadow; //zero divide
+			}
+		}
+	}
 	//40b1d0 (cube hit test?) uses the shadow
 	//for some reason. it's too hard to reprogram
 	//so this just overwrites it
@@ -1187,6 +1428,8 @@ static BYTE __cdecl som_MPX_405de0(void *_1) //load enemy
 	t/=prf->turning_ratio;
 	if(!_finite(t)) t = 0; //KF2's slimes glitch with 0
 
+	float test = ai[SOM::AI::radius];
+
 	//REMOVE ME
 	//this is totally implementable but for now I don't want to
 	//make time to work on it
@@ -1202,6 +1445,25 @@ static BYTE __cdecl som_MPX_405de0(void *_1) //load enemy
 		}
 	}
 
+	mdl.xyzuvw[3] = rec->xyzuvw[3];
+	mdl.xyzuvw[5] = rec->xyzuvw[5];
+
+	//2023: fix problem with attack radii
+	float prm_scale = ai[SOM::AI::scale]/ai[SOM::AI::_scale];
+	for(int i=3;i-->0;)
+	{
+		((float*)(ai.c+116+i*0x44))[11]*=prm_scale; //2023: bad attack radius
+	//	((float*)(ai.c+116+i*0x44))[11]*=prm_scale; //indirect?
+
+		((float*)(ai.c+116+i*0x44))[12]*=prm_scale; //2024: bad attack height
+	}
+	/*som_logic_reprogram fixes this now
+	//it can't fix the above matters
+	if(ai.i[138]!=0x7f7fffff&&ai.i[138]) //4060aa 
+	{
+		ai.f[138]*=prm_scale; //perimeter???
+	}*/
+
 	return 1;
 }
 static BYTE __cdecl som_MPX_42a5f0(void *_1) //load object
@@ -1210,13 +1472,66 @@ static BYTE __cdecl som_MPX_42a5f0(void *_1) //load object
 
 	auto prm = SOM::L.obj_prm_file+rec->kind;
 
-	BYTE ret = ((BYTE(__cdecl*)(void*))0x42a5f0)(_1);
+	//BYTE ret = ((BYTE(__cdecl*)(void*))0x42a5f0)(_1);
+	BYTE ret = som_MPX_load_event_target(0x42a5f0,_1,SOM::L.ai3_size);	
 	if(!ret) return 0;
 	
 	auto pr2 = SOM::L.obj_pr2_file[prm->us[18]].c;
 	auto prf = (swordofmoonlight_prf_object_t*)(pr2+62);
 
 	return 1;
+}
+
+extern void som_MPX_reset_model_speeds()
+{	
+	//if(!EX::INI::Bugfix()->do_fix_animation_sample_rate)
+	//return;
+	
+	float fps = 30.0f*som_MDL::fps/DDRAW::refreshrate;
+
+	auto scale = [fps](SOM::MDL &m, float x)
+	{
+		x = fps/sqrtf(x);
+
+		if(*m->file_head&16) x*=2; //60fps?
+		
+		m.ext.speed2 = m.ext.speed = x;
+	};
+
+	/*
+	for(int i=255;i-->0;)
+	{
+		auto &sr = SOM::L.SFX_refs[i];
+		if(sr.ref_count)			
+		for(int j=16;i-->0;) if(auto*m=sr.mdl_instances[i])
+		{
+			scale(*m,m->scale[0]); //???
+		}
+	}*/
+	for(int i=SOM::L.ai_size;i-->0;)
+	{
+		auto &ai = SOM::L.ai[i];
+		if(auto*m=(SOM::MDL*)ai[SOM::AI::mdl])
+		{
+			scale(*m,ai[SOM::AI::_scale]);
+		}
+	}
+	for(int i=SOM::L.ai2_size;i-->0;)
+	{
+		auto &ai = SOM::L.ai2[i];
+		if(auto*m=(SOM::MDL*)ai[SOM::AI::mdl2])
+		{
+			scale(*m,ai[SOM::AI::_scale]);
+		}
+	}
+	for(int i=SOM::L.ai3_size;i-->0;)
+	{
+		auto &ai = SOM::L.ai3[i];
+		if(auto*m=(SOM::MDL*)ai[SOM::AI::mdl3])
+		{
+			scale(*m,ai[SOM::AI::_scale3]);
+		}
+	}
 }
 
 extern void som_MPX_411a20_ambient2(const unsigned m, int ll=0)
@@ -1327,7 +1642,7 @@ extern void som_MPX_411a20_ambient2(const unsigned m, int ll=0)
 		if(SOM::tool) break;
 	}
 }
-static bool som_MPX_411a20_ltd(const unsigned m) //load
+static bool som_MPX_411a20_ltd(const unsigned m) //load mpx
 {
 	//2022: this code began as a layer loading 
 	//system, but I'm extending it to load the
@@ -1406,7 +1721,9 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 			//instead!
 			fread(&flags,4,1,f);
 			if(feof(f)) break;
-			fseek(f,280-4-4,SEEK_CUR);
+			//fseek(f,280-4-4,SEEK_CUR);
+			char view[280-4-4];
+			fread(view,sizeof(view),1,f);
 
 			//2022: this was memory that held
 			//the layer count... if it's zero
@@ -1514,9 +1831,18 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 			L::tile *r = base.tiles+100*100;
 			for(int i=0;i<100*100;i++)
 			{
+				//insert pointer member
 				p-=4; q-=3; r--;
 				p[3] = 0; p[2] = q[2]; p[1] = q[1]; p[0] = q[0];						
 				if(*p==0xFFffFFff) continue;
+
+				auto *t = (L::tile*)p; //2023
+				if(isupper(t->ev))
+				{
+					t->nobsp = 1;
+					t->ev = 'e'==tolower(t->ev);
+				}
+				else t->ev&=1; //2023
 
 				//EXPERIMENTAL
 				//HACK: this is to coax NPCs into entering the 
@@ -1531,7 +1857,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 					//r->msm = plug; //helpful?
 					//what is MSB? it's not set by the MPX file
 					//when is it set? and why isn't this unset?
-					r->msb = 1;	//REQUIRED
+					r->msb = 0x80;	//REQUIRED
 					//r->unknown2 = ~r->unknown2;
 					/*2020: this is setting the checkpoint bit
 					r->nonzero = 16; //REQUIRED*/
@@ -1540,7 +1866,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 					// som_logic_4079d0_42a0c0 began taking the radius
 					// into account, but for now it's ignoring ffff
 					//
-					r->e = 1; //2020
+					r->ev = 1; //2020
 				}
 
 				//this can change if MapComp is changed
@@ -1852,13 +2178,13 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 				//004182FF E8 FC 91 FE FF       call        00401500
 				SOM::Game.malloc_401500(q->vcolor_indices,q->vcolor_indicesN);
 
-				fread(q->triangle_indices,q->triangle_indicesN,2,f);
-				fread(q->vcolor_indices,q->vcolor_indicesN,8,f);
+				fread(q->triangle_indices,q->triangle_indicesN*2,1,f);
+				fread(q->vcolor_indices,q->vcolor_indicesN*8,1,f);
 
 				//2022: it seems MapComp may not restrict chunks to
 				//the size of som_db.exe's buffer
 				#ifdef NDEBUG
-				int todolist[SOMEX_VNUMBER<=0x1020504UL];
+				int todolist[SOMEX_VNUMBER<=0x1020602UL];
 				#endif
 				//Moratheia's first map exceeds both
 				//assert(q->triangle_indicesN<=2688);
@@ -1894,6 +2220,9 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 			DWORD c;
 			if(fread(&c,4,1,f)) if(c)
 			{
+				char _buf[4096]; 
+				char *buf = _buf; DWORD bsz = 4096;
+
 				mpx[SOM::MPX::mhm_counter] = c;
 				auto &mp = (som_MHM**&)mpx[SOM::MPX::mhm_pointer];
 				//YUCK: this just adds a dummy MHM
@@ -1905,6 +2234,18 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 				mp = som_MPX_401500(c*sizeof(void*)); //plug?
 				for(auto*p=mp;c-->0;p++)
 				{
+					DWORD sz; fread(&sz,4,1,f);
+					
+					if(sz>bsz)
+					{
+						if(buf!=_buf) delete[] buf;
+
+						bsz = (sz/1024+1)*1024;
+
+						buf = new char[bsz];
+					}					
+					fread(buf,sz,1,f);
+
 					//WARNING: for this to work the two
 					//fread calls need to be rewritten
 					//with SomEx.dll's fread... it would
@@ -1913,9 +2254,12 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 					//that's new allocated and deleted
 					//each time
 					//*p = ((som_MHM*(__cdecl*)(FILE*))0x417630)(f);
-					extern som_MHM *som_MHM_417630(FILE*,bool);
-					*p = som_MHM_417630(f,true);
+					extern som_MHM *som_MHM_417630(char*,DWORD);
+
+					*p = som_MHM_417630(buf,sz);
 				}
+
+				if(buf!=_buf) delete[] buf;
 			}
 		}
 
@@ -1934,48 +2278,14 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 		//not really som_db's style?
 		#ifdef NDEBUG
 		//#error log. MessageBox? 
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		#endif 
 
 		assert(0); return false; //2022
 	}
-	else //EVT?
+	else if(!map.reload_evt(m)) //EVT?
 	{
-		//portable events?
-		//2022: som_tool_CreateFile had initialized sys.ezt
-		//however it did so on top of the first evt file it
-		//saw. that just happened to be okay because som_db
-		//must use a naked data\path for maps and evt files
-		extern HANDLE som_zentai_ezt; if(!som_zentai_ezt)
-		{
-			//2022: hooking into som_game_CreateFile's data
-			//folders traversal
-			HANDLE ezt = CreateFileA("data\\map\\sys.ezt",GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,0,0);
-			if(ezt!=INVALID_HANDLE_VALUE)
-			SOM::zentai_init(ezt);
-		}
-		memcpy(a+dd+3,"evt",4);
-		HANDLE h = CreateFileA(a,SOM_GAME_READ);
-		if(h==INVALID_HANDLE_VALUE)
-		{
-			assert(0); goto evt_error; //2022
-		}
-		DWORD rd,sz = GetFileSize(h,0);
-		if(sz!=0&&sz!=INVALID_FILE_SIZE)
-		{
-			BYTE *buf;
-			SOM::Game.malloc_401500(buf,sz);
-
-			ReadFile(h,buf,sz,&rd,0);
-
-			if(sz!=rd) //som.zentai.cpp?
-			{
-				assert(0);
-				SOM::Game.free_401580(buf);
-			}
-			else map.evt = buf;
-		}
-		CloseHandle(h);
+		goto evt_error;
 	}
 		
 	map.mem = map.wip; //2022 
@@ -2080,7 +2390,7 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 					//without KFII's unusual gamut
 					#ifdef NDEBUG					
 					//#error I almost forgot about this??? (2022)
-					int todolist[SOMEX_VNUMBER<=0x1020504UL];
+					int todolist[SOMEX_VNUMBER<=0x1020602UL];
 					#endif
 					for(int i=3;i-->0;) if(1) //KF2: less contrast?
 					{
@@ -2112,6 +2422,48 @@ static bool som_MPX_411a20_ltd(const unsigned m) //load
 	}
 
 	return true;
+}
+bool som_MPX_swap::mpx::reload_evt(int m)
+{
+	if(evt) SOM::Game.free_401580(evt);
+
+	//portable events?
+	//2022: som_tool_CreateFile had initialized sys.ezt
+	//however it did so on top of the first evt file it
+	//saw. that just happened to be okay because som_db
+	//must use a naked data\path for maps and evt files
+	extern HANDLE som_zentai_ezt; if(!som_zentai_ezt)
+	{
+		//2022: hooking into som_game_CreateFile's data
+		//folders traversal
+		HANDLE ezt = CreateFileA("data\\map\\sys.ezt",GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,0,0);
+		if(ezt!=INVALID_HANDLE_VALUE)
+		SOM::zentai_init(ezt);
+	}
+	//memcpy(a+dd+3,"evt",4);
+	char a[64]; //som_db uses data\map here
+	sprintf(a,"data\\map\\%02d.evt",m);
+	HANDLE h = CreateFileA(a,SOM_GAME_READ);
+	if(h==INVALID_HANDLE_VALUE)
+	{
+		assert(0); return false; //goto evt_error; //2022
+	}
+	DWORD rd,sz = GetFileSize(h,0);
+	if(sz!=0&&sz!=INVALID_FILE_SIZE)
+	{
+		BYTE *buf;
+		SOM::Game.malloc_401500(buf,sz);
+
+		ReadFile(h,buf,sz,&rd,0);
+
+		if(sz!=rd) //som.zentai.cpp?
+		{
+			assert(0);
+			SOM::Game.free_401580(buf);
+		}
+		else evt = buf;
+	}
+	CloseHandle(h); return true;
 }
 static som_MPX *som_MPX_413190_ptr = 0;
 static void som_MPX_413190_ltd(som_MPX &mpx) //unload
@@ -2181,7 +2533,7 @@ static void som_MPX_prepare_for_42dd40_in_critical_section()
 	//risk degrading the frame rate (computing
 	//2 CPU frames in one) so instead textures
 	//in play need to be computed by hand here
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	//HACK: this prevents drawing to speed up load times
 	//I don't know if the overhead is worth it thereafter
 	//som_scene_update_texture is used to update textures
@@ -2230,7 +2582,7 @@ void SOM::queue_up_game_map(int m)
 	som_MPX_push_back_textures_job();
 }
 
-static void __cdecl som_MPX_448560()
+static void __cdecl som_MPX_448560_release_textures()
 {
 	//TODO: would like to cancel som_MPX_job_3
 	//but it will just have to run to the end
@@ -2240,14 +2592,18 @@ static void __cdecl som_MPX_448560()
 //	som_MPX_textures->clear(); //som_MPX_atlas2?
 
 	((void(__cdecl*)())0x448560)();
+
+	som_MPX_swap::kage_release(); //2024: I guess?
 }
-static void __cdecl som_MPX_448400()
+static void __cdecl som_MPX_448400_rebuild_textures()
 {
 	EX::section raii(som_MPX_thread->cs);
 
 	((void(__cdecl*)())0x448400)();
 
 	som_MPX_push_back_textures_job();
+	
+	som_MPX_swap::kage_release(); //2024
 }
 
 namespace DDRAW{ extern bool inStereo; }
@@ -2257,6 +2613,29 @@ static void __cdecl som_MPX_center_u()
 	SOM::L.pcstate[3] = DDRAW::inStereo?0:som_MPX_center_u_amount;
 }
 
+extern void som_MPX_job_2(som_MPX_swap::job,bool);
+static void som_MPX_411a20_evt(const unsigned m) //load evt
+{	
+	auto &map = (*som_MPX_swap::maps)[m];
+
+	memset(SOM::L.leafnums,0x00,1024);
+	memset(SOM::L.evt_trip_zone_bits,0x00,128); //555dc4
+
+	SOM::L.evt_file = map.evt;
+	SOM::L.events = (som_EVT*)(map.evt+4);
+	SOM::L.events_size = *(DWORD*)map.evt;
+	//DUPLICATE som_game_ReadFile
+	if(BYTE*e=SOM::L.events->uc)
+	for(int i=0,n=SOM::L.events_size;i<n;i++,e+=252) switch(e[31])
+	{
+	case 0xFE: //System
+	default: SOM::ezt[i] = false; break; 
+	case 0xFD: //Systemwide
+	case 0xFC: //conflicted (shouldn't be seen but)
+		if(i<10) e[31] = 0xFE; //System
+		SOM::ezt[i] = true; break;
+	}
+}
 static BYTE __cdecl som_MPX_411a20(char *dd) //load
 {	
 	typedef SOM::MPX::Layer L;
@@ -2296,6 +2675,15 @@ static BYTE __cdecl som_MPX_411a20(char *dd) //load
 	int m = atoi(dd); m = max(0,min(63,m));
 
 	int mm = SOM::mpx, m2 = dst.map_event?mm:m;
+
+	if(2==dst.nosetting) //2023: som_files_wrote_db?
+	{
+		assert(m==mm);
+
+		som_MPX_swap::job j = {m};
+
+		j.f = 2; som_MPX_job_2(j,true); //unload?
+	}
 
 	auto &map = (*som_MPX_swap::maps)[m];
 	auto &map2 = (*som_MPX_swap::maps)[m2];
@@ -2353,8 +2741,10 @@ _(0)		memset(SOM::L.SFX_images,0x00,144*512); //sfx_images
 		som_MPX_new = mem&&!mem->empty()?mem:0;
 		{
 			//unload models (and instances)
+			som_MPX_loading_shadows = true;
 	_(3)   	((void(__cdecl*)())0x428e60)(); //npcs
 	   		((void(__cdecl*)())0x406530)(); //enemies
+			som_MPX_loading_shadows = false;
 	_(4)   	((void(__cdecl*)())0x42aac0)(); //objects
 	_(5)   	((void(__cdecl*)())0x410230)(); //items
 		}	
@@ -2402,12 +2792,12 @@ _(7)	((void(__cdecl*)())0x4111b0)(); //lamps
 		if(1==EX::central_processing_units)
 		{
 			//HACK: just reuse code for obscure case
-			extern void som_MPX_job_2(som_MPX_swap::job);
 			som_MPX_swap::job j = {mm,2};
-			som_MPX_job_2(j);
+			som_MPX_job_2(j,false);
 		}		
 		else mmap.last_tick = was;
 _(8) 
+		/*2023: som_MPX_411a20_evt fuses these
 		//2022: 413190 actually keeps these in memory
 		//until 411a20 replaces them
 		{
@@ -2416,7 +2806,7 @@ _(8)
 			SOM::L.events_size = 0; 
 			memset(SOM::L.leafnums,0x00,1024);
 			memset(SOM::L.evt_trip_zone_bits,0x00,128); //555dc4
-		}
+		}*/
 	}
 	else
 	{
@@ -2552,7 +2942,7 @@ _(15)	((BYTE(__cdecl*)(DWORD))0x4113f0)(map.ambient);
 		if(SOM::ambient2=map.ambient2) //EXTENSION
 		{
 			extern DWORD som_scene_ambient2; //enable?
-			som_scene_ambient2 = -1;
+			som_scene_ambient2 = 1;
 		}
 	
 	//can't allocate materials on som_MPX_new 
@@ -2611,26 +3001,36 @@ _(17)	for(int i=0,n=map.npcs.size();i<n;i++)
 			else if(n>sz)
 			som_game_ai_resize(sz=max(256,n*3/2));
 			
+			int _ = 0;
 			for(DWORD i=0;i<n;i++)
-			som_MPX_405de0(&map.enemies[i]);
+			{
+				som_MPX_405de0(&map.enemies[i]);
+				_ = SOM::L.ai_size;
+			}
+			assert(_==n); n = _; //mdl failure?
 
 			if(n<nn||cmp_ai_size<sz)
 			{
 				som_MPX_swap::npc dummy = {};
 				dummy.kind = 0xffff;
-				som_MPX_405de0(&dummy);
-				som_Enemy *ai = SOM::L.ai;
-				auto &cp = ai[n++];
-				SOM::L.ai_size = sz;
-				while(n<nn) memcpy(ai+n++,&cp,sizeof(cp));
-				//NOTE: nn/cmp may both be zero
-				n = max(n,max(nn,cmp_ai_size));
-				while(n<sz) memcpy(ai+n++,&cp,sizeof(cp));
+				_ = SOM::L.ai_size;
+				if(som_MPX_405de0(&dummy))
+				{
+					_ = SOM::L.ai_size;
+					som_Enemy *ai = SOM::L.ai;
+					auto &cp = ai[n++];
+					SOM::L.ai_size = sz;
+					while(n<nn) memcpy(ai+n++,&cp,sizeof(cp));
+					//NOTE: nn/cmp may both be zero
+					n = max(n,max(nn,cmp_ai_size));
+					while(n<sz) memcpy(ai+n++,&cp,sizeof(cp));
+				}
 			}		
 		}
 _(18)	if(!map.items.empty())
 		((BYTE(__cdecl*)(DWORD,void*))0x40fde0)(map.items.size(),map.items.data());
 _(19)
+		som_MPX_reset_model_speeds(); //2023
 
 	som_MPX_new = 0; //// BACK TO operator new[] ////
 
@@ -2651,6 +3051,7 @@ _(19)
 //		map.load_mpx_atlas((WORD*)tp,(DWORD)tc); //2023
 		
 _(20)
+		/*//som_MPX_411a20_evt
 		SOM::L.evt_file = map.evt;
 		SOM::L.events = (som_EVT*)(map.evt+4);
 		SOM::L.events_size = *(DWORD*)map.evt;
@@ -2664,7 +3065,7 @@ _(20)
 		case 0xFC: //conflicted (shouldn't be seen but)
 			if(i<10) e[31] = 0xFE; //System
 			SOM::ezt[i] = true; break;
-		}
+		}*/som_MPX_411a20_evt(m);
 
 		//((void(__cdecl*)())0x42cf40)(); //save state
 		{
@@ -2697,7 +3098,11 @@ _(22)
 				p[i] = SOM::L.pcstate[i];
 			}
 		}
-		else 
+		else if(2==dst.nosetting) //som_files_wrote_db  
+		{
+			memcpy(p,SOM::L.pcstate,6*sizeof(*p));
+		}
+		else
 		{
 			memcpy(p,mpx.f+121,3*sizeof(*p));
 			//EXPERIMENTAL
@@ -2721,7 +3126,7 @@ _(22)
 		//#error what are the exact criteria?		
 		//TODO: SOM::warp should cancel sounds
 		//if taking the 0== path below
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		#endif
 		if(0==(dst.settingmask&16))
 		{
@@ -2897,7 +3302,7 @@ extern void som_MPX_once_per_frame() //som.game.cpp
 			auto &cmp = (*som_MPX_swap::maps)[i];
 
 			//maybe use the play clock for this?
-			int todolist[SOMEX_VNUMBER<=0x1020504UL];
+			int todolist[SOMEX_VNUMBER<=0x1020602UL];
 			if(cmp.wip)
 			if(now-cmp.last_tick>1000*60*3) //3 minutes?
 			{
@@ -2990,6 +3395,9 @@ static void som_MPX_job_1(som_MPX_swap::job j) //load
 		EX::section raii(som_MPX_thread->cs);
 
 		char *bgm = &(*map.mem)[SOM::MPX::bgm];
+
+		//HACK!!! som_files_wrote_db needs this
+		if(!*bgm) strcpy(bgm,".silence.wav"); 
 
 		map.bgmmio = som_MPX_mmioOpenA_BGM_open(bgm);
 	}
@@ -3114,7 +3522,7 @@ void som_MPX_swap::mpx::load_sky(int m)
 		//it's loaded... the Standby Map event can
 		//be of use here
 		#ifdef NDEBUG
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		#endif
 	//	for(int i=1;i<=4;i++)
 	//	som_MPX_load_sky(i);
@@ -3328,7 +3736,8 @@ void som_MPX_swap::mpx::load_models_etc()
 
 	std::pair<som_MPX_64,void*> ins;
 	char(&path)[64] = ins.first.cmp;
-	memcpy(path,SOMEX_(a)"\\data\\",10); //10
+	//memcpy(path,SOMEX_(a)"\\data\\",10); //10
+	memcpy(path,"data\\",5); //10
 
 	//THREAD-SAFE?
 	auto *pos = (BYTE*)&loading; //OPTIMIZING
@@ -3409,7 +3818,9 @@ void som_MPX_swap::mpx::load_models_etc()
 				{
 					extern SOM::MDL::data *som_MDL_440030(char*);
 					if(!(cmp=som_MPX_singular_skin(a,bit-npc_0)))
+					som_MPX_loading_shadows = true;
 					cmp = som_MDL_440030(a);
+					som_MPX_loading_shadows = false;
 				}
 				else if(bit<obj_0+1024) //MDO or MDL?
 				{
@@ -3513,7 +3924,7 @@ DWORD SOM::MDO::data::_instance_mem_estimate()
 {
 	return sizeof(SOM::MDO)+2*material_count+104*chunk_count;
 }
-extern void som_MPX_job_2(som_MPX_swap::job j) //unload
+extern void som_MPX_job_2(som_MPX_swap::job j, bool cancel=false) //unload
 {
 	int m = j.map;
 
@@ -3524,17 +3935,21 @@ extern void som_MPX_job_2(som_MPX_swap::job j) //unload
 	{
 		EX::section raii(som_MPX_thread->cs);
 
-		if(1!=EX::central_processing_units)
+		if(!cancel)
 		{
-			if(SOM::mpx==m||SOM::mpx2==m) return;
+			if(1!=EX::central_processing_units)
+			{
+				if(SOM::mpx==m||SOM::mpx2==m) return;
 
-			if(!map.load_finished()) return;
+				if(!map.load_finished()) return;
+			}
+			
+			//can't do anything complicated here since the
+			//menus may need to take the critical section
+			//so there's nothing to but abort
+			if(!som_MPX_textures->empty()) return;
 		}
-
-		//can't do anything complicated here since the
-		//menus may need to take the critical section
-		//so there's nothing to but abort
-		if(!som_MPX_textures->empty()) return;
+		else map.load_canceled = true;
 
 		if(map.mem)
 		{
@@ -3584,7 +3999,8 @@ void som_MPX_swap::mpx::unload_models_etc()
 
 	std::pair<som_MPX_64,void*> ins;
 	char(&path)[64] = ins.first.cmp;
-	memcpy(path,SOMEX_(a)"\\data\\",10); //10
+	//memcpy(path,SOMEX_(a)"\\data\\",10); //10
+	memcpy(path,"\\data\\",5); //10
 
 	auto *pos = (BYTE*)&loading; //OPTIMIZING
 	void *end = (char*)pos+total;
@@ -3697,6 +4113,12 @@ static void som_MPX_job_3(som_MPX_swap::job j) //other?
 		}
 
 		return; //breakpoint
+	}
+	else if(j.g==3) //refresh model
+	{
+		EX::section raii(som_MPX_thread->cs);
+
+		som_MPX_refresh_model(j.index);
 	}
 	else assert(0);
 }
@@ -3853,9 +4275,9 @@ extern void som_MPX_reprogram()
 	}
 	
 	//401fc4 call 448560 (release textures)
-	*(DWORD*)0x401fc5 = (DWORD)som_MPX_448560-0x401fc9;
+	*(DWORD*)0x401fc5 = (DWORD)som_MPX_448560_release_textures-0x401fc9;
 	//401e49 call 448400 (rebuild textures)
-	*(DWORD*)0x401e4a = (DWORD)som_MPX_448400-0x401e4e;
+	*(DWORD*)0x401e4a = (DWORD)som_MPX_448400_rebuild_textures-0x401e4e;
 	
 	//don't unlock until after loading
 	//
@@ -3921,7 +4343,7 @@ extern void som_MPX_reprogram()
 		//som_MPX_swap is implemented
 		#ifdef NDEBUG
 		//#error consider removing this stuff around MHM reads
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		#endif
 		//REMOVE ME? (401500)
 		//00412E63 E8 98 E6 FE FF       call        00401500
@@ -4011,7 +4433,7 @@ extern void som_MPX_reprogram()
 		//animation frames may not be unloaded and may also
 		//increase the ref counts for each instance so that
 		//in theory they could reach 65535		
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		#endif
 		
 		//load SND (bug fix)
@@ -4134,10 +4556,15 @@ extern void som_MPX_reprogram()
 	}
 
 	//change center point of neutral head position?
-	//00424A9A C7 05 A4 1D 9C 01 00 00 00 00 mov         dword ptr ds:[19C1DA4h],0
-	memset((void*)0x424A9A,0x90,10);
-	*(BYTE*)0x424A9A = 0xe8; //CALL
-	*(DWORD*)0x424A9b = (DWORD)som_MPX_center_u-0x424A9f; 
+	{
+		//00424A9A C7 05 A4 1D 9C 01 00 00 00 00 mov         dword ptr ds:[19C1DA4h],0
+		memset((void*)0x424A9A,0x90,10);
+		*(BYTE*)0x424A9A = 0xe8; //CALL
+		*(DWORD*)0x424A9b = (DWORD)som_MPX_center_u-0x424A9f; 
+	}
+
+	//tile draw order and visibility
+	extern void som_MPY_reprogram(); som_MPY_reprogram(); //2023
 }
 
 SOM::Thread::Thread(DWORD(WINAPI*f)(Thread*))
@@ -4321,7 +4748,101 @@ extern void __cdecl som_MPX_corridor(DWORD event, DWORD *stack)
 	som_MPX_push_back_transfer_job(m,evt->nosettingmask);
 }
 
+extern void som_MPX_refresh_mpx(int m)
+{
+	if((DWORD)m>=64) return;
 
+	auto &map = (*som_MPX_swap::maps)[m];
+
+	if(!map.loaded) return;
+	
+	if(m!=SOM::mpx)
+	{
+		som_MPX_swap::job j = {m};
+
+		j.f = 2; som_MPX_job_2(j,true); //unload?
+
+		map.corridor_mask = 0x100; //I guess
+
+		j.f = 1; som_MPX_job_1(j); //load
+
+	//	if(m==SOM::mpx) som_MPX_411a20_evt(m);	
+	}
+}
+extern void som_MPX_refresh_evt(int m)
+{
+	if((DWORD)m>=64) return;
+
+	auto &map = (*som_MPX_swap::maps)[m];
+
+	if(!map.load) return;
+
+	if(m!=SOM::mpx)
+	{
+		map.reload_evt(m);
+
+	//	if(m==SOM::mpx) som_MPX_411a20_evt(m);
+	}
+}
+
+SOM::Animation::Animation()
+{
+	assert((unsigned)this+1u>4096); //deprecated
+
+	memset(this,0x00,sizeof(*this)); 
+}
+SOM::Animation::~Animation()
+{
+	assert((unsigned)this+1u>4096); //deprecated
+
+	delete[] data;
+
+	if(texture) ((IUnknown*)texture)->Release();
+}
+void SOM::Animation::upload()
+{
+	if(texture||!data) return;
+
+	DX::DDSURFACEDESC2 d = {sizeof(d),
+	DDSD_CAPS|DDSD_HEIGHT|DDSD_WIDTH|DDSD_PIXELFORMAT,h,w,data_s/h};
+	d.dwHeight = h;
+	d.dwWidth = w;
+	d.dwFlags|=DDSD_CAPS;
+	d.ddsCaps.dwCaps = DDSCAPS_TEXTURE; 
+	int bpp = data_s/(w*h);
+	DX::DDPIXELFORMAT pf = {0,DDPF_RGB,0,8*bpp};
+	if(bpp>=2) pf.dwRBitMask = 0xff0000;
+	if(bpp>=2) pf.dwGBitMask = 0x00ff00;
+	if(bpp>=3) pf.dwBBitMask = 0x0000ff;
+	if(bpp==1||bpp==4) pf.dwRGBAlphaBitMask = 0xff000000;
+	if(bpp==1||bpp==4) pf.dwFlags|=DDPF_ALPHAPIXELS;
+	d.ddpfPixelFormat = pf;
+	auto swap = DDRAW::colorkey;
+	auto swap2 = DDRAW::mipmap;
+	if(bpp==1||bpp==4) 
+	DDRAW::colorkey = nullptr;
+	DDRAW::mipmap = nullptr;
+	HRESULT hr = DDRAW::DirectDraw7->CreateSurface(&d,(DX::LPDIRECTDRAWSURFACE7*)&texture,0);
+	DDRAW::colorkey = swap;
+	DDRAW::mipmap = swap2;
+	if(!hr&&!texture->Lock(0,&d,DDLOCK_WAIT|DDLOCK_WRITEONLY,0))
+	{
+		int p = w*bpp; if(d.lPitch!=p)
+		{
+			if(d.lPitch>p) for(int i=0;i<h;i++)
+			{
+				auto *row = (BYTE*)d.lpSurface+d.lPitch*i;
+				(DWORD&)(row[p/4*4]) = 0; //~0?
+				memcpy(row,data+p*i,p);
+			}
+			else assert(d.lPitch>p);
+		}
+		else memcpy(d.lpSurface,data,p*h);
+
+		texture->Unlock(0);
+	}
+	else assert(!hr);
+}
 
 	//ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS //ATLAS
 
@@ -4463,4 +4984,5 @@ void som_MPX_swap::mpx::load_models_atlas()
 		}
 	}	
 }
+
 #endif //EXPERIMENTAL

@@ -58,6 +58,7 @@ EX_TRANSLATION_UNIT //(C)
 #define cVolRegister "float4 volRegister : register(ps,c10);"
 #define cColColorize "float4 colColorize : register(ps,c26);"
 #define cFarFrustum  "float4 farFrustum  : register(ps,c27);"
+#define cTexMatrix "float4x4 x4mUV : register(c30);"
 
 //#define cX4mWVP "float4x4 x4mWVP : register(vs,c4);" //REMOVE ME
 #define cX4mWV  "float4x4 x4mWV  : register(vs,c8);"
@@ -379,7 +380,7 @@ static const char *som_shader_effects_ps = //HLSL
 //	#endif
 	#endif
 	#ifdef DDITHER
-	sampler2D sam2:register(s2);
+	sampler2D sam3:register(s3);
 	#endif
 	float4 sample(float2 uv)
 	{
@@ -484,6 +485,17 @@ static const char *som_shader_effects_ps = //HLSL
 			
 			#if 1 || !defined(DDEBUG) //TESTING
 			{
+				if(1) //2024: swing model afterimage?
+				{
+					float ai = 2-sum0.a;
+					float ia = (2.0-ai)+0.4*(1.0-sum1.a); //over 1!
+					ai-=0.2*(1.0-sum1.a);
+					cmp0*=ai; cmp1*=ia; 
+					sum0*=ai; sum1*=ia;
+				//	cmp1*=sum1.a; cmp0*=sum0.a;
+				//	sum1*=sum1.a; sum0*=sum0.a;
+				}
+
 				//NOTE: I think this is mathematically equivalent to
 				//adding two lerp terms with or without crossing the
 				//pairs i.e. lerp(sum0,cmp0) vs. lerp(sum0,cmp1)
@@ -746,7 +758,7 @@ static const char *som_shader_effects_ps = //HLSL
 		//on, which seems correct
 		#ifdef DDITHER	
 		//0.0001f: helps Intel Iris Pro graphics
-		Out.col.rgb+=tex2D(sam2,In.pos/(8.0*DDITHER)+0.0001).r/8.0; 
+		Out.col.rgb+=tex2D(sam3,In.pos/(8.0*DDITHER)+0.0001).r/8.0; 
 		#endif
 		
 		#ifdef DGREEN
@@ -844,7 +856,7 @@ static const char *som_shader_effects_xr = //HLSL
 	};
 	#endif
 	#ifdef DDITHER
-	SamplerState sam2:register(s2)
+	SamplerState sam3:register(s3)
 	{
 		Filter = MIN_MAG_MIP_POINT; //UNUSED
 	};
@@ -889,13 +901,24 @@ static const char *som_shader_effects_xr = //HLSL
 			float4 cmp1 = tex2Dlod(sam1,sum+mip1);
 			sum.w = W;
 			float4 sum0 = tex2Dlod(sam0,sum);
-			float4 sum1 = tex2Dlod(sam1,sum);
+		//	float4 sum1 = tex2Dlod(sam1,sum);
 
 			#if defined(DSS) && !defined(DIN_EDITOR_WINDOW)
 			sum = pow(abs(cmp0-cmp1),vec4(1.5))*0.8+0.1;
 			#else			
 			sum = min(vec4(1.0),pow(abs(cmp0-cmp1),vec4(1.5))*3.0);
 			#endif
+			
+			if(0) //2024: swing model afterimage? //???
+			{
+				float ai = 2-sum0.a;
+				float ia = (2.0-ai)+0.4*(1.0-sum1.a); //over 1!
+				ai-=0.2*(1.0-sum1.a);
+				cmp0*=ai; cmp1*=ia; 
+				sum0*=ai; sum1*=ia;
+			//	cmp1*=sum1.a; cmp0*=sum0.a;
+			//	sum1*=sum1.a; sum0*=sum0.a;
+			}
 
 			//DDISSOLVE is unnaceptable on WMR
 //			sum = lerp(sum0+sum1,cmp0+cmp1,sum);
@@ -1070,7 +1093,7 @@ static const char *som_shader_effects_xr = //HLSL
 		#ifdef DDITHER //UNTESTED
 		float2 i_pos = i.sv_position.xy/i.sv_position.w;
 		//0.0001f: helps Intel Iris Pro graphics
-		o.rgb+=tex2D(sam2,i_pos/(8.0*DDITHER)+0.0001).r/8.0; 
+		o.rgb+=tex2D(sam3,i_pos/(8.0*DDITHER)+0.0001).r/8.0; 
 		#endif
 		
 		#ifdef DGREEN
@@ -1126,7 +1149,7 @@ static const char *som_shader_effects_11 = //HLSL
 	#endif
 	/*xr::effects needs work to allow point filter
 	#ifdef DDITHER
-	SamplerState sam2:register(s2)
+	SamplerState sam3:register(s3)
 	{
 		Filter = MIN_MAG_MIP_POINT;
 	};
@@ -1178,6 +1201,15 @@ static const char *som_shader_effects_11 = //HLSL
 			#else			
 			sum = min(vec4(1.0),pow(abs(cmp0-cmp1),vec4(1.5))*3.0);
 			#endif
+			
+			if(1) //2024: swing model afterimage?
+			{
+				float ai = 2-sum0.a;
+				float ia = (2.0-ai)+0.4*(1.0-sum1.a); //over 1!
+				ai-=0.2*(1.0-sum1.a);
+				cmp0*=ai; cmp1*=ia; 
+				sum0*=ai; sum1*=ia;
+			}
 
 			sum = lerp(sum0+sum1,cmp0+cmp1,sum);			
 
@@ -1251,7 +1283,7 @@ static const char *som_shader_effects_11 = //HLSL
 		#ifdef DDITHER //UNTESTED
 		float2 i_pos = i.sv_position.xy/i.sv_position.w;
 		//0.0001f: helps Intel Iris Pro graphics
-		o.rgb+=tex2D(sam2,i_pos/(8.0*DDITHER)+0.0001).r/8.0; 
+		o.rgb+=tex2D(sam3,i_pos/(8.0*DDITHER)+0.0001).r/8.0; 
 		#endif*/
 		
 		#ifdef DGREEN
@@ -1289,6 +1321,7 @@ static const char *som_shader_classic_vs = //HLSL
 	cX4mW
 	cX4mV 
 	cX4mP //cX4mIV //2==EX_INI_STEREO_MODE
+//	cTexMatrix
 	//cFogFactors
 	cMatAmbient
 	cMatDiffuse
@@ -1498,7 +1531,7 @@ static const char *som_shader_classic_vs = //HLSL
 	struct FOG_INPUT
 	{
 		float4 pos : POSITION;
-		float4 uv0 : TEXCOORD; //4 is for shadow?
+		float2 uv0 : TEXCOORD;
 		classic_stereo_DEPTH
 	};	
 	struct LIT_INPUT
@@ -1506,20 +1539,20 @@ static const char *som_shader_classic_vs = //HLSL
 		float4 pos : POSITION; 
 		float3 lit : NORMAL;   
 		classic_stereo_DEPTH 
-		float4 uv0 : TEXCOORD; //4 is for shadow?
+		float2 uv0 : TEXCOORD;
 	};
 	struct UNLIT_INPUT
 	{
 		float4 pos : POSITION; 
 		float4 col : COLOR;
-		float4 uv0 : TEXCOORD; //4 is for shadow?
+		float2 uv0 : TEXCOORD0;
 		classic_stereo_DEPTH
-	};		
+	};	
 	struct CLASSIC_OUTPUT
 	{
 		float4 pos : POSITION;  
 		float4 col : COLOR;     
-		float2 uv0 : TEXCOORD0;
+		float4 uv0 : TEXCOORD0;
 		classic_stereo_DEPTH 
 		float4 fog : TEXCOORD1; 
 	};	 
@@ -1544,7 +1577,7 @@ static const char *som_shader_classic_vs = //HLSL
 		#endif
 	
 		Out.col = In.col; 
-		Out.uv0 = In.uv0.xy; 
+		Out.uv0 = float4(In.uv0.xy,0,0); 
 		Out.fog = float4(0,0,0,0); //warning
 
 		Out.col+=colFactors; //select texture
@@ -1564,7 +1597,7 @@ static const char *som_shader_classic_vs = //HLSL
 		//Out.pos = mul(x4mWVP,In.pos); 	
 		classic_stereo_pos(In.pos)
 		Out.col = vec4(0.0);
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 //	classic_z  		
 	classic_stereo(true)
@@ -1579,7 +1612,7 @@ static const char *som_shader_classic_vs = //HLSL
 		//Out.pos = mul(x4mWVP,In.pos); 	
 		classic_stereo_pos(In.pos)
 		Out.col = In.col;  
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 //	classic_z  		
 	classic_stereo(true)
@@ -1601,7 +1634,7 @@ static const char *som_shader_classic_vs = //HLSL
 		//Out.pos = mul(x4mWVP,In.pos); 
 		classic_stereo_pos(In.pos)
 		Out.col = In.col; 
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 	
 //	classic_z //Out.fog = 0.0;	   	
 	classic_stereo(true)
@@ -1612,26 +1645,44 @@ static const char *som_shader_classic_vs = //HLSL
 		Out.col = saturate(Out.col); 
 
 		return Out; 
-	} 
+	}			
+	struct SHADOW_INPUT
+	{
+		float4 pos : POSITION; 
+		float4 col : COLOR;
+		float4 center : TEXCOORD0; 
+		float4 xforms : TEXCOORD1;
+		classic_stereo_DEPTH
+	};	
 	struct CLASSIC_SHADOW
 	{
 		float4 pos : POSITION;  
 		float4 col : COLOR0;     
-		float4 fog : COLOR1;     
-		float4x4 mat : TEXCOORD0; 
+		float4 fog : COLOR1;
+		float4 xforms : COLOR2;
+	float4x4 mat : TEXCOORD0; //perspective corrected 
 		classic_stereo_DEPTH
 	};
 	//for projected shadows only
-	CLASSIC_SHADOW shadow(UNLIT_INPUT In)
+	CLASSIC_SHADOW shadow(SHADOW_INPUT In)
 	{
 		CLASSIC_SHADOW Out; 
 
-		Out.col = In.col; 		
+		Out.col = In.col;
+		Out.xforms = In.xforms;
 
 		float4 center,corner;				  
-		center.xyz = In.uv0.xyz;		
+		center.xyz = In.center.xyz;		
 		center.w = corner.w = 1.0;
-		corner.xyz = In.pos.xyz*In.uv0.w+center.xyz;		
+		corner.xyz = In.pos.xyz;
+	//	corner.xz*=Out.xforms.zw;
+
+		//2023: rotate shadow?
+		float cx = corner.x, cz = corner.z;
+		corner.x = cx*In.xforms.x+cz*In.xforms.y;
+		corner.z = cx*-In.xforms.y+cz*In.xforms.x;
+
+		corner.xyz+=center.xyz;		
 		//Out.pos = mul(x4mWVP,corner); 
 		classic_stereo_pos(corner)
 
@@ -1639,23 +1690,20 @@ static const char *som_shader_classic_vs = //HLSL
 	classic_stereo(true) classic_aa
 							  
 		Out.fog = Out.pos;
-		//hide the UV map here (z is not needed)
-		float bias = EX_INI_SHADOWUVBIAS;
-		/*DSTEREO_SKY seems to address this
-		#ifdef DSTEREO		
-		//HACK: the shift in perspective sands the sides off 
-		//the shadows. This pulls the UVs in while the scale
-		//is enlarged to compensate inside som_scene_shadows
-		bias+=abs(In.stereo.x); //0.1f;
-		#endif*/
-		Out.fog.z = 0.5f/(In.uv0.w*EX_INI_SHADOWRADIUS/bias); 
+		Out.fog.z = 0.5/(Out.xforms.z/EX_INI_SHADOWUVBIAS);		
 		
+		//REFERENCE (x4mUV)
 		//REMINDER: this code was based on a technique which
 		//projects geometry onto planes to make flat shadows
+		// 
+		// REMINDER! these can't be passed with a constant
+		// (pixel shader) because of perspective correction
+		// 
+		// Out.mat = x4mUV;
 		Out.mat = transpose(x4mV);
 		center = mul(x4mV,center);
 		for(int i=0;i<3;i++)
-		Out.mat[i].w = -dot(center.xyz,Out.mat[i].xyz);
+		Out.mat[i].w = -dot(center.xyz,Out.mat[i].xyz);		
 
 		return Out;	
 	}					
@@ -1691,7 +1739,7 @@ static const char *som_shader_classic_vs = //HLSL
 
 		//Out.pos = mul(x4mWVP,In.pos); 
 		classic_stereo_pos(In.pos)
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 		#ifdef DIN_EDITOR_WINDOW
 		Out.fog = float4(0,0,0,0);
@@ -1702,7 +1750,7 @@ static const char *som_shader_classic_vs = //HLSL
 
 		//HACK: letting DGAMMA_N modify this to adjust
 		//ambient value to demo King's Field II
-		Out.col = matEmitted;
+		Out.col = float4(matEmitted.rgb,0);
 		float4 ambient = float4(0,0,0,0);
 		float4 diffuse = float4(0,0,0,1);   
 
@@ -1808,6 +1856,8 @@ static const char *som_shader_classic_vs = //HLSL
 			#endif
 			#endif
 
+			Out.uv0.a = matEmitted.a; //white ghost?
+
 		return Out; 
 	}
 	CLASSIC_OUTPUT backdrop(LIT_INPUT In)
@@ -1819,7 +1869,7 @@ static const char *som_shader_classic_vs = //HLSL
 		//Out.pos = mul(x4mWVP,In.pos); 
 		Out.pos = mul(x4mWV,In.pos); 
 		Out.pos = mul(x4mP,Out.pos); 
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 	//IMPORTANT AA IS DONE BEFORE Out.fog = Out.pos BELOW	
 	classic_stereo(false)
@@ -1859,9 +1909,10 @@ static const char *som_shader_classic_ps = //HLSL
 	cColCorrect
 	cColColorkey
 	cFarFrustum
+//	cTexMatrix //x4mUV
 	HLSL(
 	sampler2D sam0:register(s0);
-	sampler2D sam1:register(s1) = sampler_state //MRT
+	sampler2D sam2:register(s2) = sampler_state //MRT
 	{ MinFilter = Point; MagFilter = Point; };) //testing
 
 	HLSL(
@@ -2047,7 +2098,7 @@ static const char *som_shader_classic_ps = //HLSL
 		//TODO: DUV should just be a real-time constant
 		//DUV transforms uv... it can't use parameters!
 		uv = uv*float2(0.5,-0.5)+0.5;
-		return tex2D(sam1,DUV+0.0001f);
+		return tex2D(sam2,DUV+0.0001f);
 	}
 	#endif
 	)
@@ -2056,7 +2107,7 @@ static const char *som_shader_classic_ps = //HLSL
 	struct CLASSIC_INPUT
 	{
 		float4 col : COLOR0;    
-		float2 uv0 : TEXCOORD0; 
+		float4 uv0 : TEXCOORD0; 
 		float4 fog : TEXCOORD1; //4 is for shadow? 
 		#ifdef DSTEREO
 		float stereo : DEPTH;
@@ -2181,7 +2232,7 @@ static const char *som_shader_classic_ps = //HLSL
 		#endif
 		//NOTE: sample1 isn't require in this case
 		//NOTE: abs is because NPCs/monsters don't cast shadows
-		pos*=abs(tex2D(sam1,vp+0.0001f).x);
+		pos*=abs(tex2D(sam2,vp+0.0001f).x);
 		float depth = volRegister.z; //skyRegister
 		float power = volRegister.w; //skyRegister
 		float alpha = pow(length(pos-In.fog.xyz)*depth,power);
@@ -2199,7 +2250,13 @@ static const char *som_shader_classic_ps = //HLSL
 		//I think something like this is needed for alpha-fog? but it's not
 		//working at the moment... where is the existing alpha coming from?
 		//Out.col.a*=alpha;
-		Out.col.a = alpha; 
+		Out.col.a = alpha; //2023: assume opaque? e.g. KF2 water
+
+		//2023: fade monsters to white on death
+		float1 gray = dot(Out.col.rgb,float3(0.222,0.707,0.071));		
+		Out.col.rgb = lerp(Out.col.rgb,gray.rrr,In.uv0.a)+In.uv0.a*0.5;
+		//HACK: sqrt(fade)->fade*fade
+		Out.col.a*=pow(1-In.uv0.a,3);
 
 		return Out;
 	}
@@ -2233,7 +2290,8 @@ static const char *som_shader_classic_ps = //HLSL
 	{
 		float4 col : COLOR0;     		
 		float4 fog : COLOR1; 
-		float4x4 mat : TEXCOORD0; 
+		float4 xforms : COLOR2; 
+	float4x4 mat : TEXCOORD0; //perspective corrected 
 		#ifdef DSTEREO		
 		float stereo : DEPTH; //needs vpos
 		#endif
@@ -2272,15 +2330,24 @@ static const char *som_shader_classic_ps = //HLSL
 		#endif
 		#if 3<=SHADER_MODEL
 		//testing with vpos
-		pos.xyz*=tex2D(sam1,In.vpos*rcpViewport.xy+0.0001f).x;
+		pos.xyz*=tex2D(sam2,In.vpos*rcpViewport.xy+0.0001).x;
 		#else
 		pos.xyz*=sample1(uv).x;
 		#endif
 		
-		float3 st = mul(In.mat,pos).xzy; //!!			  		
-		st.xy = vec2(0.5f)-st.xy*In.fog.z;				
+	//	float3 st = mul(x4mUV,pos).xyz; //perspective uncorrected :(
+		float3 st = mul(In.mat,pos).xzy; //!!			
+
+		//2023: rotate shadow?
+		float sx = st.x; float sy = st.y;
+		st.x = sx*In.xforms.x+sy*-In.xforms.y;
+		st.y = sx*In.xforms.y+sy*In.xforms.x;
+
+		st.y/=In.xforms.w/In.xforms.z; //UV space
+
+		st.xy = vec2(0.5f)-st.xy*In.fog.z;		
 		//1.9: should (probably) be 2 (squeezing every last drop)
-		st.z*=In.fog.z*(EX_INI_SHADOWRADIUS/EX_INI_SHADOWVOLUME*1.9f); 
+		st.z*=In.fog.z*(EX_INI_SHADOWRADIUS/EX_INI_SHADOWVOLUME*1.9); 
 		//reminder: pow is taking the absolute value	
 		//(abs does rsq/rcp in the assembled shader)
 		//don't alter the power. 2 is round on ramps
@@ -2299,11 +2366,17 @@ static const char *som_shader_classic_ps = //HLSL
 		//disabling mipmaps for now 
 		//Out.col.a = tex2D(sam0,st.xz,0,0).a; 	 
 		//http://bartwronski.com/2015/03/12/fixing-screen-space-deferred-decals/
-		float4 dd = clamp(float4(ddx(st.xy),ddy(st.xy)),-0.5f,0.5f);
+		float4 dd = clamp(float4(ddx(st.xy),ddy(st.xy)),-0.5,0.5);
 		//the artifacts are still visible in screenshots
-		//from up close, but not visually noticeable otherwise
-		Out.col.a*=tex2D(sam0,st.xy,dd.xy,dd.zw).a; 	 				
+		//from up close, but not visually noticeable otherwise		
+	//Out.col = 1-tex2D(sam0,st.xy+0.0,dd.xy,dd.zw).a;
+		float4 s1 = tex2D(sam0,st.xy+0.0,dd.xy,dd.zw);
+		float4 s2 = tex2D(sam0,1.15*(st.xy-0.5)+0.5,dd.xy,dd.zw);
+		Out.col.a*=(s1.a+s2.a)*0.5;
+
 		Out.col.a-=st.z;
+
+	//Out.col.a = 1;
 					
 	//classic_rangefog	
 	float3 fog = classic_rangefog_sub(pos).xyz;
@@ -2343,7 +2416,11 @@ static const char *som_shader_classic_ps = //HLSL
 		Out.z.r*=skyRegister.z; //1 or -1 if NPC (for shadows)	
 		#else
 		Out.z = vec4(0.0); //compiler
-		#endif		
+		#endif	
+
+		//2023: fade monsters to white on death
+		float1 gray = dot(Out.col.rgb,float3(0.222,0.707,0.071));		
+		Out.col.rgb = lerp(Out.col.rgb,gray.rrr,In.uv0.a)+In.uv0.a*0.5;
 
 		return Out; 
 	}
@@ -2363,7 +2440,7 @@ static const char *som_shader_classic_ps = //HLSL
 	//#ifdef DFOGLINE		
 		float2 uv = In.fog.xy/In.fog.w; 
 		//NEW: using 1D depth texture to make room for more stuff later on
-		//Out.col.a*=1.0f-tex2D(sam1,float2(uv.x,-uv.y)/2+0.5f+0.0001f).y; 		
+		//Out.col.a*=1.0f-tex2D(sam2,float2(uv.x,-uv.y)/2+0.5f+0.0001f).y; 		
 		//note: x may be negative but we want its length so that's alright
 		float3 pos = farFrustum.xyz; 
 		//pos.xy*=uv;
@@ -2374,7 +2451,7 @@ static const char *som_shader_classic_ps = //HLSL
 		#endif
 		#if 3<=SHADER_MODEL
 		//testing with vpos
-		pos*=tex2D(sam1,In.vpos*rcpViewport.xy+0.0001f).x;
+		pos*=tex2D(sam2,In.vpos*rcpViewport.xy+0.0001f).x;
 		#else
 		pos*=sample1(uv).x;
 		#endif
@@ -2869,6 +2946,8 @@ static void som_shader_initialize_vs()
 		//not used (using P for DSTEREO instead)
 		//DDRAW::vsInvView[i]     = DDRAW::vsF+20+i;
 		DDRAW::vsProj[i]		  = DDRAW::vsF+20+i;
+		DDRAW::psTexMatrix[i]	  = DDRAW::psF+30+i; //PS
+		DDRAW::vsTexMatrix[i]	  = DDRAW::vsF+30+i;
 	}
 	
 	DDRAW::vsFogFactors      = DDRAW::vsF+24;

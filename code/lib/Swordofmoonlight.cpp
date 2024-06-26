@@ -1657,7 +1657,7 @@ int mdl::animate(mdl::const_animation_t in, mdl::hardanim_t *out, int clr, int n
 {		
 	int16_t sign = steps>=0?1:-1; steps*=sign;
 
-	if(!out||!in||now+steps<0||now+steps>in->time||!steps) return 0;  
+	if(!out||!in||now+steps<0||now+steps>in->htime||!steps) return 0;  
 
 	if(now==0) while(clr-->0) 
 	{
@@ -1667,9 +1667,9 @@ int mdl::animate(mdl::const_animation_t in, mdl::hardanim_t *out, int clr, int n
 		out[clr].map = swap;
 	}
 
-	const psx::uword_t *p = in->words;
+	const psx::uword_t *p = in->hwords;
 
-	for(int i=0;i<in->time;i++)
+	for(int i=0;i<in->htime;i++)
 	{			
 		int words = p->lo;
 		
@@ -1754,7 +1754,9 @@ int mdl::animate(mdl::const_animation_t in, mdl::hardanim_t *out, int clr, int n
 static void Multiply(const float *mL, const float *mR, float *mout, bool homo);
 static void Eulerxform3x3(const float r3[4], float mout[4*4]);
 
-//bool mdl::transform(const mdl::hardanim_t *n, int ch, float *vinout, const float scale[4], float *nmats, bool *nknown)
+static const float scl1111[4] = {1.0f,1.0f,1.0f,1.0f};
+
+//bool mdl::transform(const mdl::hardanim_t *n, int ch, float *vinout, const float scl[4], float *nmats, bool *nknown)
 static bool Transform(const mdl::hardanim_t *n, int ch, float *nmats, bool *nknown, const float *scl, float *rad, bool homo)
 {
 	if(ch<0||ch>=254) return false; //paranoia
@@ -1829,7 +1831,7 @@ bool mdl::transform(const mdl::hardanim_t *n, int ch, float *vinout, const float
 		if(nknown) return false;
 	}
 
-	if(!scl) scl = mdl::mm3; bool homo = scl[3];
+	if(!scl) scl = scl1111; bool homo = scl[3];
 
 	//C4838 (narrowing) //2021
 	//const double pi = 3.141592653589793238462643383279, f2rads = pi/2048.0; 		
@@ -2029,6 +2031,27 @@ void mdl_decompose(mdl::hardanim_t *out, const float *mat, const float scale[4],
 	}
 }*/
 
+int mdl::animtime(const mdl::image_t &in, mdl::const_animation_t a)
+{
+	const mdl::header_t &hd = mdl::imageheader(in);
+	if(!hd) return 0;
+
+	int32_t hw = hd.primchanwords;
+	int32_t sw = hw+hd.hardanimwords;
+	int32_t se = sw+hd.softanimwords;
+	int32_t aw = ((int32_t)a-(int32_t)&hd)/4;
+
+	if(hd.hardanims&&aw>=hw&&aw<sw)
+	{
+		return a->htime;	
+	}
+	if(hd.softanims&&aw>=sw&&aw<se)
+	{
+		return softanimframestrtime(a->frames);
+	}	
+	return 0;
+}
+
 int mdl::softanimframes(const mdl::image_t &in, const int *IDs, int *unique, int len)
 {
 	const mdl::header_t &hd = mdl::imageheader(in); 
@@ -2180,6 +2203,267 @@ mdl::softanim_t *mdl::softanimchannels
 	}
 
 	return out;
+}
+
+int mdl::accumulate(mdl::softanim_t *ch, int16_t *vinout, int vinout_s, int stride, int n, int sign)
+{
+	int ret = 0;
+
+	for(int i=0;i<n;i++) if(ch[i])
+	{
+		mdl::softanim_t &t = ch[i];
+
+		int16_t delta = sign==0?(ch->delta>=0?1:-1):sign;
+
+		enum{ writing=1 };
+		bool write = writing&&!t.nowrite, dup = !t.nodup;		
+
+		//FIX ME
+		// 
+		// som_db calculates this from the vertex
+		// count on the primitive channel divided
+		// by 8 plus some rounding logic
+		//
+		//assuming this will always do the job
+		//NOTE: 4 is 3 in front, and 1 in back (crazy)
+		int2 bytes = (t.firststep->diffdataoffset-4)/3;		
+				
+		//separating these seems hard on the cache 
+		//I can't remember if it makes the algorithm
+		//easier to implement. I mean why even have 3?		
+		const uint8_t *x = 
+		t.firststep->diffmask, *y = x+bytes, *z = y+bytes;
+
+		const mdl::softanimdatum_t *verts, *start = 
+		t.firststep->diffdata+t.firststep->diffdataoffset;
+			
+			int szdst = t.vrestart+(vinout_s/stride)-ret; //???
+
+		if(t.dec!=(unsigned)t.vrestart)
+		{
+			t.dec = t.vec = 0;
+
+			if(t.vrestart<0||t.vrestart>=szdst&&write) 
+			continue;
+
+			//RECURSIVE
+			//reset the vertex pointer to vrestart?			
+			auto swap = t.vrestart; 
+			auto swap2 = t.vwindow;
+			t.vwindow = swap;			
+			t.vrestart = 0;			
+			mdl::vbuffer_t _ = 0;
+			
+				t.nowrite = 1; 
+
+		//	mdl::copyvertexbuffer(_,0,swap+1,ch,1,1);
+			accumulate(ch,0,swap+1,0,1,0);
+
+				t.nowrite = !write;
+
+			t.vrestart = swap; 
+			t.vwindow = swap2;
+			if(t.dec!=swap) //???
+			{
+				assert(t.dec==swap);
+				continue;
+			}
+		}		
+		verts = start+t.vec; //2020
+		
+		int2 bits = bytes*8;
+
+		if(t.vwindow) bits = min(bits,t.vwindow);
+				
+		int2 v = t.vrestart, w = v;	   
+		int2 B = t.dec/8,b = t.dec%8; //Bytes+bits
+		
+		bool wr = false, mod = false;		
+	
+		//TODO: might want to implement an alternative
+		//version of this loop that minimizes branching
+		//THIS IS A REFERENCE IMPLEMENTATION
+		for(int2 i=t.dec;i<bits&&v<szdst;i++)
+		{
+			uint8_t mask = 1<<b;
+			if(x[B]&mask) 
+			{
+				if(wr=write)
+				vinout[0]+=delta*verts->magnitude();
+				verts+=verts->footprint();
+				mod = true;
+			}
+			if(y[B]&mask) 
+			{
+				if(wr=write)
+				vinout[1]+=delta*verts->magnitude();
+				verts+=verts->footprint();
+				mod = true;
+			}
+			if(z[B]&mask) 
+			{
+				if(wr=write)
+				vinout[2]+=delta*verts->magnitude();
+				verts+=verts->footprint();
+				mod = true;
+			}
+			
+				vinout+=stride; ret++;
+
+			if(b==7){ b = 0; B++; }else b++;
+	
+/*			if(wr&&dup)
+			for(w=dst[v].hash;w>0&&w<m;w=dst[w].hash)
+			{
+				dst[w].pos[0] = dst[v].pos[0];
+				dst[w].pos[1] = dst[v].pos[1];
+				dst[w].pos[2] = dst[v].pos[2];
+			}
+*/                         
+			v++; 
+			
+			wr = false;
+		}
+
+		t.vrestart = t.vwindow?v:0;
+		t.changed = mod?1:0;
+
+		t.vec = verts-start;
+		t.dec = bits;		
+	}
+
+	return ret;
+}
+int mdl::accumulate(mdl::softanim_t *ch, float *vinout, int vinout_s, int stride, float step, int n, int sign)
+{
+	int ret = 0; 
+
+	for(int i=0;i<n;i++) if(ch[i])
+	{
+		mdl::softanim_t &t = ch[i];
+
+	//	int16_t delta = sign==0?(ch->delta>=0?1:-1):sign;
+		float delta = step;
+		delta*=sign==0?(ch->delta>=0?1:-1):sign;
+
+		enum{ writing=1 };
+		bool write = writing&&!t.nowrite, dup = !t.nodup;		
+
+		//FIX ME
+		// 
+		// som_db calculates this from the vertex
+		// count on the primitive channel divided
+		// by 8 plus some rounding logic
+		//
+		//assuming this will always do the job
+		//NOTE: 4 is 3 in front, and 1 in back (crazy)
+		int2 bytes = (t.firststep->diffdataoffset-4)/3;		
+				
+		//separating these seems hard on the cache 
+		//I can't remember if it makes the algorithm
+		//easier to implement. I mean why even have 3?		
+		const uint8_t *x = 
+		t.firststep->diffmask, *y = x+bytes, *z = y+bytes;
+
+		const mdl::softanimdatum_t *verts, *start = 
+		t.firststep->diffdata+t.firststep->diffdataoffset;
+			
+			int szdst = t.vrestart+(vinout_s/stride)-ret; //???
+
+		if(t.dec!=(unsigned)t.vrestart)
+		{
+			t.dec = t.vec = 0;
+
+			if(t.vrestart<0||t.vrestart>=szdst&&write) 
+			continue;
+
+			//RECURSIVE
+			//reset the vertex pointer to vrestart?			
+			auto swap = t.vrestart; 
+			auto swap2 = t.vwindow;
+			t.vwindow = swap;			
+			t.vrestart = 0;			
+			mdl::vbuffer_t _ = 0;
+			
+				t.nowrite = 1; 
+
+		//	mdl::copyvertexbuffer(_,0,swap+1,ch,1,1);
+			accumulate(ch,0,swap+1,0,1,0);
+
+				t.nowrite = !write;
+
+			t.vrestart = swap; 
+			t.vwindow = swap2;
+			if(t.dec!=swap) //???
+			{
+				assert(t.dec==swap);
+				continue;
+			}
+		}		
+		verts = start+t.vec; //2020
+		
+		int2 bits = bytes*8;
+
+		if(t.vwindow) bits = min(bits,t.vwindow);
+				
+		int2 v = t.vrestart, w = v;	   
+		int2 B = t.dec/8,b = t.dec%8; //Bytes+bits
+		
+		bool wr = false, mod = false;		
+	
+		//TODO: might want to implement an alternative
+		//version of this loop that minimizes branching
+		//THIS IS A REFERENCE IMPLEMENTATION
+		for(int2 i=t.dec;i<bits&&v<szdst;i++)
+		{
+			uint8_t mask = 1<<b;
+			if(x[B]&mask) 
+			{
+				if(wr=write)
+				vinout[0]+=delta*verts->magnitude();
+				verts+=verts->footprint();
+				mod = true;
+			}
+			if(y[B]&mask) 
+			{
+				if(wr=write)
+				vinout[1]+=delta*verts->magnitude();
+				verts+=verts->footprint();
+				mod = true;
+			}
+			if(z[B]&mask) 
+			{
+				if(wr=write)
+				vinout[2]+=delta*verts->magnitude();
+				verts+=verts->footprint();
+				mod = true;
+			}
+			
+				vinout+=stride; ret++;
+
+			if(b==7){ b = 0; B++; }else b++;
+	
+/*			if(wr&&dup)
+			for(w=dst[v].hash;w>0&&w<m;w=dst[w].hash)
+			{
+				dst[w].pos[0] = dst[v].pos[0];
+				dst[w].pos[1] = dst[v].pos[1];
+				dst[w].pos[2] = dst[v].pos[2];
+			}
+*/                         
+			v++; 
+			
+			wr = false;
+		}
+
+		t.vrestart = t.vwindow?v:0;
+		t.changed = mod?1:0;
+
+		t.vec = verts-start;
+		t.dec = bits;		
+	}
+
+	return ret;
 }
 
 int2 mdl::copyvertexbuffer(mdl::vbuffer_t &dst, mdl::const_vbuffer_t src, int2 m, mdl::softanim_t *ch, int n, int sign)
@@ -2339,8 +2623,10 @@ static int Swordofmoonlight_translate_compare(int32_t *a, int32_t *b)
 	if(aa==bb) return 0; //not expecting but don't want problems
 	return aa<bb?-1:1;
 }
-int mdl::translate(mdl::softanim_t *ch, int2 m, float vinout[3], const float scale[4], int2 *mverts, int n, int sign)
+int mdl::translate(mdl::softanim_t *ch, int2 m, float vinout[3], const float scl[4], int2 *mverts, int n, int sign)
 {
+	if(!scl) scl = scl1111;
+
 	bool unsort = m<0;
 	bool sorted = false; if(mverts)
 	{	
@@ -2431,7 +2717,7 @@ int mdl::translate(mdl::softanim_t *ch, int2 m, float vinout[3], const float sca
 
 		float *f = vinout+3*(sorted?mverts[i]>>16:i);
 
-		for(int j=3;j-->0;) f[j]+=vb->pos[j]*scale[j];
+		for(int j=3;j-->0;) f[j]+=vb->pos[j]*scl[j];
 	}
 
 	ch->vwindow = hack; goto ret; //return i;
@@ -4479,3 +4765,4 @@ size_t mo::range(const mo::image_t &in, range_t &r, size_t lb, size_t ub)
 	}
 	return r.n;
 }
+

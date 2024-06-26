@@ -14,8 +14,14 @@ EX_TRANSLATION_UNIT //(C)
 #include "som.files.h"
 
 #include "../lib/swordofmoonlight.h"
+#include "../x2mdl/x2mdl.h"
 
 extern void som_game_60fps_move(SOM::Struct<22>[250],int);
+
+namespace som_MPX_swap
+{
+	extern void *models_data(char*),models_refresh(char*); 
+}
 
 namespace SOM //2021
 {
@@ -504,34 +510,44 @@ bool SOM::PARAM::NPC::Pr2::wrote = false;
 bool SOM::PARAM::Obj::Prm::wrote = false;
 bool SOM::PARAM::Obj::Pr2::wrote = false;
 
-static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
+extern WORD workshop_category;
+static FILETIME som_files_wrote_init = {};
+static VOID CALLBACK som_files_wrote_pr(HWND win, UINT, UINT_PTR idEvent, DWORD)
 {
 	const wchar_t *dir = (wchar_t*)idEvent;
 
 	if(!dir) assert(dir); //2023
-	if(!dir) return SOM::PARAM::trigger_write_monitor(); //PARAM/parts?	
+	if(!dir) return SOM::PARAM::trigger_write_monitor(); //PARAM\parts?	
 
 	EX_CRITICAL_SECTION //mainly for onWrite at the end
 
 	if(win&&!KillTimer(win,idEvent)){ assert(0); return; }	
 	
-	//2022: expecting /PARAM or /parts
-	int p = wcsrchr(dir,'/')[1]; assert(p=='p'||p=='P');
+	//2022: expecting \PARAM or \parts
+	//int p = wcsrchr(dir,'/')[1]; assert(p=='p'||p=='P');
+	int p = *PathFindFileName(dir); assert(p=='p'||p=='P');
 
 	enum
 	{
-		Prm=0, Pr2, Pro, m,
-		Item=0, Magic, Enemy, NPC, Obj, n,		
+		Prm=0, Pr2, Pro, M,
+		Item=0, Magic, Enemy, NPC, Obj, N,		
 	};
-	struct times{ FILETIME tt[m][n]; };
+	struct times
+	{
+		FILETIME tt[M][N]; times()
+		{
+			for(int i=M*N;i-->0;)			
+			tt[0][i] = som_files_wrote_init;
+		}
+	};
 	static std::map<std::wstring,times> timetable;
-	typedef std::map<std::wstring,times>::iterator it;
+	
 	if(!dir) //trigger_write_monitor mode (forced refresh)
 	{
-		for(it i=timetable.begin();i!=timetable.end();i++) 
-		som_files_wrote(0,0,(UINT_PTR)i->first.c_str(),0); return;
+		for(auto it=timetable.begin();it!=timetable.end();it++) 
+		som_files_wrote_pr(0,0,(UINT_PTR)it->first.c_str(),0); return;
 	}
-	it writ; if(p=='P') //PARAM?
+	auto writ = timetable.end(); if(p=='P') //PARAM?
 	{
 		writ = timetable.find(dir); if(writ==timetable.end()) 
 		{
@@ -544,7 +560,7 @@ static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
 
 	WIN32_FIND_DATAW found; 
 	wchar_t spec[MAX_PATH] = L"";
-	int fn = swprintf_s(spec,L"%ls\\*",dir)-1;	
+	int fn = swprintf_s(spec,L"%ls\\*.pr?",dir)-5; //* -1	
 	HANDLE glob = FindFirstFileW(spec,&found);
 	if(glob!=INVALID_HANDLE_VALUE) do
 	{
@@ -553,7 +569,9 @@ static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
 
 		//HACK: covers prm, pro (pr2) prt and prf (if need be)
 		if(ext[0]!='.'||tolower(ext[1])!='p'||tolower(ext[2])!='r')
-		continue;
+		{
+			assert(0); continue;
+		}
 		
 		if(p=='p') //parts?
 		{
@@ -576,7 +594,6 @@ static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
 
 			//HACK: this will almost always be true unless the
 			//files were modified outside
-			extern WORD workshop_category;
 			if(workshop_category==k.number()) wrote = true;
 		}
 		else if(p=='P') //PARAM?
@@ -597,10 +614,9 @@ static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
 			case 'o': _(Obj) default: continue;			  			
 			}
 
-			if(i>=m||j>=n) continue; //paranoia
+			if(i>=M||j>=N) continue; //paranoia
 
 			FILETIME &ft = writ->second.tt[i][j];
-			if(ft.dwLowDateTime||ft.dwHighDateTime)
 			if(CompareFileTime(&ft,&found.ftLastWriteTime)<0)
 			{
 				switch(i)
@@ -635,19 +651,169 @@ static VOID CALLBACK som_files_wrote(HWND win, UINT, UINT_PTR idEvent, DWORD)
 		//2022: just update the palette view preview?
 		//NOTE: icons are more work. I think I will get
 		//around to them before long
-		extern WORD workshop_category; //HACK (used elsewhere)
-		auto &k = SOM_MAP.prt[workshop_category];
+		extern int SOM_MAP_413aa0_inverse(WORD); //2023
 		auto *tp = SOM_MAP_app::CWnd(win);
-		if(auto*p=SOM_MAP_4921ac.find_part_number(k.part_number()))
-		((void(__thiscall*)(void*,int,int))0x417250)(tp,p-SOM_MAP_4921ac.parts,1);
+		((void(__thiscall*)(void*,int,int))0x417250)(tp,SOM_MAP_413aa0_inverse(workshop_category),1);
 	}
 }						
 extern void SOM::PARAM::trigger_write_monitor()
 {
-	som_files_wrote(0,0,(UINT_PTR)L"/PARAM",0); //force refresh
-	som_files_wrote(0,0,(UINT_PTR)L"/parts",0); //2022
+	som_files_wrote_pr(0,0,(UINT_PTR)L"\\PARAM",0); //force refresh
+	som_files_wrote_pr(0,0,(UINT_PTR)L"\\parts",0); //2022
 }
 extern void (*SOM::PARAM::onWrite)() = 0;
+
+extern void som_MPX_refresh_mpx(int);
+extern void som_MPX_refresh_evt(int);
+static VOID CALLBACK som_files_wrote_db(UINT_PTR cat, wchar_t *dir) //RECURSIVE
+{
+	static std::map<std::wstring,FILETIME> timetable;
+
+	for(auto*p=dir+cat;*p;p++) *p = tolower(*p);
+
+	auto ins = timetable.insert(std::make_pair(dir,som_files_wrote_init));
+
+	FILETIME &writ = ins.first->second;
+	
+	auto *w = ins.first->first.c_str();
+
+	auto map = wcsstr(w,L"\\map");
+
+	if(map)
+	{
+		if(map[4]=='\\') return; //!
+		if(map[4]!='\0') map = nullptr;
+	}
+	bool model = wcsstr(w,L"\\model");
+
+	FILETIME time = writ;
+
+	WIN32_FIND_DATAW found; 
+	wchar_t spec[MAX_PATH] = L"";
+	int fn = swprintf_s(spec,L"%ls\\*",dir)-1;
+	HANDLE glob = FindFirstFileW(spec,&found);
+	if(glob!=INVALID_HANDLE_VALUE) do
+	{
+		#ifdef NDEBUG
+		//#error maybe do this in som_files_threadproc?
+		#endif
+		if(found.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
+		{
+			if('.'!=found.cFileName[0])
+			{
+				wchar_t dir2[MAX_PATH];
+				swprintf(dir2,L"%s\\%s",dir,found.cFileName);
+				som_files_wrote_db(cat,dir2);
+			}
+			continue;
+		}
+
+		if(CompareFileTime(&writ,&found.ftLastWriteTime)<0)
+		{
+			writ = found.ftLastWriteTime;
+		}
+		if(CompareFileTime(&time,&found.ftLastWriteTime)<0)
+		{	
+			//NOTE: if these are reloaded from the wrong file
+			//it will cause the right file to be reloaded, so
+			//no check is done here...
+
+			extern SOM::Thread *som_MPX_thread;
+			EX::section raii(som_MPX_thread->cs);
+
+			if(model)
+			{
+				char a[10+64];
+				snprintf(a,sizeof(a),"A:\\>\\data\\%ls\\%ls",dir+cat+1,found.cFileName);
+				if(void *m=som_MPX_swap::models_data(a))
+				{
+					using namespace x2mdl_h;
+					extern int som_art_model(WCHAR*,wchar_t[MAX_PATH]);
+					extern int som_art(const wchar_t *path, HWND hwnd);
+					wchar_t w[MAX_PATH],art[MAX_PATH];
+					swprintf(w,L"%s\\%s",dir+cat+1,found.cFileName);
+					int e = som_art_model(w,art); 
+					if(e&_art&&~e&_lnk)	
+					if(!som_art(art,0)) //x2mdl exit code?
+					{
+						e = som_art_model(w,art); //retry?
+					}
+					if(e&(_mdl|_mdo)) //generically reload?
+					{
+						som_MPX_swap::models_refresh(a);
+					}
+					else assert(0);
+				}
+			}
+			else if(map)
+			{
+				if(!isdigit(found.cFileName[0])) continue;
+
+				int i = _wtoi(found.cFileName);
+				auto ext = PathFindExtension(found.cFileName);
+				if(!wcsicmp(L".mpx",ext))
+				{
+					if(i==SOM::mpx)
+					{
+						auto &dst = *SOM::L.corridor;
+
+						som_MPX &mpx = *SOM::L.mpx->pointer;
+
+						//handoff to som_MPX_411a20?
+						dst.lock = 1;
+						dst.nosetting = 2;
+					//	memcpy(mpx.f+121,SOM::L.pcstate,3*sizeof(float));
+					}
+										
+					som_MPX_refresh_mpx(i);
+				}
+				//else if(!wcsicmp(L".evt",ext))
+				{
+				//	som_MPX_refresh_evt(i);					
+				}
+			}
+		}
+
+	}while(FindNextFileW(glob,&found));
+	FindClose(glob);
+}
+static VOID CALLBACK som_files_wrote_db2(HWND win, UINT, UINT_PTR idEvent, DWORD)
+{	
+	EX_CRITICAL_SECTION //mainly for onWrite at the end
+
+	if(win&&!KillTimer(win,idEvent)){ assert(0); return; }
+
+	if(idEvent<65536) //data?
+	{
+		auto *dir = EX::data(idEvent);
+		som_files_wrote_db(wcslen(dir),const_cast<wchar_t*>(dir));
+	}
+	else //PARAM?
+	{
+		SOM::PARAM::Item.arm->clear();
+		extern void som_game_equip(); som_game_equip();
+
+		//FUN_0043ce10_load_PARAM_shop_dat();
+		
+		//EXPERIMENTAL
+		#define _(x) delete x; x = nullptr;
+		if(0)
+		{
+			//TODO: reload tables in memory? mpx?
+			_(SOM::PARAM::Sys.dat)
+			_(SOM::PARAM::Item.prm)
+			//FUN_0040fa10_init_items_data_various();
+		//	_(SOM::PARAM::Item.pr2)
+			_(SOM::PARAM::Magic.prm)
+			_(SOM::PARAM::Enemy.prm)
+			_(SOM::PARAM::NPC.prm)  
+			//FUN_0042a430_load_object_param_data();
+			//FUN_00405bb0_load_enemy_param_data();
+			//FUN_00428780_load_npc_param_data();
+		}
+		#undef _
+	}
+}
 
 //demo: Obtaining Directory Change Notifications 
 //Reminder: ReadDirectoryChangesW can be used to 
@@ -656,6 +822,8 @@ extern void (*SOM::PARAM::onWrite)() = 0;
 //at and scanning the directory isn't a big deal
 static DWORD WINAPI som_files_threadproc(LPVOID hw)
 {	
+	bool db = SOM::game&&!SOM::retail; assert(!SOM::game||db);
+
 	//Reminder: read somewhere the Samba team isn't
 	//supporting ReadDirectoryChangesW and that the
 	//implementation of FindFirstChangeNotification
@@ -676,69 +844,70 @@ static DWORD WINAPI som_files_threadproc(LPVOID hw)
 	reset: //not sure why this is needed but it's always been here
 
 	size_t nChangeHandles = 0;
-	HANDLE dwChangeHandles[4]; 
-	wchar_t *dwChangeFolders[4];
-	int n = wcsicmp(EX::user(0),EX::cd())?4:2;
-	for(int i=0;i<n;i++)
-	{
-		auto src = i<2?EX::cd():EX::user(0);
-		auto fmt = L"%ls/PARAM"; if(i%2) //2022
-		{
-			fmt = L"%ls/data/map/parts"; //SOM_MAP?
 
-			if(SOM::tool!=SOM_MAP.exe){ assert(0); continue; }
-		}
-		//HACK: som_files_wrote USES /p OR /P TO FIND ITS BERINGS!!
+	UINT_PTR m = *EX::user(0)?2:1;
+	UINT_PTR n = m;
+	if(SOM::tool==SOM_MAP.exe||db)
+	for(UINT_PTR i=0;*EX::data(i);i++) 
+	n++;	 
+
+	std::vector<HANDLE> dwChangeHandles;
+	std::vector<std::wstring> dwChangeFolders;
+
+	for(UINT_PTR i=0;i<n;i++)
+	{
+		auto src = i<m?!i?EX::cd():EX::user(1):EX::data(i-m);
+		auto fmt = i<m?L"%ls\\PARAM":db?L"%s":L"%ls\\map\\parts"; 
+
+		//HACK: som_files_wrote_pr USES /p OR /P TO FIND ITS BERINGS!!
 		//swprintf_s(dir,i%2?L"%ls/data/map/parts":L"%ls/PARAM",src);
 		wchar_t dir[MAX_PATH]; swprintf_s(dir,fmt,src);
 
-		if(INVALID_HANDLE_VALUE!=(dwChangeHandles[nChangeHandles] = 
-		FindFirstChangeNotificationW(dir,0,FILE_NOTIFY_CHANGE_LAST_WRITE)))
+		HANDLE h;		
+		if(INVALID_HANDLE_VALUE!=(h = 
+		FindFirstChangeNotificationW(dir,SOM::game,FILE_NOTIFY_CHANGE_LAST_WRITE)))
 		{
-			dwChangeFolders[nChangeHandles++] = wcsdup(dir); //2022
+			dwChangeHandles.push_back(h);
+			dwChangeFolders.push_back(dir); nChangeHandles++;
 		}
 	}
 
-	//if(!one_off) //initialize write times
+	auto *f = db?som_files_wrote_db2:som_files_wrote_pr;
+
+	//if(db) 
 	{
-		//2022: kickoff_write_monitoring_thread (below) is
-		//guarding against more than one thread ever being
-		//created
-		//one_off = true;
-
-		//2022: I'm pretty sure I noticed a reason this is 
-		//inefficient (skins maybe? can't recall)
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
-
-		for(size_t i=0;i<nChangeHandles;i++)
-		som_files_wrote(0,0,(UINT_PTR)dwChangeFolders[i],0);	
+		SYSTEMTIME st;
+		GetSystemTime(&st);
+		SystemTimeToFileTime(&st,&som_files_wrote_init);
 	}
-
+	
 	if(nChangeHandles) for(;;) //wait to be notified
 	{ 		
 		//read this might help somewhere
 		DWORD hacked = INFINITE; //1000;
 
 		DWORD dwWaitStatus = 
-		WaitForMultipleObjects(nChangeHandles,dwChangeHandles,0,hacked); 		
+		WaitForMultipleObjects(nChangeHandles,dwChangeHandles.data(),0,hacked); 		
 		if(dwWaitStatus<nChangeHandles) 
 		{
+			UINT_PTR id = dwWaitStatus;
+			id = db&&id>=m?id-m:(UINT_PTR)dwChangeFolders[id].c_str();
+
 			enum{ t=500 }; //1000 is too long for saving PRT files
-			SetTimer((HWND)hw,(UINT_PTR)dwChangeFolders[dwWaitStatus],t,som_files_wrote);
+			SetTimer((HWND)hw,id,t,f);
 			FindNextChangeNotification(dwChangeHandles[dwWaitStatus]);		
 		}
 		else //if(hacked!=INFINITE)
 		{
 			while(nChangeHandles-->0)
-			{
-				free(dwChangeFolders[nChangeHandles]); //2022
-				
-				FindCloseChangeNotification(dwChangeHandles[nChangeHandles]);
-			}
+			FindCloseChangeNotification(dwChangeHandles[nChangeHandles]);
+			
 			goto reset;
 		}
 	}	
-	else assert(0); return 0;
+	else assert(0); 
+	
+	assert(0); return 0;
 }
 
 void SOM::PARAM::kickoff_write_monitoring_thread(HWND hwnd)

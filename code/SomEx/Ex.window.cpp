@@ -485,6 +485,8 @@ static LRESULT CALLBACK Ex_window_proc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
 
 	switch(msg) 
 	{
+	case WM_APP+'>': EX::play(w); return 1;
+
 	case WM_INPUT: 
 	{
 		//NOTE: Ex_cursor_capture does RegisterRawInputDevices

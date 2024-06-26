@@ -107,6 +107,14 @@ void som_exe_Ole32_dll(HANDLE proc, LPTHREAD_START_ROUTINE rLoadLibrary, char *S
 	VirtualProtectEx(proc,raddress,safety,old,&old);
 }
  
+static BOOL CALLBACK som_exe_enum_windows_db(HWND w, LPARAM l)
+{
+	if(!IsWindowVisible(w)) return 1;
+    auto lp = (DWORD*)l;
+    GetWindowThreadProcessId(w,(DWORD*)&l);
+    if(l=l==*lp) *lp = (DWORD)w; return !l;
+}
+
 //REMOVE ME???
 extern HANDLE SOM::exe_process = 0, SOM::exe_thread = 0;
 extern DWORD SOM::exe_threadId = 0; //XP
@@ -621,6 +629,22 @@ static DWORD som_exe(wchar_t **argv, size_t argc)
 	return pi.dwProcessId;
 }
 
+static VOID CALLBACK som_exe_playtest_timer(HWND win, UINT, UINT_PTR id, DWORD)
+{
+	KillTimer(win,id);
+			
+	LPARAM lp = id; //pi.dwProcessId;
+
+	extern HWND som_tool_playtest;
+	if(!EnumWindows(som_exe_enum_windows_db,(LPARAM)&lp))
+	{
+		assert(lp!=id);
+		som_tool_playtest = (HWND)lp;
+		SetForegroundWindow(som_tool_playtest);
+		SetActiveWindow(som_tool_playtest);			
+	}
+}
+
 extern void SOM::launch_legacy_exe()
 {	
 	DWORD pid = 0;
@@ -683,13 +707,21 @@ extern void SOM::launch_legacy_exe()
 	CloseHandle(SOM::exe_thread);
 }
 
+extern HWND &som_tool;
 extern DWORD SOM::exe(const wchar_t *args)
 {
 	int argc = 0;
 	wchar_t **argv = CommandLineToArgvW(args,&argc);	
+	
+	bool som_db = !wcsnicmp(argv[0],L"som_db",6);
+
 	DWORD out = som_exe(argv,argc); LocalFree(argv); 
+
+	if(som_db) SetTimer(som_tool,out,2000,som_exe_playtest_timer);
+
 	//keep Windows 7 taskbar group icons in position
 	EX::sleep(500);
+
 	return out;
 }
 

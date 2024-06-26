@@ -325,7 +325,7 @@ static struct //todo: a more object oriented approach??
 
 }som_lexer_subs[som_lexer_subs_s] = {{0}}; //circular queue
 
-static const char *som_lexer_subtitle(const char *in, int action)
+static const char *som_lexer_subtitle(const char *in, int action, size_t delay=SOM::L.hold)
 {
 	const char *out = "";
 
@@ -333,7 +333,7 @@ static const char *som_lexer_subtitle(const char *in, int action)
 	
 	EX::INI::Player pc;
 
-	size_t delay = SOM::L.hold;
+	//size_t delay = SOM::L.hold;
 
 	size_t sub = som_lexer_sub, subzero = sub; 
 
@@ -393,7 +393,7 @@ static const char *som_lexer_subtitle(const char *in, int action)
 			delay*=2;*/
 			if(action>0)
 			delay*=1.4f; //2020
-			else delay*=1.2f; //shaving off what can
+		//	else delay*=1.2f; //shaving off what can
 		}
 		if(action>0) //2021: SOM::eventick isn't set
 		{
@@ -405,9 +405,13 @@ static const char *som_lexer_subtitle(const char *in, int action)
 		}
 	}
 
-	delay+=max(-int(delay),pc->subtitles_ms_interim);
+	if(delay) delay+=max(-int(delay),pc->subtitles_ms_interim);
 		
 	if(som_lexer_subs[sub].ticks) ++sub%=som_lexer_subs_s;
+
+	int to = pc->subtitles_ms_timeout; 
+
+	if(action==-1) to = max(to-400,1000); //money?
 
 	som_lexer_subs[sub].timer = pc->subtitles_ms_timeout;  
 	som_lexer_subs[sub].clock = som_lexer_subs[sub].timer+delay;
@@ -429,6 +433,10 @@ extern void som_title_further_delay_sub(int delay) //2020
 	}
 }
 
+extern void SOM::subtitle(const char *txt) //2024
+{
+	som_lexer_subtitle(txt,0,0);	
+}
 const wchar_t *SOM::subtitle()
 {
 	const size_t out_s = 64;
@@ -514,7 +522,7 @@ static const char *som_title_sub(const char *in, int in_s)
 	{
 		//have to distinguish between action titles
 		//with identical text
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		/*2022: won't work (423ce0 buffers subtitles)
 		int i = -1;
 		if(in>=SOM::L.sys_dat_messages_0_8[0]
@@ -557,6 +565,7 @@ static const char *som_title_sub(const char *in, int in_s)
 	return som_lexer_subtitle(out,action);	
 	return out;	
 }
+
 extern const char *som_title_a = "\a";
 extern const char *SOM::title(int cc, const char *txt)
 {
@@ -567,6 +576,9 @@ extern int SOM::title_pixels = 0;
 extern int SOM::title(void *procA, const char* &txt, int &len) 
 {	
 	if(!txt||!*txt||!len) return 932; 
+
+	if(len==-1) len = strlen(txt); //2024
+
 	static som_menus_h::validator st; 
 	int cc = (unsigned)len>65535?len:0; 	
 	static std::string out; static int cp = 932; if(!cc) 

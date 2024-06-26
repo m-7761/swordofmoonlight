@@ -60,8 +60,7 @@ char *Greets(SOMVERSION dll)
 struct MailSlotGram
 {WCHAR cwd[MAX_PATH], commandline[1];
 }*GotMailSlotGram = 0;
-extern"C"__declspec(dllexport)
-LPWSTR __stdcall CommandLine() //SomEx.cpp
+extern "C" __declspec(dllexport) LPWSTR __stdcall CommandLine() //SomEx.cpp
 {
 	return GotMailSlotGram?GotMailSlotGram->commandline:GetCommandLineW();
 }
@@ -195,9 +194,9 @@ INT_PTR CALLBACK SplashProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lPara
 }
 
 NOTIFYICONDATAW Icon = 
-{NOTIFYICONDATAW_V2_SIZE,0,0,NIF_ICON|NIF_TIP|NIF_MESSAGE,WM_APP,0,0};
+{NOTIFYICONDATAW_V3_SIZE,0,0,NIF_ICON|NIF_TIP|NIF_MESSAGE,WM_APP+0,0,0}; //NIF_GUID
 WCHAR RelaunchCommand[MAX_PATH] = L"";
-INT_PTR CALLBACK IconProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK IconProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {		
 	switch(uMsg)
 	{					
@@ -219,11 +218,16 @@ INT_PTR CALLBACK IconProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 
 		//systray icon
-		Icon.hWnd = hwndDlg; 
+		Icon.hWnd = hwndDlg;
+		Icon.uID = 1;
+		//can't associate a Window with NIF_GUID approach???? 
+		//CoCreateGuid(&Icon.guidItem);
+		//IIDFromString(L"{793FB9A5-D687-4470-8229-6D9EF3C8286E}",&Icon.guidItem);
 		Icon.hIcon = (HICON)LoadImage
 		(Instance,MAKEINTRESOURCE(IDI_ICON),IMAGE_ICON,16,16,0);		
 		ExpandEnvironmentStringsW(L"%USERNAME%",Icon.szTip,64);
-		Shell_NotifyIconW(NIM_ADD,&Icon);
+		BOOL test = Shell_NotifyIconW(NIM_ADD,&Icon);
+		test = test;
 		Icon.uVersion = NOTIFYICON_VERSION;	
 		Shell_NotifyIconW(NIM_SETVERSION,&Icon);	
 				
@@ -241,7 +245,8 @@ INT_PTR CALLBACK IconProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		LoadIcon(GetModuleHandle(0),MAKEINTRESOURCE(IDI_ICON)));
 		SendMessage(hwndDlg,WM_SETICON,ICON_SMALL,(LPARAM)Icon.hIcon);		
 		SetWindowLong(hwndDlg,GWL_EXSTYLE,WS_EX_APPWINDOW);
-		SetWindowTextW(hwndDlg,Icon.szTip);		
+		//this window is seen in the taskbar
+		SetWindowTextW(hwndDlg,Icon.szTip);
 		return 0;
 	}
 	case WM_WINDOWPOSCHANGING: 
@@ -280,7 +285,7 @@ INT_PTR CALLBACK IconProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
-	case WM_APP:
+	case WM_APP+0: //Shell_NotifyIcon
 
 		if(lParam==WM_CONTEXTMENU)
 		{			
@@ -334,6 +339,7 @@ INT_PTR CALLBACK IconProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 		int bug = 32-GetSystemMetrics(SM_CXMENUCHECK);
 		DrawIcon(frame->hDC,frame->rcItem.left-bug,frame->rcItem.top,exit);
+
 		SetWindowLong(hwndDlg,DWL_MSGRESULT,1);
 		return 1;
 	}
@@ -350,7 +356,9 @@ INT_PTR CALLBACK IconProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		Shell_NotifyIconW(NIM_DELETE,&Icon);
 		break;
 	}
-	return 0;
+
+	//return 0;
+	return DefWindowProcW(hwndDlg,uMsg,wParam,lParam);
 }
 /*struct Win7_tasks : IObjectArray
 {
@@ -430,7 +438,22 @@ DWORD WINAPI IconThreadProc(LPVOID tid)
 		}		 
 		pcdl->Release();
 	}*/
-	return DialogBoxW(Instance,MAKEINTRESOURCEW(IDD_ICON),0,IconProc);			
+	//2024: need a class to use FindWindow and try to interact
+	//return DialogBoxW(Instance,MAKEINTRESOURCEW(IDD_ICON),0,IconProc);			
+	WNDCLASSW systray_class = 
+	{0,IconProc,0,0,0,0,0,(HBRUSH)GetStockObject(BLACK_BRUSH),0,L"Swordofmoonlight.net Systray WNDCLASS"};
+	RegisterClassW(&systray_class);
+	HWND hw = CreateWindowExW(WS_EX_APPWINDOW,L"Swordofmoonlight.net Systray WNDCLASS",L"SOM_EX",WS_MINIMIZEBOX|WS_POPUP|WS_CAPTION|WS_SYSMENU,0,0,0,0,0,0,0,0);
+	SendMessage(hw,WM_INITDIALOG,0,0);
+	MSG msg;
+	while(GetMessageW(&msg,0,0,0))
+	{
+		if(!IsWindow(hw)) break; //HACK
+
+		DispatchMessageW(&msg);
+	}
+
+	return 1;
 }
 
 void Wrapup(HANDLE descendant)
@@ -587,13 +610,13 @@ int APIENTRY wWinMain(HINSTANCE hinstance, HINSTANCE, LPWSTR, int)
 
 	//////// self launch sequence ////////////
 	
-	wchar_t str[9] = L"0"; _ultow((DWORD)job,str,16); 
-	SetEnvironmentVariableW(L"SomEx.dll Binary Job",str);	
+	char str[9] = "0"; _ultoa((DWORD)job,str,16); 
+	SetEnvironmentVariableA("SomEx.dll Binary Job",str); //som.exe.cpp
 	//WOW64 or Windows 10 one isn't unloading
 	//(still Somversion.hpp cannot handle unloads either)
 	//if(!FreeLibrary(Sword_of_Moonlight(cwd))) return(0); //SomEx.h	
 	if(!Sword_of_Moonlight(cwd)) return(0); //SomEx.h	
-	GetEnvironmentVariableW(L"SomEx.dll Binary PID",str,9);
+	GetEnvironmentVariableA("SomEx.dll Binary PID",str,9); //som.exe.cpp
 	if(path_s[-1]) return(0); //NEW: Jettisoning launcher
 
 	//////// wait for termination ////////////
@@ -603,7 +626,7 @@ int APIENTRY wWinMain(HINSTANCE hinstance, HINSTANCE, LPWSTR, int)
 	DWORD wrapup_rights = //Wrapup (see its defintion above)
 	PROCESS_CREATE_THREAD|PROCESS_VM_OPERATION|PROCESS_VM_READ|PROCESS_VM_WRITE; 
 
-	DWORD pid = wcstoul(str,0,16); assert(pid);
+	DWORD pid = strtoul(str,0,16); assert(pid);
 	HANDLE &exe = waitforit[0] = OpenProcess(access_rights|wrapup_rights,0,pid); 
 	if(!exe) return(0);								
 								   

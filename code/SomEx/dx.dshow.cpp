@@ -2,6 +2,9 @@
 #include "directx.h" 
 DX_TRANSLATION_UNIT //(C)
 
+//2023: _vsnwprintf
+#pragma comment(lib,"legacy_stdio_definitions.lib")
+
 #include <vector>
 
 #define DIRECT3D_VERSION 0x0700
@@ -1085,8 +1088,11 @@ extern bool dx_dshow_begin_conversion(const wchar_t *in[2], const wchar_t *out[2
 	{	
 		//if(1) //seems like should be just as good
 		{
-			ig->AddSourceFilter(*in,L"source",&isf);
-			isf->FindPin(L"Output",ip+0); //sourceOut
+			if(!ig->AddSourceFilter(*in,L"source",&isf))
+			{
+				isf->FindPin(L"Output",ip+0); //sourceOut
+			}
+			else assert(0);
 		}
 		/*else if(!CoCreateInstance(CLSID_WMAsfReader,0,CLSCTX_INPROC_SERVER,IID_IBaseFilter,(void**)&isf))
 		{

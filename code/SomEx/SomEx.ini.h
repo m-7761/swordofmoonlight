@@ -145,7 +145,7 @@ namespace INI
 
 		action_reaction_pair_t out = 
 		{
-			i&&buttons&&abs(i)<=buttons[0][c]?buttons[abs(i)][c]:0
+			i&&buttons&&abs(i)<=buttons[0][c]?(unsigned)buttons[abs(i)][c]:0u
 		};
 		
 		if(i<0) out.bits = out.bits>>16|out.bits<<16;
@@ -159,7 +159,7 @@ namespace INI
 
 		action_reaction_pair_t out = 
 		{
-			i>0&&buttons&&i<=buttons[0][c]?buttons[i][c]:0
+			i>0&&buttons&&i<=buttons[0][c]?(unsigned)buttons[i][c]:0u
 		};
 		
 		return out;
@@ -370,8 +370,8 @@ EX_INI_SECTION(Adjust)
 
 	//would like to use SomEx_npc with these, except
 	//it's unknown what shadows belong to which NPCs
-	EX_INI_NUMBER( 0, 1,INF) npc_shadows_multiplier;
-	EX_INI_NUMBER(-1,-1,INF) npc_shadows_modulation;
+	EX_INI_NUMBER( 0, 1,  2) npc_shadows_multiplier;
+	EX_INI_NUMBER( 0, 1,  2) npc_shadows_modulation;
 	EX_INI_NUMBER( 0, 0,INF) npc_shadows_saturation;
 
 	//DOCUMENT ME
@@ -1059,7 +1059,12 @@ EX_INI_SECTION(Option)
 	//TODO: kf2_hud?
 	do_kf2,do_nwse,do_reverb, //DOCUMENT US
 
-	do_alphasort; //2023 (UNDOCUMENTED)
+	do_alphasort, //2023 (UNDOCUMENTED)
+
+	do_bsp; //2023 (UNDOCUMENTED)
+
+	//do_shadow, //2023 (UNDOCUMENTED)
+	enum{ do_shadow=1 }; //OpenGL requires GL_RED
 };
 EX_INI_SECTION(Output)
 {
@@ -1085,6 +1090,9 @@ EX_INI_SECTION(Output)
 	bool f(int)const;
 
 	EX_INI_OPTION(0) do_f5_triple_buffer_fps; //DOCUMENT ME
+
+	EX_INI_FOURCC(10000) 
+	art_action_center_note_ms_timeout; //UNDOCUMENTED
 
 	//log: user handler for custom logging directives
 	//during initialization all key/value pairs are passed 
@@ -1156,7 +1164,7 @@ EX_INI_SECTION(Player)
 	EX_INI_NUMBER(0,    0, INF) player_character_radius3;
 	EX_INI_NUMBER(0,    0, INF) player_character_radius4;	
 	EX_INI_NUMBER(0,    1, INF) player_character_scale;
-	EX_INI_NUMBER(0, 0.35, INF) player_character_shadow;
+	EX_INI_NUMBER(0, 0.45, INF) player_character_shadow; //0.35
 	EX_INI_NUMBER(0,  1.5, INF) player_character_stature;
 	//2020: now scales _WALK and _DASH
 	EX_INI_NUMBER(0,    1, INF) player_character_stride;
@@ -1173,7 +1181,7 @@ EX_INI_SECTION(Player)
 	//
 	EX_INI_NUMBER(0,150,300) arm_ms_windup; 
 	EX_INI_NUMBER(0,100,500) arm_ms_windup2;
-	EX_INI_NUMBER(0.5,0.75,1.25) arm_bicep;
+	EX_INI_NUMBER(0.5,0.9,1.25) arm_bicep;
 	EX_INI_NUMBER(0.75,1.0,1.25) arm_bicep2;
 
 	//375 is snappy (ninja like even) but 400 is better
@@ -1183,7 +1191,7 @@ EX_INI_SECTION(Player)
 	EX_INI_NUMBER(250,383/*.33*/,1000) tap_or_hold_ms_timeout;	
 
 	EX_INI_NUMBER(-1000, 300,1000) subtitles_ms_interim;
-	EX_INI_NUMBER(    0,1300,4000) subtitles_ms_timeout;
+	EX_INI_NUMBER( 1000,1700,4000) subtitles_ms_timeout;
 
 	//DOCUMENT US (1.2.3.2)
 	//save game extension for when SOM isn't installed
@@ -1386,7 +1394,7 @@ EX_INI_SECTION(Window)
 
 	//2021: was defaulting to 0?
 	//NOTE: I'm preventing dx7 for release builds in SomEx.ini.cpp
-	EX_INI_FOURCC(9) 
+	EX_INI_FOURCC(11) 
 	directx_version_to_use_for_window;
 
 	//DOCUMENT US

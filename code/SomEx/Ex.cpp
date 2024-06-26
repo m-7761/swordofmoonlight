@@ -84,7 +84,7 @@ namespace Ex_cpp
 	};		
 	static std::deque<deplace> langs, fonts, texts, inies;	
 
-static bool cd_placed = false, user_placed = false; //HACK
+static int cd_placed = false, user_placed = false; //HACK
 }			   
 extern void Ex_2018_reset_SOM_EX_or_SOM_EDIT_tool() //HACK
 {
@@ -111,14 +111,14 @@ extern const wchar_t *EX::cd()
 }
 extern const wchar_t *EX::user(int i)
 {
-	if(i!=0) return Ex_cpp::noplace;
+	if(i>1) return Ex_cpp::noplace;
 
 	static Ex_cpp::place out = L""; 
 
 	//SOM_MAIN and SOM_RUN should have empty strings
 	//static bool one_off = false; if(one_off++) return out; //???
-	if(!Ex_cpp::user_placed) Ex_cpp::user_placed = true;
-	else return out;
+	if(!Ex_cpp::user_placed) Ex_cpp::user_placed = 1;
+	else return !i&&Ex_cpp::user_placed==1?L"":out;
 
 	const wchar_t *user = Sompaste->get(L"USER");
 	
@@ -144,6 +144,8 @@ extern const wchar_t *EX::user(int i)
 		Sompaste->place(0,out,out,'?');
 	}
 
+	if(wcsicmp(out,EX::cd())) Ex_cpp::user_placed = 2; //2023
+
 	return out;
 }
 extern const wchar_t *EX::lang(int i)
@@ -154,16 +156,13 @@ extern const wchar_t *EX::lang(int i)
 	
 	Ex_cpp::place place = L"";		
 
-	for(int j=0;*EX::user(j);j++)
+	if(*EX::user(0))
 	{
-		swprintf_s(place,L"%ls\\lang",EX::user(j));
+		swprintf_s(place,L"%ls\\lang",EX::user(0));
 		if(PathIsDirectoryW(place)) Ex_cpp::langs.push_back(place);
 	}
-	if(*EX::cd()&&wcsicmp(EX::cd(),EX::user(0))) 
-	{
-		swprintf_s(place,L"%ls\\lang",EX::cd());
-		if(PathIsDirectoryW(place)) Ex_cpp::langs.push_back(place);
-	}
+	swprintf_s(place,L"%ls\\lang",EX::cd());
+	if(PathIsDirectoryW(place)) Ex_cpp::langs.push_back(place);
 
 	const wchar_t *script = Sompaste->get(L"SCRIPT");
 
@@ -190,17 +189,14 @@ extern const wchar_t *EX::font(int i)
 
 	Ex_cpp::place place = L"";		
 			 	
-	for(int j=0;*EX::user(j);j++)
+	if(*EX::user(0))
 	{
-		swprintf_s(place,L"%ls\\font",EX::user(j));
+		swprintf_s(place,L"%ls\\font",EX::user(0));
 		if(PathIsDirectoryW(place)) Ex_cpp::fonts.push_back(place);
 	}
-	if(*EX::cd()&&wcsicmp(EX::cd(),EX::user(0)))  
-	{
-		swprintf_s(place,L"%ls\\font",EX::cd());
-		if(PathIsDirectoryW(place)) Ex_cpp::fonts.push_back(place);
-	}
-
+	swprintf_s(place,L"%ls\\font",EX::cd());
+	if(PathIsDirectoryW(place)) Ex_cpp::fonts.push_back(place);
+	
 	const wchar_t *font = Sompaste->get(L"FONT");
 
 	if(*font)	
@@ -262,7 +258,7 @@ extern const wchar_t *EX::ini(int i)
 		if(*place) Ex_cpp::inies.push_back(place);
 
 		//Reminder: PathIsPrefix seems to work for this
-		if(PathIsPrefixW(EX::cd(),place)&&wcsicmp(EX::cd(),EX::user(0))) 
+		if(PathIsPrefixW(EX::cd(),place)&&*EX::user(0)) 
 		{
 			swprintf_s(place,L"%ls\\%ls",EX::user(0),Ex_cpp::inies.back()+wcslen(EX::cd())+1);
 
@@ -287,16 +283,13 @@ extern const wchar_t *EX::data(int i)
 	
 	Ex_cpp::place place;		
 
-	for(int j=0;*EX::user(j);j++)
+	if(*EX::user(0))
 	{
-		swprintf_s(place,L"%ls\\data",EX::user(j));
+		swprintf_s(place,L"%ls\\data",EX::user(0));
 		if(PathIsDirectoryW(place)) out.push_back(place);
 	}
-	if(*EX::cd()&&wcsicmp(EX::cd(),EX::user(0))) 
-	{
-		swprintf_s(place,L"%ls\\data",EX::cd());
-		if(PathIsDirectoryW(place)) out.push_back(place);
-	}
+	swprintf_s(place,L"%ls\\data",EX::cd());
+	if(PathIsDirectoryW(place)) out.push_back(place);
 
 	const wchar_t *data = Sompaste->get(L"DATA");
 

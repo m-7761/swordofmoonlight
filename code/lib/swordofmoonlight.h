@@ -85,7 +85,7 @@ SWORDOFMOONLIGHT_SNPRINTF(dst,sizeof(dst)/sizeof(dst[0]),__VA_ARGS__)
 #error Must defeat this==0 code elision below...
 #endif
 #define SWORDOFMOONLIGHT_RETURN_BY_REFERENCE2(ctor) \
-	inline operator bool()const{ return this?true:false; }
+	inline explicit operator bool()const{ return this?true:false; }
 #define SWORDOFMOONLIGHT_RETURN_BY_REFERENCE(ctor) \
 	SWORDOFMOONLIGHT_RETURN_BY_REFERENCE2(ctor) \
 	SWORDOFMOONLIGHT_PREVENT_COPY(ctor);
@@ -330,8 +330,37 @@ typedef struct _swordofmoonlight_mdo_controlpoint
 }SWORDOFMOONLIGHT_PACK
 swordofmoonlight_mdo_controlpoints_t[4];
 
+typedef struct _swordofmoonlight_mdo_extra /*EXTENSION*/
+{		
+	struct uv_extra
+	{
+		ule16_t size,procedure;
+		
+		lefp_t tu,tv;
+	};
+
+	/*this is used to combine a MDO
+	//and MDL file*/
+	uint8_t part, _pad;
+	ule16_t part_verts;
+	ule32_t part_index; 
+	/*VERSION 2 (8B)*/
+	uv_extra uv_fx;
+
+}SWORDOFMOONLIGHT_PACK
+swordofmoonlight_mdo_extra_t;
+
 typedef struct _swordofmoonlight_mdo_channel
 {		
+	#ifdef __cplusplus
+	swordofmoonlight_mdo_extra_t &extra()
+	{
+		assert(extrasize);
+		return *(swordofmoonlight_mdo_extra_t*)
+		((ule32_t*)this+extradata);
+	}
+	#endif
+
 	uint8_t blendmode; /*1 is dst, 0 is (1-alpha)*dst*/
 	/*EXTENSION 
 	 
@@ -713,9 +742,9 @@ typedef struct _swordofmoonlight_mdl_animation
 	{
 		struct /*hard variety (anonymous struct is NON-PORTABLE)*/
 		{
-			ule16_t time; //UNFRIENDLY!! (doesn't apply to soft-anims) 
+			ule16_t htime; //UNFRIENDLY!! (doesn't apply to soft-anims) 
 
-			swordofmoonlight_psx_uword_t words[SWORDOFMOONLIGHT_N(32)];
+			swordofmoonlight_psx_uword_t hwords[SWORDOFMOONLIGHT_N(32)];
 		};
 
 		/*2021: is the first 2 bytes always 0? so id is 32-bit??? */
@@ -1346,7 +1375,9 @@ typedef struct _swordofmoonlight_prm_item /*336B*/
 	ule16_t profile;
 	cint8_t name[31];
 	cint8_t text[241];
-	uint8_t unknown1[62];
+	uint8_t unknown1[22]; /*274*/
+	lefp_t weight; /*296*/
+	uint8_t unknown2[36];
 
 }SWORDOFMOONLIGHT_PACK
 swordofmoonlight_prm_item_t;
@@ -1441,9 +1472,9 @@ typedef struct _swordofmoonlight_prt_part
 	//work may open up 256~399, 1056~1199, 1456~1599
 	//*/
 	#ifndef SWORDOFMOONLIGHT_BIGEND
-	int8_t aim:2, iconquad:2, _reserved_iconshift_etc:4;
+	uint8_t iconquad:2, aim:3, _reserved_iconshift_etc:3;
 	#else
-	int8_t :4, iconquad:2,aim:2;
+	uint8_t :3, aim:3, iconquad:2;
 	#endif
 	
 	cint8_t single_line_text[31];
@@ -2002,9 +2033,10 @@ typedef struct _swordofmoonlight_mpx_tiles
 			ule32_t flags; struct
 			{
 				#ifndef SWORDOFMOONLIGHT_BIGEND
-				uint32_t rotation:2,:4,e:1,:9,icon:8,:7,msb:1;
+			/*	uint32_t rotation:2,:4,e:1,:9,icon:8,msb:8;*/
+				uint32_t rotation:2,:4,e:8,:2,icon:8,msb:8;
 				#else
-				uint32_t msb:1,:7,icon:8,:9,e:1,:4,rotation:2;
+				uint32_t msb:8,icon:8,:2,e:8,:4,rotation:2;
 				#endif
 			};
 		};
@@ -2793,6 +2825,8 @@ namespace mdo /*SWORDOFMOONLIGHT::*/
 		return controlpoints(const_cast<mdo::image_t&>(img));
 	}
 
+	typedef swordofmoonlight_mdo_extra_t extra_t;
+
 	typedef swordofmoonlight_mdo_channel_t channel_t;
 	typedef swordofmoonlight_mdo_channels_t channels_t;
 
@@ -3184,7 +3218,7 @@ namespace mdl /*SWORDOFMOONLIGHT::*/
 
 	typedef swordofmoonlight_mdl_const_animation_t const_animation_t;
 
-	/*/animations: fil a list of animation pointers with what is in the file
+	/*/animations: fill a list of animation pointers with what is in the file
 	//
 	//IDs: IDs to include or 0 for all where IDs[0] is the number and IDs[1] is the 1st ID.
 	// IMPORTANT: Any omitted IDs due to IDs being nonzero will have their pointer set to 0. 
@@ -3304,12 +3338,12 @@ namespace mdl /*SWORDOFMOONLIGHT::*/
 	//Also: if scale[3] is 0 scale[0~2] just affect the sign (in case you were wondering)
 	//
 	//FYI: The maximum number of channels is 254 if nmats is nonzero, otherwise 127*/
-	bool transform(const mdl::hardanim_t *n, int ch, float vinout[3]=0, const float scale[4]=mdl::m3, float *nmats=0, bool *nknown=0);
+	bool transform(const mdl::hardanim_t *n, int ch, float vinout[3]=0, const float scale[4]=0, float *nmats=0, bool *nknown=0);
 		
 	/*multiply: better to use this than transform for multiple vertices*/
 	static void multiply(const float *mat, const float *vin, float *vout, bool homogeneous=true, int m=3, int n=1)
 	{
-		float vtmp[3], *vptr=vtmp, *&vsrc = vin==vout?vptr:vout;
+		float vtmp[3], *vptr=vtmp, *&vsrc = vin==vout?vptr:(float*&)vin;
 
 		for(int i=0;i<n;i++,vin+=m,vout+=m)
 		{
@@ -3398,6 +3432,19 @@ namespace mdl /*SWORDOFMOONLIGHT::*/
 	{
 		return p?(p->lo<0?-int(p->time):p->time):0;
 	}
+
+	/*2024: get animation time (resolves ambiguity with union) */
+	inline int softanimtime(mdl::const_animation_t a)
+	{
+		return softanimframestrtime(a->frames);
+	}
+	/*2024: get animation time (resolves ambiguity with union) */
+	inline int hardanimtime(mdl::const_animation_t a)
+	{
+		return a->htime;
+	}
+	/*2024: get animation time (resolves ambiguity with union) */
+	int animtime(const mdl::image_t &, mdl::const_animation_t a);
 
 	/*/softanimframes: figure the total number or the number of unique frames.
 	//IDs: IDs to include or 0 for all where IDs[0] is the number and IDs[1] is the 1st ID.
@@ -3495,7 +3542,20 @@ namespace mdl /*SWORDOFMOONLIGHT::*/
 	//sign: step multiplier; +1 or -1. If 0 the sign is taken from ch->delta, otherwise ignored.
 	//
 	//Returns true if there are no problems with the input parameters*/
-	int translate(mdl::softanim_t *ch, int2 m, float vinout[3], const float scale[4]=mdl::m3, int2 *mverts=0, int n=1, int sign=0);
+	int translate(mdl::softanim_t *ch, int2 m, float vinout[3], const float scale[4]=0, int2 *mverts=0, int n=1, int sign=0);
+
+	/*/accumulate: soft animate vertices //2024
+	//
+	//stride: number of bytes to skip between vinout accesses
+	//vinout_s: vinout must be less than vinout_s*stride int16_ts
+	*/
+	int accumulate(mdl::softanim_t *ch, int16_t *vinout, int vinout_s, int stride, int n=1, int sign=0);
+	/*/accumulate: soft animate vertices //2024
+	//
+	//stride: number of bytes to skip between vinout accesses
+	//vinout_s: vinout must be less than vinout_s*stride floats
+	*/
+	int accumulate(mdl::softanim_t *ch, float *vinout, int vinout_s, int stride, float step=1, int n=1, int sign=0);
 
 	/*///PlayStation TIM Blocks //////////////////////*/
 
@@ -3909,7 +3969,7 @@ namespace som /*SWORDOFMOONLIGHT::*/
 	//false is returned if a randomly chosen SOM file in CD
 	//does not match GAME and DISC where one or both are defined
 	//Reminder: SOM files are INI files. Consider ini::readfile/open*/
-	bool readfile(som::file_t, som::environ_t environ=environ_f, void *env=0);	
+	bool readfile(som::file_t, som::environ_t environ=environ_f, void *env1=0);	
 
 	/*////courtesy///////////////////////////////////////////////////////////////
 	//																		   
@@ -3926,48 +3986,41 @@ namespace som /*SWORDOFMOONLIGHT::*/
 	}	
 	static void clean(som::file_t instdir, som::environ_t environ=environ_f, void *env=0)
 	{
-		int cat; som::char_t var[32+260]; /*260: MAX_PATH*/
+		som::char_t var[32+260]; /*260: MAX_PATH*/
 					
 		#ifdef _WIN32
-		#define __ "\\"
+		char sep = '\\';
 		#else
-		#define __ "/"
+		char sep = '/';
 		#endif
+		SWORDOFMOONLIGHT_SPRINTF(var,"INSTALL%c%s",0,instdir); /*2024*/
+		SETENV(8)
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"GAME"))
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"DISC"))
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"SOM"))
-		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"LOAD")) //2020
+		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"LOAD")) /*2020*/
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"TITLE"))		
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"PLAYER"))
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"USER"))
 		/*tool: intended to get SOM_MAIN into the tool folder*/
-		cat = SWORDOFMOONLIGHT_SPRINTF(var,"CD%c%s",0,instdir);
-		if(*instdir) for(const char *p=__"tool";*p;p++) 
-		var[cat++] = *p; 		
-		var[cat] = '\0'; SETENV(3)
-		cat = SWORDOFMOONLIGHT_SPRINTF(var,"DATA%c%s",0,instdir);
-		if(*instdir) for(const char *p=__"data";*p;p++) 
-		var[cat++] = *p; 		
-		var[cat] = '\0'; SETENV(5)
+		SWORDOFMOONLIGHT_SPRINTF(var,"CD%c%s%ctool",0,instdir,sep);
+		SETENV(3)
+		SWORDOFMOONLIGHT_SPRINTF(var,"DATA%c%s%cdata",0,instdir,sep);
+		SETENV(5)
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"DATASET"))
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"SCRIPT"))
-		cat = SWORDOFMOONLIGHT_SPRINTF(var,"FONT%c%s",0,instdir);
-		if(*instdir) for(const char *p=__"font";*p;p++) 
-		var[cat++] = *p; 		
-		var[cat] = '\0'; SETENV(5)		
+		SWORDOFMOONLIGHT_SPRINTF(var,"FONT%c%s%cfont",0,instdir,sep);
+		SETENV(5)		
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"INI"))
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"TRIAL"))
-		cat = SWORDOFMOONLIGHT_SPRINTF(var,"EX%c%s",0,instdir);
-		if(*instdir) for(const char *p=__"tool"/*C++11*/__"SOM_EX.ini";*p;p++) 
-		var[cat++] = *p; 		
-		var[cat] = '\0'; SETENV(3)
+		SWORDOFMOONLIGHT_SPRINTF(var,"EX%c%s%ctool%cSOM_EX.ini",0,instdir,sep,sep);
+		SETENV(3)
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"SETUP"))
 		SETENV(SWORDOFMOONLIGHT_SPRINTF(var,"ICON"))		
-		cat = SWORDOFMOONLIGHT_SPRINTF(var,"TEXT%c%s",0,instdir);
-		if(*instdir) for(const char *p=__"text";*p;p++) 
-		var[cat++] = *p; 		
-		var[cat] = '\0'; SETENV(5)
-		#undef __
+		SWORDOFMOONLIGHT_SPRINTF(var,"TEXT%c%s%ctext",0,instdir,sep);
+		SETENV(5)
+		SWORDOFMOONLIGHT_SPRINTF(var,"ART%c%s%cart",0,instdir,sep);
+		SETENV(4)
 	}
 	static void cd(som::file_t som, som::environ_t environ=environ_f, void *env=0)
 	{

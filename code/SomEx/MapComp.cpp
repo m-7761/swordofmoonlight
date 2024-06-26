@@ -269,7 +269,7 @@ extern bool MapComp_LYT(WCHAR map[2]) //som.tool.cpp
 		MapComp_memory[1] = i; 
 
 		//SoftMSM/Mapcomp_SoftMSM
-		for(int i=100*100;i-->0;) MapComp_43e638[i].prt = 0xFFFF; 
+		for(int j=100*100;j-->0;) MapComp_43e638[j].prt = 0xFFFF; 
 
 		//mimicking som_tool_CreateFileA
 		SOM_MAP.map.current = ln.legacy(); //YUCK
@@ -380,14 +380,17 @@ static int __cdecl MapComp_main(int argc, char *argv[], char *envp[])
 	//go into the MPX. MSM are not even required
 	bool base; if(base=!*(DWORD*)0x4322B4)
 	{
-		//TODO: MapComp doesn't do it
-		//but these can be manipulated
-		//to emit fewer MHM files where
-		//PRTs (486FF0) share MHM files
-		WORD *p = new WORD[1024]; //SOM_MAP_map::read fills these
-		*(DWORD*)0x43229C = *(DWORD*)0x4322A0 =
-		*(DWORD*)0x4322B4 = *(DWORD*)0x4322B8 = (DWORD)p;
-		*(DWORD*)0x4322BC = *(DWORD*)0x4322A4 = (DWORD)(p+1024);
+		//TODO: MapComp doesn't do it but these can be manipulated
+		//to emit fewer MHM files where /PRTs (486FF0) share MHM files
+
+		//SOM_MAP_map::read allocates and fills these
+		auto _malloc = (void*(__cdecl*)(DWORD))0x40b6a3;
+		WORD *p = (WORD*)_malloc(sizeof(WORD)*1024); //405af7 //msm
+		WORD *q = (WORD*)_malloc(sizeof(WORD)*1024); //40573d //mhm
+		*(DWORD*)0x43229C = *(DWORD*)0x4322A0 = (DWORD)p;
+		*(DWORD*)0x4322A4 = (DWORD)(p+1024);
+		*(DWORD*)0x4322B4 = *(DWORD*)0x4322B8 = (DWORD)q;				
+		*(DWORD*)0x4322BC = (DWORD)(q+1024);
 	}
 	
 	//0040C784 E8 07 6C FF FF       call        00403390
@@ -401,7 +404,7 @@ static int __cdecl MapComp_main(int argc, char *argv[], char *envp[])
 	assert(0!=*(DWORD*)0x416FD0);
 	//what are these MPX fields?
 	//00407CB1 68 88 72 41 00       push        417288h
-	assert(0==*(DWORD*)0x417288);	
+//	assert(0==*(DWORD*)0x417288); //bsp something	
 	//00407D1D 68 20 E5 43 00       push        43E520h
 	assert(0==*(QWORD*)0x43E520);
 	//00407DB3 6A 01                push        1
@@ -842,20 +845,17 @@ static DWORD __cdecl MapComp_407c80(char *a) //MPX
 		
 		if(MapComp_memory[2]) //MPY?
 		{
-			//REMINDER: might want to knock this out to 
-			//confirm things work
-			if(1||!EX::debug) 
-			{
-				p[1] = p[0]; //don't emit
-			}
+			p[1] = p[0]; //don't emit
 		}
 	}
 
-	DWORD ret = ((DWORD(__cdecl*)(char*))0x407c80)(a);
+	DWORD ret = ((DWORD(__cdecl*)(char*))0x407c80)(a); //write
 	
 	for(int i=0;i<EX_ARRAYSIZEOF(containers);i++)
 	{
-		containers[i] = restore[i]; 
+		p = (DWORD*)containers[i];
+
+		p[1] = restore[i]; 
 	}
 
 	return ret;
@@ -951,7 +951,7 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 
 	char a[64], *b = a+20;
 
-	auto operator_new = (void*(__cdecl*)(DWORD))0x40b6a3;
+	auto _malloc = (void*(__cdecl*)(DWORD))0x40b6a3;
 
 	///////////////// PRT ////////////////////
 
@@ -959,12 +959,14 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 	//0x417080->"A:\>\data\map\parts\"
 	sprintf(a,(char*)0x415248,0x417080,pn);
 
-	FILE *f = fopen(a,"rb");
+	//FILE *f = fopen(a,"rb");
+	HANDLE h = CreateFileA(a,SOM_TOOL_READ);
 	
-	if(!f) //return 0; //???
+	//if(!f) //return 0; //???
+	if(h==INVALID_HANDLE_VALUE)
 	{
 		//doesn't work
-		//(void*&)prt_ptr = operator_new(228); //TESTING
+		//(void*&)prt_ptr = _malloc(228); //TESTING
 		//memset(prt_ptr,0,228);
 		
 		//MapComp can't work if a PRT file fails to read
@@ -972,9 +974,11 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 		return 0x19;
 	}
 
-	void *p = operator_new(228);
+	void *p = _malloc(228);
 
-	fread(p,228,1,f); fclose(f); 
+	DWORD rd;
+	//fread(p,228,1,f); fclose(f); 
+	ReadFile(h,p,228,&rd,0); CloseHandle(h);
 	
 	(void*&)prt_ptr = p;
 	auto *prt = *prt_ptr;
@@ -1005,27 +1009,28 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 	auto cmp = mhm?".mhm":".msm";
 	int _mxm = mhm?_mhm:_msm;
 	if(0==(e&_mxm))
-	{
-		if(*ext&&!stricmp(ext,cmp))
-		{			
-			b-=2; sprintf(a+14,"%s\\%s",cmp+1,prt);
-		}
+	if(*ext&&!stricmp(ext,cmp))
+	{			
+		b-=2; sprintf(a+14,"%s\\%s",cmp+1,prt);
 	}
 
 	som_art_CreateFile_w = 0==(e&_mxm)?0:art;
 	{
 		memcpy(b+(ext-prt),cmp,5);
 
-		f = fopen(a,"rb");
+		//f = fopen(a,"rb");
+		h = CreateFileA(a,SOM_TOOL_READ);
 	}
-	som_art_CreateFile_w = 0; if(f) //4090a0
+	som_art_CreateFile_w = 0; //if(f) //4090a0
+	if(h!=INVALID_HANDLE_VALUE)
 	{
-		fseek(f,0,SEEK_END);	
-		auto os = ftell(f);	
-		p = new char[os]; //p = operator_new(os);
-		fseek(f,0,SEEK_SET);
-		fread(p,os,1,f);
-		fclose(f);
+		//fseek(f,0,SEEK_END);	
+		//auto os = ftell(f);	
+		auto os = GetFileSize(h,0);
+		p = new char[os]; //p = _malloc(os);		
+		//fseek(f,0,SEEK_SET);		
+		//fread(p,os,1,f); //fclose(f);
+		ReadFile(h,p,os,&rd,0); CloseHandle(h);
 		namespace msm = SWORDOFMOONLIGHT::msm;
 		msm::image_t img;
 		msm::maptorom(img,p,os);
@@ -1034,14 +1039,14 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 		auto fp = msm::firstpolygon(img);
 		if(!img.bad)
 		{
-			(void*&)msm_ptr = operator_new(32);
+			(void*&)msm_ptr = _malloc(32);
 
 			auto *mp = msm_ptr;
 			DWORD tn = t.count, vn = v.count;
 			mp->texturesN = tn;
-			(void*&)mp->textures = operator_new(2*tn);
+			(void*&)mp->textures = _malloc(2*tn);
 			mp->vertsN = vn;
-			(void*&)mp->verts = operator_new(60*vn);			 
+			(void*&)mp->verts = _malloc(60*vn);			 
 			mp->facesN = 0; 
 			mp->faces = 0; 
 
@@ -1073,10 +1078,12 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 				msm_ptr = 0; 
 			}*/
 		}
-		else f = 0;
+		//else f = 0;
+		else h = INVALID_HANDLE_VALUE;
 		delete[] p; //operator_delete(p); //040b620
 	}
-	if(!f) return 23; //assert(0); should raise MessageBox now
+	//if(!f) return 23; //assert(0); should raise MessageBox now
+	if(h==INVALID_HANDLE_VALUE) return 23;
 
 	///////////////// MHM ////////////////////
 	
@@ -1131,27 +1138,32 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 		//it cannot do that with "map/model"
 		if(mhm) som_map_tileviewmask&=~0x100;
 
-		f = fopen(a,"rb");
+		//f = fopen(a,"rb");
+		h = CreateFileA(a,SOM_TOOL_READ);
 
 		if(mhm) som_map_tileviewmask|=0x100;
 	}	
-	som_art_CreateFile_w = 0; if(f) //408fc0
+	som_art_CreateFile_w = 0; //if(f) //408fc0
+	if(h!=INVALID_HANDLE_VALUE)
 	{
-		fseek(f,0,SEEK_END);	
-		auto os = ftell(f);
-		p = operator_new(os);
-		fseek(f,0,SEEK_SET);
-		fread(p,os,1,f);
-		fclose(f);
+		//fseek(f,0,SEEK_END);	
+		//auto os = ftell(f);
+		auto os = GetFileSize(h,0);
+		p = _malloc(os);		
+		//fseek(f,0,SEEK_SET);		
+		//fread(p,os,1,f); //fclose(f);
+		ReadFile(h,p,os,&rd,0); CloseHandle(h);
 
-		(void*&)mhm_ptr = operator_new(8);
+		(void*&)mhm_ptr = _malloc(8);
 		mhm_ptr->sz = os;
 		mhm_ptr->file = p;
 
 		//EXTENSION?
-		if(os<24) f = 0; //TODO: further validation?
+		if(os<24) //f = 0; //TODO: further validation?
+		h = INVALID_HANDLE_VALUE;
 	}
-	if(!f) return 22; //assert(0); should raise MessageBox now
+	//if(!f) return 22; //assert(0); should raise MessageBox now
+	if(h==INVALID_HANDLE_VALUE) return 22;
 	
 	return 0;
 }
@@ -1302,21 +1314,11 @@ extern void MapComp_reprogram()
 		//004087BB 74 4E                je          0040880B
 		*(BYTE*)0x4087BB = 0xEB; //JMP
 
-	//I think SOM_MAP_map::read rebuilds these now according to 486FF0
-		//just wiping all of this out is simplest
-		//MHM... why is this decoupled from 486FF0?
-		//4322A0 is MSM? it is interleaved
-		//00408626 8B 35 B4 22 43 00    mov         esi,dword ptr ds:[4322B4h]
-		//...
-			//43E504 is not involved in this... what is it?
-			//004086DF A1 08 E5 43 00       mov         eax,dword ptr ds:[0043E508h]  
-			//004086E4 8B 1D 04 E5 43 00    mov         ebx,dword ptr ds:[43E504h]  
-			//004086EA 8B D0                mov         edx,eax  
-			//004086EC 3B C2                cmp         eax,edx  
-		//004086EE 89 35 F8 8F 48 00    mov         dword ptr ds:[488FF8h],esi 
-	//  ESP?
-	//	memset((void*)0x408626,0x90,0x4086DF-0x408626);
-	//	memset((void*)0x4086EE,0x90,6);
+		//MHM and MSM tables?
+		//00408674 89 35 B8 22 43 00    mov         dword ptr ds:[4322B8h],esi
+		//004086AC 89 35 A0 22 43 00    mov         dword ptr ds:[4322A0h],esi
+		memset((void*)0x408674,0x90,6);
+		memset((void*)0x4086ac,0x90,6);
 	}
 
 	//407C80 writes the MPX calling 40BD7C with fwrite signature
@@ -1467,4 +1469,28 @@ extern void MapComp_reprogram()
 	//remove empty fields from per texture MSM records
 	//004092C1 E8 AA 02 00 00       call        00409570
 	*(DWORD*)0x4092C2 = (DWORD)MapComp_409570-0x4092C6;
+
+	//2023
+	//layers "BSP" system
+	//remove treatment of blank tiles as occluders for layers
+	//004046F9 00 99 B9 64 00 00    add         byte ptr [ecx+64B9h],bl
+	memset((void*)0x4046f9,0x90,5);
+	//treat all tiles as dummies
+	//0040480A 0D 78 09 4C 00       or          eax,4C0978h
+	memset((void*)0x40480a,0x90,2);
+	//store v/e/V/E
+	//00405f4c 85 c0           TEST       EAX,EAX
+    //00405f4e 0f 84 6c 01 00 00   JZ     LAB_004060c0
+	//00405f54 80 38 65        CMP        byte ptr [EAX],0x65
+    //00405f57 75 04           JNZ        LAB_00405f5d
+    //00405f59 83 4d 10 40     OR         dword ptr [EBP + 0x10],0x40
+	{
+		//NOTE: low bit is still 1 for 'e' and 0 for 'v'
+		//xor ecx,ecx
+		//mov cl, byte ptr [eax]
+		//shl ecx,6
+		//or dword ptr [ebp+10h],ecx
+		memcpy((void*)0x405f4c,"\x31\xc9\x8a\x08\xc1\xe1\x06\x09\x4d\x10",10);
+		memset((void*)0x405f56,0x90,7);
+	}
 }

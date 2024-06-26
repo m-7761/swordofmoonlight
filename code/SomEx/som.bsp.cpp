@@ -49,7 +49,7 @@ struct som_BSP //EXPERIMENTAL
 };*/
 extern void som_bsp_make_mdo_instance(SOM::MDO *o) //som.MDL.cpp
 {
-	int decal = 0;
+//	int decal = 0;
 
 	auto *d = o->mdo_data();		       
 //	som_BSP *b = d->ext.bsp;
@@ -62,7 +62,7 @@ extern void som_bsp_make_mdo_instance(SOM::MDO *o) //som.MDL.cpp
 		{
 			o->elements[i].sort = 1; //sort?
 
-			decal|=1<<ch.matnumber;
+//			decal|=1<<ch.matnumber;
 
 			#ifdef NDEBUG
 //			#error item menu overwrites bsp
@@ -75,6 +75,7 @@ extern void som_bsp_make_mdo_instance(SOM::MDO *o) //som.MDL.cpp
 //		if(b) b = b->next();
 	}
 
+	/*sort = 2 was impossible //2024
 	if(decal&&d->material_count>1) //HACK: KF2 wall decal?
 	{
 		//TODO: an EXTENSION here would allow for
@@ -97,7 +98,7 @@ extern void som_bsp_make_mdo_instance(SOM::MDO *o) //som.MDL.cpp
 
 			if(!j) o->elements[i].sort = 2;
 		}
-	}
+	}*/
 }
 
 /////////////////////////////////////
@@ -201,7 +202,7 @@ struct som_bsp_t //triangle
 	void split(int,int,int,som_bsp_t*,float);
 	void split2(int,int,int,som_bsp_t*,som_bsp_t*,float,float);
 
-	int mode(){ return mpx_texture<=0xffff?0:se->mode; }
+	int mode(){ return mpx_texture<=0xffff?0:se->fmode; }
 
 	bool unlit(){ return mode()<=1; }
 
@@ -245,7 +246,7 @@ struct som_bsp_y : som_bsp_p //node
 	som_bsp_y *left;
 	som_bsp_y *right;
 	som_bsp_t *first; //linked-list	
-	void partition(bool split);
+	void partition(bool split, float ref[3]);
 
 	som_bsp_t *split(som_bsp_t*&,som_bsp_e);
 
@@ -259,11 +260,21 @@ struct som_bsp_y : som_bsp_p //node
 static int som_bsp_d(float p[3], float ref[3]=SOM::cam)
 {		
 	double m[3] = {p[0]-ref[0],p[1]-ref[1],p[2]-ref[2]};	
-	return (int)(100000*(double)som_bsp_dot(m,m));
+	return (int)(100000*som_bsp_dot(m,m));
 }
 static int som_bsp_d3(som_bsp_u *u[3])
 {
 	return min(min(u[0]->d,u[1]->d),u[2]->d);
+}
+static int som_bsp_delta(float d, float p[3], float ref[3]=SOM::cam)
+{		
+	double m[3] = {p[0]-ref[0],p[1]-ref[1],p[2]-ref[2]};	
+
+	double rcp = 1/sqrt(som_bsp_dot(m,m));
+
+	for(int i=3;i-->0;) m[i]-=m[i]*rcp*d;
+
+	return (int)(100000*som_bsp_dot(m,m));
 }
 
 static som_bsp_t *som_bsp_top = 0;
@@ -310,10 +321,10 @@ extern void som_bsp_add_tiles(som_bsp_tile::scenery_ext *ses, size_t sz)
 				{
 					if(tuv=mt->mode&(8|16))
 					{
-						extern float som_scene_413F10_uv;
+						extern float som_scene_413f10_uv;
 
-						tu = mt->data[7]*som_scene_413F10_uv;
-						tv = mt->data[8]*som_scene_413F10_uv;
+						tu = mt->data[7]*som_scene_413f10_uv;
+						tv = mt->data[8]*som_scene_413f10_uv;
 					}
 				
 		//			if(mt->mode&0x100) blend = DX::D3DBLEND_ONE;
@@ -404,6 +415,22 @@ static void som_bsp_add_sprite(som_MDL::vbuf *se, som_bsp_t* &swap, float ref[3]
 
 	auto *v = (DX::D3DLVERTEX*)se->worldxform;
 
+	//2023: pull sprites forward for magician lamp?
+	float mm[3][2] = {{1000,-1000},{1000,-1000},{1000,-1000}};
+	for(int i=4;i-->0;)
+	{
+		mm[0][0] = min(mm[0][0],v[i].x);
+		mm[1][0] = min(mm[1][0],v[i].y);
+		mm[2][0] = min(mm[2][0],v[i].z);
+		mm[0][1] = max(mm[0][1],v[i].x);
+		mm[1][1] = max(mm[1][1],v[i].y);
+		mm[2][1] = max(mm[2][1],v[i].z);
+	}
+	float dx = mm[0][1]-mm[0][0];
+	float dy = mm[1][1]-mm[1][0];
+	float dz = mm[2][1]-mm[2][0];
+	float d2 = sqrtf(dx*dx+dy*dy+dz*dz)*0.5f;
+
 	som_bsp_u *up[4]; for(int i=4;i-->0;v++)
 	{
 		som_bsp_u *u = up[i] = new_som_bsp_u;
@@ -417,7 +444,7 @@ static void som_bsp_add_sprite(som_MDL::vbuf *se, som_bsp_t* &swap, float ref[3]
 		u->uv[1] = v->tv;
 		u->vc = v->color; 
 				
-		u->d = som_bsp_d(u->pos,ref);
+		u->d = som_bsp_delta(d2,u->pos,ref);
 	}	
 
 	for(int i=2;i-->0;)
@@ -447,7 +474,7 @@ static void som_bsp_lerp(int i, float *result, float *a, float *b, float t)
 {
 	while(i-->0) result[i] = a[i]+(b[i]-a[i])*t; 
 }	
-extern void som_bsp_add_vbufs(som_MDL::vbuf **ses, size_t sz)
+extern DWORD som_bsp_add_vbufs(som_MDL::vbuf **ses, DWORD sz)
 {
 	auto swap = som_bsp_top;
 	
@@ -471,19 +498,22 @@ extern void som_bsp_add_vbufs(som_MDL::vbuf **ses, size_t sz)
 	}
 	else memcpy(r,SOM::cam,sizeof(r));
 
-	while(sz-->0)
+	DWORD i,j; for(i=j=0;i<sz;i++)
 	{
-		auto *se = ses[sz];
+		auto *se = ses[i];
 
-		DWORD mode = se->mode;
+		DWORD mode = se->fmode;
 
-		if(!se->sort) continue; //sort?
+		if(!se->sort)
+		{
+			ses[j++] = se; continue; //sort?
+		}
 
 	//	if(!se->texture) continue; //shadow?
 
 		assert(se->texture);
 
-		switch(se->mode)
+		switch(se->fmode)
 		{
 		default: assert(0); continue; //2? 4?
 
@@ -505,7 +535,7 @@ extern void som_bsp_add_vbufs(som_MDL::vbuf **ses, size_t sz)
 		extern void som_scene_xform_bsp_v(void*,float**,size_t,bool);
 		som_scene_xform_bsp_v(se,(float**)vp,iN,item);
 
-		if(se->sort==2) 
+		/*if(se->sort==2) //2 was impossible? //2024
 		{
 			int m = 0;
 			for(i=0;i<iN;i++) m+=som_bsp_d(vp[i]->pos,r);
@@ -524,7 +554,7 @@ extern void som_bsp_add_vbufs(som_MDL::vbuf **ses, size_t sz)
 
 			decal = m; decal2 = se;
 		}
-		else for(i=0;i<iN;i++)
+		else*/ for(i=0;i<iN;i++)
 		{
 			vp[i]->d = som_bsp_d(vp[i]->pos,r);
 		}		
@@ -602,9 +632,8 @@ extern void som_bsp_add_vbufs(som_MDL::vbuf **ses, size_t sz)
 		}
 	}
 
-	som_bsp_top = swap;
+	som_bsp_top = swap; return j;
 }
-
 
 void som_bsp_p::init_abcd(float *p0, float *p1, float *p2)
 {
@@ -642,12 +671,17 @@ som_bsp_e som_bsp_p::side(float *p0, float *p1, float *p2)
 
 	som_bsp_e e = {e0,e1,e2,er}; return e;
 }
-void som_bsp_y::partition(bool splitting)
+void som_bsp_y::partition(bool splitting, float ref[3])
 {
 	left = right = 0;
 
 	//plane normal/distance?
 	init_abcd(first->v[0]->pos,first->v[1]->pos,first->v[2]->pos);
+
+	if(som_bsp_dot(abc,ref)>0)
+	{
+		for(int i=3;i-->0;) abc[i] = - abc[i]; d = -d;
+	}
 
 	som_bsp_t *_l[3] = {}, **l = _l-LEFT; //YUCK!
 
@@ -714,7 +748,7 @@ void som_bsp_y::partition(bool splitting)
 
 		(i==LEFT?left:right) = y;
 
-		y->first = l[i]; y->partition(splitting);
+		y->first = l[i]; y->partition(splitting,ref);
 	}
 }
 
@@ -950,6 +984,8 @@ extern float *som_scene_lit;
 extern float som_hacks_skyconstants[4];
 extern int som_scene_volume;
 extern void som_scene_lighting(bool);
+extern DWORD som_scene_ambient2;
+extern DWORD som_scene_ambient2_vset9(float[3+2]);
 
 som_bsp_y **som_bsp_y::sort(som_bsp_y **yy, float ref[3])
 {
@@ -973,7 +1009,7 @@ som_bsp_y **som_bsp_y::sort(som_bsp_y **yy, float ref[3])
 extern void som_bsp_sort_and_draw(bool item)
 {
 	if(!som_bsp_top) return; //important           
-
+		
 	namespace sss = som_scene_state;
 
 	if(item)
@@ -1384,7 +1420,7 @@ extern void som_bsp_sort_and_draw(bool item)
 			p[-1].second->next = p->second;			
 			p[-1].second->next = nullptr;
 			
-				y->partition(false/*item*/);
+				y->partition(false/*item*/,r);
 						
 				*y->sort(&y,r)=0; //YUCK			
 
@@ -1495,6 +1531,8 @@ extern void som_bsp_sort_and_draw(bool item)
 		som_hacks_primode = fog?4:0;
 	}
 
+	//som_MDL::vbuf *cur = 0;
+
 	auto *tn = t;
 	for(ui=vi=0,t=tt;t!=tn;t=t->next,(mode<=1?ui:vi)+=3)
 	{	
@@ -1514,6 +1552,8 @@ extern void som_bsp_sort_and_draw(bool item)
 		if(mode!=t->mode())
 		{
 			flush(); //lambda
+
+			som_scene_ambient2 = -1; //2023: seeing flickering
 
 			mode = t->mode();
 
@@ -1652,27 +1692,32 @@ extern void som_bsp_sort_and_draw(bool item)
 						//except som_scene_413F10 has troubles 
 						som_scene_gamma_n = npc==3&&DDRAW::vshaders9[8];
 					}
-										
-					if(se->mode!=3||!se->lit
-					||!sss::lighting_desired) //2022: sky?
-					{
-						som_scene_lit = 0;
-					}
-					else if(se->worldxform[0][3]) //hack: repurposing
-					{
-						//this was designed for transparent elements
-						//som_scene_batchelements_hold is using lit5
-						//som_scene_lit = som_scene_lit5;
-						som_scene_lit = som_scene_lit5+5;
-						som_scene_lit[0] = se->lightselector[0];
-						som_scene_lit[1] = se->lightselector[1];
-						som_scene_lit[2] = se->lightselector[2];
-						som_scene_lit[3] = se->worldxform[0][3]; se->worldxform[0][3] = 0;
-						som_scene_lit[4] = se->worldxform[1][3]; se->worldxform[1][3] = 0;
 
-						extern DWORD som_scene_ambient2_vset9(float[3+2]);
-					//	DWORD debug = //having batching troubles
-						som_scene_ambient2_vset9(som_scene_lit); //2020
+					//if(cur!=se)
+					{
+						//flush(); //lambda
+
+						//cur = se;
+																
+						if(se->fmode!=3||!se->lit
+						||!sss::lighting_desired) //2022: sky?
+						{
+							som_scene_lit = 0;						
+						}
+						else if(se->worldxform[0][3]) //hack: repurposing
+						{
+							//this was designed for transparent elements
+							//som_scene_batchelements_hold is using lit5
+							//som_scene_lit = som_scene_lit5;
+							som_scene_lit = som_scene_lit5+5;
+							som_scene_lit[0] = se->lightselector[0];
+							som_scene_lit[1] = se->lightselector[1];
+							som_scene_lit[2] = se->lightselector[2];
+							som_scene_lit[3] = se->worldxform[0][3]; //se->worldxform[0][3] = 0;
+							som_scene_lit[4] = se->worldxform[1][3]; //se->worldxform[1][3] = 0;
+						
+							som_scene_ambient2_vset9(som_scene_lit);
+						}
 					}
 				}												
 			
@@ -1702,8 +1747,9 @@ extern void som_bsp_sort_and_draw(bool item)
 			{
 				flush();
 
-				DDRAW::Direct3DDevice7->SetRenderState
-				(DX::D3DRENDERSTATE_DESTBLEND,sss::destblend=blend);
+				sss::destblend = blend;
+
+				DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_DESTBLEND,blend);
 			}
 		}
 

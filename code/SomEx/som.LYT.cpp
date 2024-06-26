@@ -242,7 +242,7 @@ extern void som_LYT_open(WCHAR mapcomp[2])
 
 	//WARNING: som_tool_FindFirstFileA fails
 	//to implement this correctly/needs work
-	int iN = wcscmp(EX::user(0),EX::cd())?2:1; //HACK
+	int iN = *EX::user(0)?2:1; //HACK
 	for(int map,i=0;i<iN;i++)	
 	{
 		int cat = swprintf(w,L"%s\\map\\",EX::data(i));		
@@ -368,8 +368,9 @@ extern void som_LYT_compose(HWND hw)
 	{
 		if(!lyt[1]&&!_wremove(w)) //single line?
 		{
-			delete[] (void*)SOM_MAP.lyt[j]; SOM_MAP.lyt[j] = 0;
-			refresh:
+			delete[] (void*)SOM_MAP.lyt[j];
+			SOM_MAP.lyt[j] = 0;
+	refresh:
 			windowsex_enable<1075>(hw,0);
 			//nice: refresh menu and reload if [de]composing
 			//the currently open map, but after closing menu
@@ -382,6 +383,11 @@ extern void som_LYT_compose(HWND hw)
 				SetWindowLong(hw,DWL_USER,~layer); 
 			}								  
 			else som_LYT_maybe_update_label(base,layer);
+
+			//2024: delete the mpy file?
+			wcscpy(PathFindExtension(w),L".mpy"); //HACK
+			DeleteFile(w);
+
 			return;
 		}
 	}

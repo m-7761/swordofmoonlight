@@ -12,9 +12,9 @@ EX_TRANSLATION_UNIT //(C)
 
 namespace //som_db constants
 {
-	const float o1 = 0.01f;
-	const float oo1 = 0.001f; //4583E8
-	const float oo2 = 0.002f;
+	static const float o1 = 0.01f;
+	static const float oo1 = 0.001f; //4583E8
+	static const float oo2 = 0.002f;
 }
 
 static float som_clipc_haircut;
@@ -270,7 +270,7 @@ static void __cdecl som_clipc_426D60(FLOAT _1)
 }
 
 typedef BYTE __cdecl som_clipc_40dff0_t(FLOAT*,FLOAT,FLOAT,DWORD,DWORD,FLOAT*,FLOAT*);
-static const auto &som_clipc_x40dff0 = *(som_clipc_40dff0_t*)0x40dff0;
+static auto som_clipc_x40dff0 = *(som_clipc_40dff0_t*)0x40dff0;
 bool SOM::clipper_40dff0(float _1[3],float _2,float _3, int obj, int _5, float _6[3], float _7[3])
 {
 	auto &ai = SOM::L.ai3[obj];	
@@ -280,7 +280,7 @@ bool SOM::clipper_40dff0(float _1[3],float _2,float _3, int obj, int _5, float _
 
 	float _[3]; assert(_6);
 	float h2 = mhm&&_5&2?ai[SOM::AI::height3]:_2;
-	if(!som_clipc_x40dff0(_1,h2,_3,obj,_5&2?1:0,_6,_7?_7:_))
+	if(!som_clipc_x40dff0(_1,h2+oo1,_3,obj,_5&2?1:0,_6,_7?_7:_))
 	return false;
 
 	if(mhm)
@@ -288,7 +288,7 @@ bool SOM::clipper_40dff0(float _1[3],float _2,float _3, int obj, int _5, float _
 		//HACK: return results in SOM::clipper
 		//SOM::Clipper pclip(_1,_2,_3,_5);
 		//if(!pclip.clip(mhm,mdo,mdl,_6,_7?_7:_))
-		if(!SOM::clipper.clip(mhm,mdo,mdl,_6,_7?_7:_));
+		if(!SOM::clipper.init(_1,_2,_3,_5).clip(mhm,mdo,mdl,_6,_7?_7:_))
 		return false;
 
 		if(!_7&&!_5)
@@ -330,7 +330,7 @@ static struct som_clipc_climb_t
 
 }som_clipc_climb;
 	
-static float som_clipc_40D750_4[3];
+extern float som_clipc_40D750_4[3] = {};
 static BYTE __cdecl som_clipc_40D750(FLOAT *_1,FLOAT _2,FLOAT _3,FLOAT *_4,
 FLOAT _5,FLOAT _6,FLOAT _7,FLOAT _8, DWORD _9, FLOAT *_10, FLOAT *_11)
 {
@@ -344,7 +344,7 @@ FLOAT _5,FLOAT _6,FLOAT _7,FLOAT _8, DWORD _9, FLOAT *_10, FLOAT *_11)
 	som_clipc_40D750_4[2] = _4[2]; return 1;
 }
 
-static float som_clipc_opposite(float adjacent, float clip_y)
+extern float som_clipc_opposite(float adjacent, float clip_y)
 {
 	float angle = M_PI_2-asinf(clip_y); return tanf(angle)*adjacent;
 }
@@ -1239,7 +1239,7 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 //a full investigation even though I'm going to publish v1.2.2.14 anyway
 //NOTE: surmounting_staging solves this problem okay in a roundabout way
 //#error fix me
-int todolist[SOMEX_VNUMBER<=0x1020504UL]; //I think this can be removed?
+int todolist[SOMEX_VNUMBER<=0x1020602UL]; //I think this can be removed?
 #endif
 			//REMINDER: it's too messy to try to rule out crawlspaces
 			//return false;
@@ -1448,14 +1448,14 @@ extern void som_clipc_reprogram() //som_clipc_reprogram_image
 			//The reciprocal is probably 0x457418 (3)
 			//SOM::L.freefall = (FLOAT*)0x457514;
 
-			//This is where the vertical component is scaled
+			//this is where the vertical component is scaled
 	//		som_state_route(0x22d33,0,(DWORD)&som_clipc_g); 
 		}
 	//	if(image__db2)
 		{							
 			//TODO: player_character_clip
-			//This is the F4 mode scalar (1/3)
-			//The reciprocal is probably 0x458438 (3)
+			//this is the F4 mode scalar (1/3)
+			//the reciprocal is probably 0x458438 (3)
 			//SOM::L.freefall = (FLOAT*)0x458534;
 
 			//00424B79 D8 0D 94 AA 30 10    fmul        dword ptr [458534h]
@@ -1472,7 +1472,7 @@ extern void som_clipc_reprogram() //som_clipc_reprogram_image
 			//*(DWORD*)0x424B6D = (DWORD)&som_clipc_g;
 		}	
 
-		//To get the velocity you want to divide by 18
+		//to get the velocity you want to divide by 18
 		//NOTE: WHAT THIS ACTUALLY DOES is divide by 3
 		//for the three stage multi-pass clipper setup
 		//but this way of controlling the gravity came

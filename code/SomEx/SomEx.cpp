@@ -396,7 +396,7 @@ extern int EX::is_needed_to_initialize()
 	SOM::cursorY = SOM::config("cursorY",0);
 	SOM::cursorZ = SOM::config("cursorZ",0);
 	SOM::capture = SOM::config("capture",0);
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	//2022: no longer working (January) (maybe just
 	//a temporary Windows 10 bug?) (is this function
 	//only called once?)
@@ -405,7 +405,7 @@ extern int EX::is_needed_to_initialize()
 	{
 		//TESTING: this shows the up arrow... I wish
 		//it would timeout
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		SOM::f10();
 	}
 
@@ -470,6 +470,9 @@ extern int EX::is_needed_to_initialize()
 	SomEx_numlock = op->do_numlock?dt->numlock_status:false;
 
 	SOM::emu = op->do_2k; //Som2k emulation
+
+	//if(op->do_shadow) 
+	DDRAW::textures = 2; //2024
 
 tool: //things meaningful to tools starts here	
 
@@ -940,7 +943,7 @@ static bool SomEx(bool reload=false)
 				{
 					SetEnvironmentVariableW(L".NET",argv[i]);
 				}				
-				if(fad.nFileSizeLow>=98308) //save game?
+				if(fad.nFileSizeLow>=98308) //custom save game extension?
 				{			
 					//NOTE: the player_file_extension extension only
 					//governs writing files. it may be prohibitive to
@@ -1038,17 +1041,25 @@ static bool SomEx(bool reload=false)
 		
 		//command line oriented defaults
 		if(!wcscmp(SomEx_exe,L"SOM_EX"))
-		if(GetEnvironmentVariableW(L".SOM",0,0)<=1)
+		if(GetEnvironmentVariableW(L".SOM",0,0)>1)
 		{
-			wcscpy(SomEx_exe,L"SOM_MAIN");
+			DWORD sz = 0, sz2 = 0;
+			HANDLE h = CreateFile(Sompaste->get(L".SOM"),SOM_GAME_READ);
+			if(h&&h!=INVALID_HANDLE_VALUE)
+			{
+				sz = GetFileSize(h,&sz2); CloseHandle(h);
+			}
+			bool sav = sz>=98308&&!sz2;
+
+			if(!sav&&GetEnvironmentVariableW(L".MAP",0,0)<=1)
+			{
+				//HACK: Som_h currently overrides this in
+				//case a save file is detected
+				wcscpy(SomEx_exe,L"SOM_EDIT"); 
+			}
+			else wcscpy(SomEx_exe,L"SOM_DB");
 		}
-		else if(GetEnvironmentVariableW(L".MAP",0,0)<=1)
-		{
-			//HACK: Som_h currently overrides this in
-			//case a save file is detected
-			wcscpy(SomEx_exe,L"SOM_EDIT"); 
-		}
-		else wcscpy(SomEx_exe,L"SOM_DB");
+		else wcscpy(SomEx_exe,L"SOM_MAIN");
 
 		out = true;
 	}	
@@ -1904,18 +1915,19 @@ static EX::_sysenum SomEx_pc_or_npc(int pc, size_t i, float *out)
 		if(&ad->character_identifier)
 		*out = ad->character_identifier(*out,(float)(pc>>16));
 		*/
-		int ai = pc&4095; switch(pc&3<<12)
+		int ai = pc&0xfff; switch(pc&3<<12)
 		{
 		case 0x0000: *out = SOM::L.ai[ai][SOM::AI::enemy]; break;
 		case 0x1000: *out = SOM::L.ai2[ai][SOM::AI::npc]; break;
 		case 0x2000: *out = SOM::L.ai3[ai][SOM::AI::object]; break;
+		case 0x3000: *out = 12288; break; //2023 //12288
 		default: assert(0);
 		}
 		if(!EX::isNaN(*out))
 		{
 			EX::INI::Adjust ad;
 			if(&ad->character_identifier)
-			*out = ad->character_identifier(*out,(float)ai);
+			*out = ad->character_identifier(pc&3<<12|(int)*out,(float)ai);
 		}
 		else assert(0); break;
 	}
@@ -1930,8 +1942,8 @@ static EX::_sysenum SomEx_pc_or_npc(int pc, size_t i, float *out)
 
 			//SAME AS som_state_404470_strength_and_magic
 			SOM::xxiix sm;
-			//int prm = pc&4095; assert(prm<1024); 
-			int prm,ai = pc&4095; 
+			//int prm = pc&0xfff; assert(prm<1024); 
+			int prm,ai = pc&0xfff; 
 			switch(pc&3<<12) //YUCK
 			{
 			case 0x0000: //enemy
@@ -1985,7 +1997,7 @@ static EX::_sysenum SomEx_pc_or_npc(int pc, size_t i, float *out)
 		{
 			//NOTE: this was broken before 1.3.2.4
 			//(ai was the PRM index)
-			int ai = pc&4095;
+			int ai = pc&0xfff;
 			int aj = i==16?
 			SOM::AI::_scale:SOM::AI::xyz+(i-13);			
 			switch(pc&3<<12)
@@ -2007,7 +2019,7 @@ static EX::_sysenum SomEx_pc_or_npc(int pc, size_t i, float *out)
 
 				//HACK: SOM::AI::xyz3 is 1 less
 				//HACK: SOM::AI::scale3 is 1 more
-				aj+=aj==SOM::AI::_scale?1:-1;
+				aj+=aj==SOM::AI::_scale3?1:-1;
 				*out = SOM::L.ai3[ai].f[aj];
 				break;
 			}
@@ -2582,6 +2594,54 @@ extern int SomEx_shift()
 	}
 	return GetAsyncKeyState(VK_SHIFT)>>15?-1:1;
 }
+//2023: this is to delay input of function keys until release
+//in order to resolve combinations without doing two things
+static char SomEx_f[12*2] = {};
+static void SomEx_dispatch_f(const char fkeys[256])
+{
+	for(int i=0;i<sizeof(SomEx_f);i++)
+	{
+		int shift = SomEx_f[i];		
+		if(!shift) continue;
+
+		int f = i%12+1;
+
+		int dik = f-1+0x3B; //F1
+		if(f>10)
+		{
+			dik = f-11+0x57; //F11
+		}
+		if(fkeys[dik]) continue; //held?
+
+		if(i<12) switch(f) //released?
+		{
+		case 1: SOM::altf1(); break;
+		case 2: SOM::altf2(); break;
+		case 3: SOM::altf3(shift); break;
+		case 4: SOM::altf4(0); break;
+		case 5: SOM::altf5(); break;
+		default: assert(0); break; //5-10
+		case 11: SOM::altf11(); break;
+		case 12: SOM::altf12(shift); break;
+		}
+		else EX::simulcasting_output_overlay_dik(dik,dik);
+
+		SomEx_f[i] = 0;
+	}
+}
+static void SomEx_remember_f(int f, bool alt, int shift=1)
+{
+	f--; 
+	
+	int i = alt?f:12+f;
+
+	SomEx_f[i] = shift;
+
+	if(i==f||SomEx_f[f])
+	{
+		SomEx_f[12+f] = 0; //remove function toggle
+	}
+}
 extern bool som_mocap_allow_modifier();
 extern unsigned char EX::translating_direct_input_key(unsigned char x, const char xaltetc[256])
 {	
@@ -2594,6 +2654,9 @@ extern unsigned char EX::translating_direct_input_key(unsigned char x, const cha
 	}
 
 	bool alt = xaltetc[0x38]||xaltetc[0xB8];
+
+	//2023: passing function key states to test release
+	if(!x) SomEx_dispatch_f(xaltetc);
 
 	switch(x)
 	{
@@ -2832,6 +2895,7 @@ extern unsigned char EX::translating_direct_input_key(unsigned char x, const cha
 
 	return x;
 }
+extern bool som_MPY_nobsp;
 extern int Ex_output_overlay_focus; //HACK
 extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx)
 {	
@@ -2904,11 +2968,22 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 		}
 		else if(x==0x2F) //2020: Alt+Alt+V (vector mode)
 		{
+			alt2_inputs|=2;
+
 			//set D3DRENDERSTATE_FILLMODE
 			//note som_hacks_Clear must assist this
 			//0040249E 8B 0D 0C A1 45 00    mov         ecx,dword ptr ds:[45A10Ch]
 			DWORD &rs = SOM::L.fill; rs = rs==2?3:2;
-			alt2_inputs|=2;
+
+			SOM::subtitle("Vector mode on/off");
+		}
+		else if(x==0x30) //2023: Alt+Alt+B (bsp mode)
+		{
+			alt2_inputs|=8;
+				
+			som_MPY_nobsp = !som_MPY_nobsp;
+
+			SOM::subtitle("BSP prune off/on");
 		}
 		else if(x==0x2D) //2020: X?
 		{
@@ -2922,10 +2997,7 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 			{
 				i = i==0?29:i-1;
 			}
-			else 
-			{
-				DSOUND::doReverb_mask = (1+DSOUND::doReverb_mask)%3;
-			}
+			else DSOUND::doReverb_mask = (1+DSOUND::doReverb_mask)%3;
 
 			alt2_inputs|=2;
 		}
@@ -3046,7 +3118,8 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 			if(*url&&(HINSTANCE)33>ShellExecuteW(EX::display(),L"openas",url,0,0,1))
 			ShellExecuteW(EX::display(),L"open",url,0,0,1);
 			*/
-			SOM::altf1(); //super sampling mode
+			//SOM::altf1(); //super sampling mode
+			SomEx_remember_f(1,true);
 		}
 		break;
 
@@ -3054,7 +3127,8 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 
 		if(SomEx_alt()||!tt->f(2))
 		{
-			SOM::altf2(); //PSVR mode
+			//SOM::altf2(); //PSVR mode
+			SomEx_remember_f(2,true);
 		}
 		break;
 
@@ -3062,7 +3136,8 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 
 		if(EX::alt()||!tt->f(3)) //SomEx_alt
 		{
-			SOM::altf3(SomEx_shift()); //zoom mode
+			//SOM::altf3(SomEx_shift()); //zoom mode
+			SomEx_remember_f(3,true,SomEx_shift());
 		}
 		break;
 
@@ -3075,10 +3150,19 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 			//macro and an f4 (no-clip) macro at the same time
 			if(GetKeyState(VK_MENU)>>15&&GetKeyState(VK_F4)>>15)
 			{
-				SOM::altf4(); //cleaner than SOM's ALT+F4
+				//SOM::altf4(); //cleaner than SOM's ALT+F4
+				SomEx_remember_f(4,true);
 
 				return; //2020
 			}
+		}
+		break;
+
+	case 0x3F: //Alt+F5 (reload)
+
+		if(SOM::alt==SOM::frame)
+		{
+			SomEx_remember_f(5,true); //SOM::altf5()
 		}
 		break;
 
@@ -3097,7 +3181,8 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 			//NOTE: CONTROL SUPPRESSES F11
 			//IN fullscreen MODE SO IT DOESN'T
 			//ACCIDENTALLY MINIMIZE
-			SOM::altf11(); //fullscreen
+			//SOM::altf11(); //fullscreen
+			SomEx_remember_f(11,true);
 		}
 		break;
 
@@ -3159,13 +3244,15 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 				//pattern (some may shift to type +)
 			}
 
-			SOM::altf12(mute);
+			//SOM::altf12(mute);
+			SomEx_remember_f(12,true,mute?mute:2);
 		}
 		break;
 		case 0x0B: //0 (close to +/-
 		if(!Ex_output_overlay_focus)
 		{
-			SOM::altf12(0); //mute
+			//SOM::altf12(0); //mute
+			SomEx_remember_f(12,true,2); //0
 		}
 		break;
 
@@ -3212,7 +3299,17 @@ extern void EX::broadcasting_direct_input_key(unsigned char x, unsigned char unx
 		DDRAW::multicasting_dinput_key_engaged(x);
 
 		if(!SOM::paused||x==0x3E||x==0x3D) //NEW
-		EX::simulcasting_output_overlay_dik(x,unx);
+		{
+			if(x>=0x3B&&x<=0x44) //F1-F10
+			{
+				SomEx_remember_f(1+x-0x3B,false);
+			}
+			else if(x>=0x57&&x<=0x58) //F11-F12
+			{
+				SomEx_remember_f(11+x-0x57,false);
+			}
+			else EX::simulcasting_output_overlay_dik(x,unx);
+		}
 	}
 	else if(DDRAW::isPaused&&x==0xC5) //PAUSE
 	{

@@ -150,6 +150,8 @@ static struct som_mocap
 
 	float backwards,sideways;
 
+	int gauge_bufs[3] = {};
+
 	typedef struct //engine
 	{
 		bool rest,push;
@@ -616,8 +618,7 @@ static struct som_mocap
 		int guard_holding;
 		int guard_releasing;	
 		int guard_bashing;
-		bool guard_bashing2; 
-		bool bash;
+		bool guard_bashing2;
 		bool guard_raising;
 		unsigned guard_bashtick;
 		unsigned guard_sloshing;
@@ -627,6 +628,7 @@ static struct som_mocap
 			int guard_fusion;
 		};
 		int counter;
+		int guard_dropping;
 
 	}guard;
 	
@@ -1023,7 +1025,7 @@ static void som_mocap_footstep_soundeffect()
 	#ifdef NDEBUG
 	//do this with frequency and left Ex.ini define
 	//desired range
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	#endif
 
 	//2017: this plays at very fast stutters under
@@ -1235,7 +1237,10 @@ void SOM::Motions::reset_config()
 	//just never died mid swing before)
 	auto &mdl = *SOM::L.arm_MDL;
 	SOM::L.swinging = 0;
-	mdl.d = 1; mdl.f = -1; mdl.ext.d2 = 0;
+	mdl.d = 1; 
+	mdl.ext.d2 = 0;
+	mdl.rewind(); //mdl.f = -1;
+	mdl.rewind2();
 }
 
 //EXPERIMENTAL
@@ -2430,7 +2435,10 @@ void som_mocap::engine::operator()(float step, BYTE *kb)
 			//NOTE: this is needed to jump over Moratheia's fences
 			//HACK: this height is subtracted from jumping because 
 			//it started to feel weird after some upgrade I forget
-			if(SOM::motions.aloft) SOM::L.fence+=EX_INI_NICE_JUMP;
+			if(SOM::motions.aloft)
+			{
+				SOM::L.fence+=EX_INI_NICE_JUMP;
+			}
 
 					//NEW: having problems with convex walls...
 					//I think the clinging function is keeping
@@ -2729,17 +2737,9 @@ void som_mocap::engine::operator()(float step, BYTE *kb)
 			//it's also a little bit justified since the
 			//magic gauge is drained
 			if(2==mc.Shield.guard_bashing
-			//&&SOM::L.pcstatus[SOM::PC::m]<4500
 			&&SOM::motions.tick<mc.Shield.guard_bashtick+tvh+100)
 			{
 				mc.attacked2 = true;
-			}
-
-			if(som_mocap_guard)			
-			if(!mc.attacked2&&turbo2>=tvh)			
-			if(!SOM::motions.swing_move&&SOM::shield_or_glove(5))
-			{
-				mc.Shield.bash = mc.attacked2 = true;
 			}
 
 			if(!mc.attacked2) //SAME AS BELOW
@@ -2812,17 +2812,9 @@ void som_mocap::engine::operator()(float step, BYTE *kb)
 				{
 					//HACK: prevent chaining until beyond damage frame?
 					//if((mdl.d-mv->uc[76])/som_MDL_arm_fps<-66)
-					if(mdl.d<mv->uc[77])
-					mc.attacked = true;
+					if(mdl.d<mv->uc[77]) mc.attacked = true;
 				}
 				else assert(0);
-			}
-
-			if(som_mocap_guard)
-			if(!mc.attacked&&turbo>=tvh)
-			if(!SOM::motions.swing_move&&SOM::shield_or_glove(0))
-			{
-				mc.Weapon.bash = mc.attacked = true;
 			}
 
 			if(guard_lock&&!mc.attacked) //SAME AS ABOVE
@@ -2938,7 +2930,11 @@ void som_mocap::engine::operator()(float step, BYTE *kb)
 			//can't seem to do that with p[i+2]
 			for(int i=0;i<2;i++)
 			{
+				int defeat = p[i]-x;
+
 				p[i]-=(WORD)min(p[i],x); p[i+2] = 0; //suppresses refill
+
+				if(defeat<=0) (&mc.Shield)[!i].guard_dropping = -defeat;
 			}
 		}
 		//EX::dbgmsg("p: %d (%d)",p[0],p[2]);
@@ -3014,10 +3010,11 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 	int &mc_attack2 = shield?mc.attack2:mc.attack;
 	bool&mc_attacked = shield?mc.attacked2:mc.attacked;
 	int &mdl_d = shield?mdl.ext.d2:mdl.d;
-	int &mdl_e = shield?mdl.ext.e2:mdl.c;
+	int &mdl_c = shield?mdl.ext.c2:mdl.c;
 	int &mdl_f = shield?mdl.ext.f2:mdl.f;
 
-	WORD &m =SOM::L.pcstatus[shield?SOM::PC::m:SOM::PC::p];
+	WORD *ps = SOM::L.pcstatus;
+	WORD &m = ps[shield?SOM::PC::m:SOM::PC::p];
 
 	int ret = 0; //guard_lock
 
@@ -3045,7 +3042,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 			#ifdef NDEBUG
 			//do this with frequency and let Ex.ini define
 			//desired range
-			int todolist[SOMEX_VNUMBER<=0x1020504UL];
+			int todolist[SOMEX_VNUMBER<=0x1020602UL];
 			#endif
 			//HACK: historically the original arm resets to 1
 			//somehow/somewhere it's being set to 0 (this is
@@ -3085,6 +3082,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 					guard_bashing = 0; //preventing wraparound
 				}
 			}
+
 			SOM::motions.swing_move = 0;
 		}
 
@@ -3152,10 +3150,19 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 	}
 	//EX::dbgmsg("hit: %f %d",SOM::motions.shield2[1],SOM::hit!=0);
 
-	if(mv&&mc_attack2>=tvh||bash
-	 ||mv&&guard_holding&&guard_bashing<=1)
+	auto mdl_advance = [&](int dir)
 	{
-		bool atk = mc_attack2>=tvh||bash;
+		if((shield?mdl.ext.dir2:mdl.ext.dir)!=dir)
+		{
+			if(shield) mdl.advance2(dir);
+			if(!shield) mdl.advance(dir);
+		}
+	};
+
+	if(mv&&mc_attack2>=tvh
+	||mv&&guard_holding&&guard_bashing<=1)
+	{
+		bool atk = mc_attack2>=tvh;
 		//if(atk) mc_attacked = true; //bash?
 		if(atk&&!mc.hold_cancel) mc.hud_cancel = true;
 
@@ -3165,15 +3172,12 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 
 		cancel = true;
 
-		//HACK: prevent delayed bash if running drains out
-		if(bash&&atk&&!m) bash = false;
-
 		//2022: I may have at one point decided running is
 		//allowed but I recall planning to not allow it...
 		//in which case this disables it on an empty gauge
 		//(it seems reasonable to not allow it when empty)
 		if(m||mc.running<1.0f)
-		if(!mc.fleeing2)
+		if(!mc.fleeing2&&!guard_dropping)
 		if(!mc.hold_cancel)			
 		if(!mc_action||!mc_attack||mc.resting
 		||mc_action<tvh_ms+_ms&&!mc.Engine.push
@@ -3181,7 +3185,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 		||mc_action<tvh&&mc_attack2-mc_action>200)
 		if(up||!mc.Jumpstart)
 		if((!mc.jumping||mc.hopping)&&!mc.scaling)
-		if(!(mc_attack&&!mc_attack2)||bash)
+		if(!(mc_attack&&!mc_attack2))
 		if(!shield||!SOM::L.swinging&&mdl.d<=1&&!mc.attack3)
 		if(!shield||!SOM::motions.swing_move)
 		if(shield||!mdl.ext.d2&&!mc_attack)
@@ -3212,8 +3216,8 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 				//int id = mdl.animation(34);
 				int id = mdl.animation(mv->s[0]);
 				if(id==-1) return 0;
-				mdl_e = id;
-				mdl_f = -1;
+				mdl_c = id;
+				shield?mdl.rewind2():mdl.rewind(); //mdl_f = -1;
 				mdl_d = full_release;					
 				int w = 0, ww = 0;				
 				if(!mc.bounce&&!mc.fleeing&&guard_bashing<=0) //extend?
@@ -3226,7 +3230,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 				if(guard_bashing>0)
 				{
 					w = mv->uc[87];
-					int rt = mdl.running_time(mdl_e);					
+					int rt = mdl.running_time(mdl_c);					
 					ww = tvh/2*wraparound-guard_bashing;
 					ww = min(150,ww);
 					w+=(int)(som_MDL_arm_fps*(ww));
@@ -3238,7 +3242,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 				else guard_window = tvh+(mv->uc[86]-w)/som_MDL_arm_fps;
 				mdl_d+=w;
 				guard_raising = true;
-				guard_bashing = bash?2:guard_bashing>0;
+				guard_bashing = 0;
 				guard_bashing2 = false;
 
 				//these all need to be reset here because there's a chance
@@ -3251,18 +3255,17 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 				//som_hacks_Clear afterimage logic
 				if(mdl_d>1) mdl.update_animation();
 
-				if(!shield) 
-				{
-					counter = bash;
-
-					SOM::motions.swing_move = 2; 
-				}
+				if(!shield) SOM::motions.swing_move = 2; 
 			}			
 		}
 	}
-	if(guard_bashing==2&&bash)
+	if(guard_dropping>0) //2024
 	{
-		bash = false; guard_bashtick = SOM::motions.tick;
+		cancel = true;
+
+		int x = SOM::motions.diff*3333/2000; //1000
+
+		guard_dropping = max(0,guard_dropping-x);
 	}
 
 	if(mdl_d>(int)!shield) //shield?
@@ -3272,22 +3275,21 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 		guard_releasing-=min(guard_releasing,(int)SOM::motions.diff);
 
 		////wraparound?
-		//int rt = mdl.running_time(mdl_e)-1; //afterimage?
-		int rt = mdl.running_time(mdl_e);
+		int rt = mdl.running_time(mdl_c)-1;
 		int lo = mv->uc[86]-1, hi = mv->uc[87];
-								
-		//int inc = EX::INI::Bugfix()->do_fix_animation_sample_rate?1:2;
-		//int fps = inc==1?2:1;
-		int fps = EX::INI::Bugfix()->do_fix_animation_sample_rate?2:1;		
-		int inc = 2==fps&&!DDRAW::fx2ndSceneBuffer?2:1; 
+		
 		//wraparound?
 		//ret = mdl_d<=lo+1?lo:rt-mdl_d;
 		ret = mdl_d<=lo+1||mdl_d>hi+1?lo:hi-mdl_d; //good enough???
 
 		//NOTE: afterimage drawing can stop on +1
 		//as well as 30fps mode
-		bool top = mdl_d==lo||mdl_d==lo+1; if(top) 
+		//2023: speed can skip frames +1
+		//bool top = mdl_d>=lo&&mdl_d<=lo+1; if(top)
+		bool top = mdl_d>=lo-1&&mdl_d<=lo+1; if(top)
 		{
+			mdl.ext.dir = mdl.ext.dir2 = 0; //2023: advance?
+
 			guard_raising = false;
 
 			if(!guard_releasing) guard_draining = 0;
@@ -3309,7 +3311,9 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 			if(guard_raising||guard_releasing)
 			{
 				guard_releasing = tvh_ms*3-guard_holding;
-				assert(guard_releasing>0);
+				//2023: this is getting stuck with speed (sometimes)
+				//assert(guard_releasing>0);
+				if(guard_releasing<0) guard_releasing = 0; //UNTESTED
 			}
 		}
 			
@@ -3332,7 +3336,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 					guard_bashtick = SOM::motions.tick;
 				}
 			}
-			else if(mdl_d>lo-fps*4) //close shave
+			else if(mdl_d>lo-som_MDL::fps*4) //close shave
 			{
 				//if(1==guard_bashing) //one shot?
 				assert(1==guard_bashing||2==guard_bashing);
@@ -3355,14 +3359,21 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 
 				//mc.magic3 = 0; mc.attacked2 = false; //TESTING
 			}
-
-			int p = SOM::L.pcstatus[SOM::PC::p]+1000;
-			SOM::L.pcstatus[SOM::PC::attack_power] = min(5000,p);
 		}
+		if(guard_bashtick==SOM::motions.tick)
+		{
+			ps[SOM::PC::attack_power] = m;
+
+			if(shield) mc.gauge_bufs[2]+=m; //2024
+		}
+
+		//EX::dbgmsg("guard %d %d %d",guard_raising,guard_bashing,guard_releasing);
 
 		if(guard_raising) //raising?
 		{
-			mdl_d+=inc;
+			mdl_advance(1); //mdl_d+=1;
+
+			ps[SOM::PC::attack_power] = m; //HACK: som_scene_swing
 		}
 		else if(guard_bashing>1)
 		{
@@ -3377,22 +3388,24 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 			//order is important
 			if(mdl_d>lo+1) mc_attacked = false; //attack3?
 
-			if(dir) mdl_d+=dir>0?inc:-inc; 
+			if(dir)
+			{
+				//mdl_d+=dir>0?1:-1; //-1??? 
+				mdl_advance(1);
+			}
+			
+			if(mdl_d>=hi-1) //order is important?
+			{				
+				guard_bashing = tvh/2*wraparound;
+			}
 
-			//order is important?
-			if(mdl_d>=hi) guard_bashing = tvh/2*wraparound;
-
-			if(mdl_d>=mv->uc[76]&&mdl_d<=mv->uc[77])
+			if(mdl_d>=mv->uc[76]&&mdl_d<=mv->uc[77]+4)
 			{
 				SOM::Attack a = SOM::L.pcattack[0];
 					//ANNOYINGLY 427780 leaves a lot undefined
-					WORD *pc = SOM::L.pcstatus;
-					a.strength = pc[SOM::PC::str];
-					a.magic = pc[SOM::PC::mag];
-					if(!shield)
-					a.power_gauge = pc[SOM::PC::attack_power];
-					else
-					a.power_gauge = 1000+int(4000*(1-mc.running)); //HACK
+					a.strength = ps[SOM::PC::str];
+					a.magic = ps[SOM::PC::mag];
+					a.power_gauge = min(5000,ps[SOM::PC::attack_power]);
 					memcpy(a.attack_origin,SOM::L.pcstate,3*sizeof(float));
 					a.aim = SOM::L.pcstate[4]+pi/2;					
 				//this feels wrong... probably missed some division code
@@ -3404,20 +3417,44 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 				//
 				//a.pie = mv->s[39]*0.01745329f;
 				a.pie = mv->s[39]*0.008726645f; //pi/180/2
-				a.radius = mv->f[20]+SOM::L.hitbox2; //som.logic.cpp
+
+				//FIX ME: som_game_measure_weapon?
+				float len = 0; if(!shield)
+				{
+					auto &prm = SOM::L.item_prm_file[SOM::L.pcequip[0]];
+					auto &pr2 = SOM::L.item_pr2_file[prm.s[0]];
+					len = pr2.f[20];
+				}
+				len = max(0.25f,len);
+				//EXTENSION?
+				//0.75 is about the length of arm.mdl 
+				//a.radius = mv->f[20]+SOM::L.hitbox2; //som.logic.cpp
+				a.radius = (len+0.75f)*mv->f[20];
 				int e = SOM::L.pcequip[shield?5:0]; //SOM_PRM_extend_items
 				if(e>=250) e = SOM::L.pcequip[3];
 				BYTE *dmg = SOM::L.item_prm_file[e].uc+300;
+				BYTE *dmg3 = dmg+20;
 				if(e!=SOM::L.pcequip[0]) dmg+=20;
+				
+				float bonus3 = 1;
+				if(dmg!=dmg3&&!dmg3[0]&&!dmg3[1]&&!dmg3[2])
+				{
 					//heavy attack bonus? a little goes a long
 					//way with the damage formula
 					//memcpy(a.damage,dmg,8);
+					bonus3 = 112/100.0f; dmg3 = dmg;
+				}				
+				
 				for(int i=8;i-->0;)	
-					a.damage[i] = (BYTE)min(255,dmg[i]*112/100);
+				a.damage[i] = (BYTE)min(255,i<3?dmg3[i]*bonus3:dmg[i]);
 					
 				//a.unknown_pc1 = 2; //HACK: normally 1
-					assert(a.unknown_pc1==1);
+				assert(a.unknown_pc1==1);
 				((void(__cdecl*)(void*))0x4041d0)(&a);
+			}
+			else if(mdl_d>hi)
+			{
+				ps[SOM::PC::attack_power] = m; //HACK: som_scene_swing
 			}
 		}			
 		else if(!guard_releasing) //lowering?
@@ -3440,22 +3477,26 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 				}
 			}
 
-			mdl_d-=inc; assert(mdl_d<=lo);
+			//mdl_d-=1; assert(mdl_d<=lo);
+			mdl_advance(-1);
+
+			ps[SOM::PC::attack_power] = m; //HACK: som_scene_swing
 
 			//keep CP adjustment alive?
-			if(mdl_d<=full_release+inc)
+			if(mdl_d<=full_release+1)
 			if(shield?mdl.d>1:mdl.ext.d2)
 			{
-				assert(mdl_d+inc==mdl_f); 
+				//assert(mdl_d+1>=mdl_f); 
 				
 				mdl_d = mdl_f; 
 
 				//I've seen his fail twice. that's a problem
-				assert(mdl_d>full_release);
+				//assert(mdl_d>full_release);
 			}			
 		}
 			
-		if(mdl_d==hi||mdl_d==hi+1)
+		//if(mdl_d==hi||mdl_d==hi+1)
+		if(mdl_d>=hi-1&&mdl_d<=hi+1)
 		{
 			mdl_d = !shield; //finish up?
 
@@ -3463,23 +3504,34 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 			if(som_MDL_449d20_swing_mask(1)&1<<30)
 			mc.fleeing2 = 1; //HACK 
 		}
-		if(mdl_d>=rt||mdl_d<=full_release) 
+		if(mdl_d>=rt||mdl_d<=full_release+1) 
 		{
-			mdl_d = mdl_d>=rt?lo:!shield; mdl_f = -1;
+			mdl_d = mdl_d>=rt?lo:!shield;
+			
+			shield?mdl.rewind2():mdl.rewind(); //mdl_f = -1; 
 
 			//HACK: close gap to simplify the
 			//som_hacks_Clear afterimage logic
 			mdl.update_animation();
 		}
 
-		//TODO: source the override sound from 
-		//the prm records
-		int snd = mv->uc[73];
-		if(mdl_d==snd||mdl_d+1==snd)
+		if(SOM::frame-SOM::swing>15) //2023
 		{
-			//I think 0 is silence or ignored 
-			//but this is for som_game_nothing
-			if(snd=mv->s[37]) SOM::se(snd,mv->c[85]);
+			int snd = mv->uc[73];
+			//if(mdl_d==snd||mdl_d+1==snd)
+			if(mdl_d>=snd-1&&mdl_d<=snd+4)
+			{
+				SOM::swing = SOM::frame;
+
+				extern int SomEx_npc; //PC
+				SomEx_npc = 12288;
+				//I think 0 is silence or ignored 
+				//but this is for som_game_nothing
+				//if(snd=mv->us[37]) SOM::se(snd,mv->c[85]);
+				DWORD sp = SOM::shield_or_glove_sound_and_pitch(shield?5:0);
+				if(sp>>16) SOM::se(sp>>16,(char&)sp);
+				SomEx_npc = -1;
+			}
 		}
 	
 		//NOTE: must be done after counter-attacking
@@ -3499,7 +3551,8 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 		{
 			goto heavy; //HACK: makeshift heavy penalty
 		}
-		if(!shield&&mdl_d>lo+1&&mdl_d<hi)
+		
+		if(mdl_d>=lo+1&&mdl_d<=hi)
 		{
 			m = *(&m+2) = 0; //suppresses refill
 		}
@@ -3507,6 +3560,8 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 	else if(guard_bashing>0)
 	{
 		guard_bashing-=(int)SOM::motions.diff;
+	
+		if(guard_bashing<0) guard_bashing = 0;
 	}
 	if(counter) counter--;
 
@@ -3527,7 +3582,8 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 	if(!shield) 
 	{		
 		//HACK: prevent animation from resetting?
-		mdl.ext.reverse_d = mdl.f>mdl.d;
+		//mdl.ext.reverse_d = mdl.f>mdl.d;
+		mdl.ext.reverse_d = mdl.ext.dir<0; //2023
 
 		guard_fusion = atk2?2:guard; //fusing...
 	}
@@ -3621,10 +3677,67 @@ static float som_mocap_v() //initial
 	return sqrtf(som_mocap_d()*2*EX::INI::Detail()->g);
 }
 
-//REMOVE ME? 
-static float som_mocap_elevator = 0;
 extern void som_game_volume_level(int, int &_2);
 extern void som_game_pitch_to_frequency(int, int &_3);
+extern void som_mocap_headwind(bool on)
+{
+	EX::INI::Sample se;
+
+	int snd; if(&se->headwind_identifier)
+	{
+		float f = se->headwind_identifier();
+		snd = EX::isNaN(f)?0:(int)f; 
+	}
+	else snd = 1000; if(snd)
+	{
+		auto &mc = som_mocap;
+
+		auto &sb = SOM::L.snd_bank[snd];
+		auto **i = (DSOUND::IDirectSoundBuffer**)sb.sb;
+		if(!i||!*i)
+		{
+			if(!on) return;
+
+			//2023: init/play wind sound effect (0 volume)
+			SOM::se_looping = 1; SOM::se(snd,0,0); //-10000
+			SOM::se_looping = 0;			
+		}
+		if(i&&*i) 
+		{
+			//float speed = mc.speed+powf(mc.speed-mc.speed2,2);
+			float speed = max(mc.speed2,mc.speed-mc.speed2);				
+
+			float f = speed/8;
+		//	float g = 1-powf(max(0,1-f),2); //2
+			float g = powf(min(1,f),0.333f);
+
+			float aw = se->headwind_ambient_wind_effect;
+			static float aw2 = aw; //just in case
+			aw = aw2 = mc.lerp(aw2,aw,mc.antijitter);
+
+			//YUCK: reshaping to boost to footstep levels
+			float h = 0.75f-aw*0.25f;
+			g = (g*g)*h+(1-g*g)*(1-h); g*=1/h;
+
+			//som_game_pitch_to_frequency returns 2 always???
+		//	int _3 = mc.analogbob*3;
+			int _3 = 0;
+			int _2 = (on?1-g:1)*-10000;
+
+			som_game_volume_level(snd,_2);
+			som_game_pitch_to_frequency(snd,_3);
+
+			_3 = (int)(mc.analogbob*3*(_3?_3:1));
+
+		//	EX::dbgmsg("wind: %f=>%f/%f (%d/%d)",f,g,mc.analogbob,_2,(int)(mc.analogbob*4));
+
+			DSOUND::fade_delay(*i,_2,_3);
+		}
+	}
+}
+
+//REMOVE ME? 
+static float som_mocap_elevator = 0;
 void som_mocap::engine::prolog::operator()(float step)
 {
 	assert(step); //if(!step) return; //hack??
@@ -3688,62 +3801,8 @@ void som_mocap::engine::prolog::operator()(float step)
 	}
 	else mc.speed = mc.speed2 = sqrtf(mc.speed2); 
 
-	//2023: do_wind //how fast?
-	{
-		EX::INI::Sample se;
-
-		int snd; if(&se->headwind_identifier)
-		{
-			float f = se->headwind_identifier(SOM::motions.floor_object); 
-			//todo: check high 12 bits for heel+toe model
-			//2020: going ahead and masking this for now
-			snd = EX::isNaN(f)?0:(int)f&0xfff; 
-		}
-		else snd = 1000; if(snd)
-		{
-			SOM::Struct<9> *sb = SOM::L.snd_bank;
-			auto **i = (DSOUND::IDirectSoundBuffer**)sb[snd].i[7];
-			if(!i||!*i)
-			{
-				int sz = SOM::L.snd_bank_size;
-				//2023: init/play wind sound effect (0 volume)
-				SOM::se_looping = 1; SOM::se(snd,0,0); //-10000
-				SOM::se_looping = 0;			
-			}
-			if(i&&*i) 
-			{
-				//float speed = mc.speed+powf(mc.speed-mc.speed2,2);
-				float speed = max(mc.speed2,mc.speed-mc.speed2);				
-
-				float f = speed/8;
-			//	float g = 1-powf(max(0,1-f),2); //2
-				float g = powf(min(1,f),0.333f);
-
-				float aw = se->headwind_ambient_wind_effect;
-				static float aw2 = aw; //just in case
-				aw = aw2 = lerp(aw2,aw,mc.antijitter);
-
-				//YUCK: reshaping to boost to footstep levels
-				float h = 0.75f-aw*0.25f;
-				g = (g*g)*h+(1-g*g)*(1-h); g*=1/h;
-
-				//som_game_pitch_to_frequency returns 2 always???
-			//	int _3 = mc.analogbob*3;
-				int _3 = 0;
-				int _2 = (1-g)*-10000;
-
-				som_game_volume_level(snd,_2);
-				som_game_pitch_to_frequency(snd,_3);
-
-				_3 = (int)(mc.analogbob*3*(_3?_3:1));
-
-				EX::dbgmsg("wind: %f=>%f/%f (%d/%d)",f,g,mc.analogbob,_2,(int)(mc.analogbob*4));
-
-				DSOUND::fade_delay(*i,_2,_3);
-			}
-		}
-	}
-
+	som_mocap_headwind(true); //2023: do_wind //how fast?
+	
 	//0.33333 is SOM's value for SOM::g
 	float g = do_g?*SOM::g:0.333333f;		
 	//2017: make jumping off ledges much easier
@@ -3765,7 +3824,7 @@ void som_mocap::engine::prolog::operator()(float step)
 	/*MOVED into "this"*/
 	//static bool jumping = false; //hack
 
-	float v = som_mocap_v();
+	float v = som_mocap_v(); //sqrt(d*g)
 	
 	static float vtheta = 0; //2020: locking in
 
@@ -3866,7 +3925,7 @@ void som_mocap::engine::prolog::operator()(float step)
 	}
 
 	float y = 0; //moved to outer scope
-						 
+
 	//0.01f: this is an arbitrarily small value
 	if(jumping&&SOM::xyz_past[1]>SOM::xyz[1]+0.01f)
 	{
@@ -3885,7 +3944,7 @@ void som_mocap::engine::prolog::operator()(float step)
 		float t1 = mc.jumping*t, t2 = t1+step;
 
 		mc.jumping+=step/t; 
-		
+				
 		SOM::motions.aloft+=!jumping?2:1;
 
 		float y1 = vtheta*t1-t1*t1*dt->g/2;		
@@ -4201,7 +4260,9 @@ void som_mocap::engine::prolog::operator()(float step)
 
 		SOM::xyz[1]+=y; SOM::err[1]+=y;
 
-		//EX::dbgmsg("y: %f",y);
+		static float max = -1000;
+		if(SOM::err[1]>max) max = SOM::err[1];
+		EX::dbgmsg("y: %f (%f)",y,max); //12.77091 //12.775837 
 	}
 	//else SOM::xyz[1] = SOM::L.pcstate[1];
 
@@ -4312,8 +4373,7 @@ void som_mocap::engine::prolog::operator()(float step)
 		||mc.landing_2017
 		||mc.dashing) //2020: getting out of seat?
 		{
-			if(!mc.hopping) //testing
-			mc.inverter = -1; 
+			if(!mc.hopping) mc.inverter = -1; //testing
 		}
 		
 	//NOTE: y is 0 above when falling? is this
@@ -4962,18 +5022,69 @@ static void som_mocap_seturn(SHORT &t, float to, float u=1)
 	t = to+0.5f; if(!SOM::u) return;
 	*SOM::u = float(t)/to*u; *SOM::v = 1/u; //NEW
 }
-static void som_mocap_refill(WORD &p)
+static void som_mocap_refill(WORD &p, int loss)
 {	
 	//00425162 66 01 15 24 1D 9C 01 add         word ptr ds:[19C1D24h],dx
 	int d = SOM::motions.diff;
 	//int o = SOM::L.pcstatus[SOM::PC::o]; //weight ???			
-	int o = *(&p+2);
-	int gain = 42*SOM::L.pcstatus[SOM::PC::str]/o*d*30/1000;
-	//00425253 66 29 15 24 1D 9C 01 sub         word ptr ds:[19C1D24h],dx 
-	int loss = d*3333/1000;
+	int oa = *(&p+2);
 
-	//HACK: the loss will be subtracted
-	p = min(p+gain+loss,5000+loss);
+	bool m = &p==SOM::L.pcstatus+SOM::PC::m; //2024
+
+	DWORD sm = som_MDL_449d20_swing_mask(0);
+
+	bool dbl = SOM::motions.swing_move&&3==3&sm>>29;
+
+	int gain2 = 0; if(m) //shield?
+	{
+		//like som_scene_425d50?
+		int r = SOM::L.pcequip[0];
+		int h = SOM::L.pcequip[3]; //TODO: add h/2 to oa (0x427855) ////
+		int l = SOM::L.pcequip[5];
+		auto *prm = &SOM::L.item_prm_file;
+		float wt = h!=0xff?prm[h].f[74]/2:0; 
+		float wt2 = wt;
+	//	if(r!=h&&r!=0xff) wt+=prm[r].f[74];
+		if(l!=h&&l!=0xff) wt2+=prm[l].f[74];
+
+		//0042784F D9 81 28 01 00 00    fld         dword ptr [ecx+128h]  
+		//00427855 D8 0D 68 84 45 00    fmul        dword ptr ds:[458468h]  
+		//0042785B D8 05 B4 82 45 00    fadd        dword ptr ds:[4582B4h]  
+		wt2 = wt2*10+1;
+
+		gain2 = 42*SOM::L.pcstatus[SOM::PC::str]/wt2*d*30/1000;
+	}
+	int gain = 42*SOM::L.pcstatus[m?SOM::PC::mag:SOM::PC::str]/oa*d*30/1000;
+
+	if(loss) //sliding?
+	{
+		//00425253 66 29 15 24 1D 9C 01 sub         word ptr ds:[19C1D24h],dx 
+		//int loss = d*3333/1000;
+		loss*=d*3333/1000;
+
+		//HACK: the loss will be subtracted
+		p = max(0,min(p+gain+loss,5000+loss));
+	}
+	else //2024: recover from running or bashing?
+	{
+		loss = gain; gain = d*3333/1000;
+
+		gain = min(gain,som_mocap.gauge_bufs[m]);
+		gain2 = min(gain2,som_mocap.gauge_bufs[2]);
+
+		som_mocap.gauge_bufs[m]-=gain;
+		som_mocap.gauge_bufs[2]-=gain2;		
+
+		gain+=gain2;
+
+		if(loss>gain) 
+		{
+			loss = gain; gain = 0;
+		}
+			
+		//HACK: the loss will be added
+		p = max(0,min(p+gain-loss,5000));
+	}
 }
 void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 {	
@@ -5003,15 +5114,23 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 	if(!SOM::motions.aloft)
 	{
 		WORD &p = SOM::L.pcstatus[SOM::PC::p];
-
+		WORD &m = SOM::L.pcstatus[SOM::PC::m];
+						
 		//restore power when sliding
 		//NOTE: code for subtracting power is at 425253
 		//code for adding power is at 425162
-		if(mc.sliding&&!SOM::L.swinging)
+		//if(mc.sliding&&!SOM::L.swinging)
+		int slid = mc.sliding&&!SOM::L.swinging;
 		{
 			//it looks weird to not refill the magic gauge
-			som_mocap_refill(SOM::L.pcstatus[SOM::PC::m]);
-			som_mocap_refill(p);
+			if(slid||mc.dashing<1&&p) som_mocap_refill(p,slid);
+			if(slid||mc.dashing<1&&m) som_mocap_refill(m,slid);
+		}
+		if(mc.dashing>=1)
+		{
+			int regain = SOM::motions.diff*3333/1000;
+			mc.gauge_bufs[0]+=min(p,regain);
+			mc.gauge_bufs[1]+=min(m,regain);
 		}
 
 		power = mc.fleeing*5000; 
@@ -5025,6 +5144,13 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 		}
 		else horsepower = power; 
 	}
+	else //2024: refill running/shield bash if jumping?
+	{
+		som_mocap_refill(SOM::L.pcstatus[SOM::PC::m],0);
+		som_mocap_refill(SOM::L.pcstatus[SOM::PC::p],0);
+	}
+	EX::dbgmsg("dashing: %f",mc.dashing);
+	
 	const float running2 = 1-powf(power/5000,2);
 	float dashing2 = mc.dashing*mc.dashing, walking2 = 1-dashing2;
 	if(SOM::hit){ dashing2 = 1; walking2 = 0; }
@@ -5521,11 +5647,15 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 	{
 		if(som_mocap_guard) //2021: shield?
 		{
+			const float c = cosf(+SOM::uvw[1]);
+			const float s = sinf(+SOM::uvw[1]); 
+
 			float xz[2]; 
 			float xx = EX::Affects[0].position[0];
+			xz[0] = xx;
 			xz[1] = EX::Affects[0].position[2];
-			xz[0] = xx*c-xz[1]*s; 
-			xz[1] = xx*s+xz[1]*c;
+			//rotate x/z about the left handed Y axis
+			xz[0] = xx*c+xz[1]*s; xz[1] = xx*-s+xz[1]*c;
 			//I'm not sure this was meant to go over 1
 			float hit = sqrtf(SOM::motions.shield3);
 			xz[0]*=0.2f+0.2f*hit;
@@ -6863,7 +6993,7 @@ float som_mocap::camera::operator()
 			// pi/9 is too little in VR but jumping
 			// seems too much or too fast
 			// 
-			int todolist[SOMEX_VNUMBER<=0x1020504UL];
+			int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		//	if(zoom<70||EX::debug) //VR? //???
 			if(zoom<70||1) //2022
 			dip2 = lerp(pi/9,dip2,(zoom-30)/32);

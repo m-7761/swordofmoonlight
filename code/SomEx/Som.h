@@ -152,7 +152,8 @@ cd:	Som_h_softreset();
 		}
 		return false; 
 	}
-	else if(1==redirect++)
+	
+	if(1==redirect++) //save game SOM file?
 	{
 		//HACK: .LOAD is used to indicate that
 		//a binary SOM file is involved, so it
@@ -190,7 +191,7 @@ cd:	Som_h_softreset();
 		//set after it returns
 		bool ret = Som_h(SOM_file,InstDir);
 		{
-			if(load[1]) Som_h_environ(load,0); 
+			if(load[1]) Som_h_environ(load,0); //ret?
 		}
 		return ret;
 	}

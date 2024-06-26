@@ -14,10 +14,16 @@ EX_TRANSLATION_UNIT //(C)
 #include "SomEx.h" 
 #include "som.state.h" 
 #include "som.status.h" //EXPERIMENTAL
-#include "som.game.h" //som_scene_state
+#include "som.game.h" //sss
 	
 #define SOMVECTOR_MATH
 #include "../Somplayer/Somvector.h"
+
+extern int SomEx_npc;
+
+namespace sss = som_scene_state; //2023
+
+extern std::vector<SOM::MDL*> som_kage;
 
 extern DWORD som_scene_ambient2 = 0;
 extern DWORD som_scene_ambient2_vset9(float p5[3+2])
@@ -31,9 +37,13 @@ extern DWORD som_scene_ambient2_vset9(float p5[3+2])
 		if(cmp!=som_scene_ambient2)
 		{
 			som_scene_ambient2 = cmp;
-			float r[4]; 
-			for(int i=4;i-->0;) r[i] = rgba[i]/255.0f;
-			DDRAW::vset9(r,1,DDRAW::vsGlobalAmbient+1);
+
+			if(cmp!=1)
+			{
+				float r[4]; 
+				for(int i=4;i-->0;) r[i] = rgba[i]/255.0f;
+				DDRAW::vset9(r,1,DDRAW::vsGlobalAmbient+1);
+			}
 		}
 		return cmp; //DEBUGGING
 	}
@@ -105,8 +115,8 @@ extern void som_scene_xform_bsp_v(void *in, float **v, size_t sz, bool item)
 }
 extern void som_scene_lighting(bool l) //2023
 {
-	som_scene_state::lighting_desired = l; //2022
-	som_scene_state::lighting_current = l; //2022
+	sss::lighting_desired = l; //2022
+	sss::lighting_current = l; //2022
 
 	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,l); 
 }
@@ -144,12 +154,14 @@ static struct som_scenery //may be just transparency?
 				if(!som_scene_hud)
 				{
 					som_scene_elements &ses = *transparency->ses;	
-					extern void som_bsp_add_vbufs(som_MDL::vbuf**,size_t);
+					extern DWORD som_bsp_add_vbufs(som_MDL::vbuf**,DWORD);
+					transparency->se_commit =
 					som_bsp_add_vbufs(ses,transparency->se_commit);
-					transparency->clear(); //2022
 					extern void som_bsp_sort_and_draw(bool push);
 					som_bsp_sort_and_draw(true);
-					som_scene_state::setss(1); //HACK
+					((BYTE(__cdecl*)(void*))0x44D7D0)(transparency); //unsorted
+					transparency->clear(); //2022
+					sss::setss(1); //HACK
 					som_scene_lighting(0);
 				}				
 				else ((BYTE(__cdecl*)(void*))0x44D7D0)(transparency); 
@@ -220,7 +232,7 @@ extern void som_scene_zwritenable_text()
 {
 	//HACK: if !zwe writing text to zbuffer
 	//otherwise mask frames 
-	DWORD &zwe = som_scene_state::zwriteenable; //assert(!zwe);	
+	DWORD &zwe = sss::zwriteenable; //assert(!zwe);	
 	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ZENABLE,zwe);
 	zwe = 1;
 	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ZWRITEENABLE,1);
@@ -229,25 +241,24 @@ extern void som_scene_zwritenable_text()
 extern void som_scene_alphaenable(int fab=0xFAB)
 {
 	extern bool som_hacks_fab;
-	using namespace som_scene_state; //if(!alphaenable)
+	//if(!alphaenable)
 	{
-		alphaenable = fab!=0; //som_hacks_alphablendenable_fab(in);
+		sss::alphaenable = fab!=0; //som_hacks_alphablendenable_fab(in);
 		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,fab);		
 	}
 	//else som_hacks_fab = fab=0xFAB;
 	if(!fab) return;
 	//if(srcblend!=DX::D3DBLEND_SRCALPHA)
 	{
-		srcblend = DX::D3DBLEND_SRCALPHA; //DX::D3DBLEND_SRCCOLOR;
-		destblend = DX::D3DBLEND_INVSRCALPHA; //DX::D3DBLEND_INVSRCCOLOR;
-		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_SRCBLEND,srcblend);		
-		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_DESTBLEND,destblend);		
+		sss::srcblend = DX::D3DBLEND_SRCALPHA; //DX::D3DBLEND_SRCCOLOR;
+		sss::destblend = DX::D3DBLEND_INVSRCALPHA; //DX::D3DBLEND_INVSRCCOLOR;
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_SRCBLEND,sss::srcblend);		
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_DESTBLEND,sss::destblend);		
 	}
 	//else assert(destblend==DX::D3DBLEND_INVSRCALPHA);
 }
 extern void som_scene_ops(DWORD color, DWORD alpha) //2022
 {
-	namespace sss = som_scene_state;
 	if(alpha!=sss::tex0alphaop)
 	DDRAW::Direct3DDevice7->SetTextureStageState
 	(0,DX::D3DTSS_ALPHAOP,sss::tex0alphaop=alpha);
@@ -257,9 +268,9 @@ extern void som_scene_ops(DWORD color, DWORD alpha) //2022
 }
 extern void som_scene_translucent_frame()
 {
-	som_scene_state::zwriteenable = 1; //HACK: not set???
+	sss::zwriteenable = 1; //HACK: not set???
 	som_scene_zwritenable_text();
-	assert(!som_scene_state::alphaenable);
+	assert(!sss::alphaenable);
 	som_scene_alphaenable();
 }
 
@@ -328,7 +339,7 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 		return 1;
 	}
 
-	if(se->mode==3)
+	if(se->fmode==3)
 	if(som_scene_batchelements) //TESTING
 	{	
 		som_scene_44d810_batch(se); return 1;
@@ -344,12 +355,12 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 		//flush/44d7d0 have to manage this
 		//som_scene_gamma_n = se->npc==3; //2021
 
-		switch(se->mode) //transparent? batched?
+		switch(se->fmode) //transparent? batched?
 		{
 		case 3: //lighting?
 
 			if(!se->lit //2018: flames?
-			||!som_scene_state::lighting_desired) //2022: sky?
+			||!sss::lighting_desired) //2022: sky?
 			{
 				som_scene_lit = 0;
 			}
@@ -367,18 +378,6 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 
 			//	DWORD debug = //having batching troubles
 				som_scene_ambient2_vset9(som_scene_lit); //2020
-					
-				/*2022
-				#ifdef _DEBUG
-				if(se->npc>=2)
-				if(se->ai==150)
-				if(debug!=0xffFFffFF)
-				{
-					debug = debug; //breakpoint
-					debug = som_scene_ambient2_vset9(som_scene_lit); //2020
-				}
-				#endif*/
-
 			}
 			else EX_BREAKPOINT(0); //2021
 
@@ -396,14 +395,14 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 		assert(se->ai!=150||se->npc<2);
 	}*/
 	
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
 	//testing: sufficient?
 	if(som_scene_lit&&!DDRAW::isLit) //REMOVE ME?
 	{
-		assert(se->mode==3); //2022
+		assert(se->fmode==3); //2022
 
 		if(1||!EX::debug) //trying for a while without?
 		{
@@ -414,7 +413,7 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 			//I think this is triggered leaving picture menu drawn
 			//with som_hacks_Blt_fan
 			
-			//assert(som_scene_state::lighting_desired==1); //2022
+			//assert(sss::lighting_desired==1); //2022
 			EX_BREAKPOINT(0)
 		}
 	}
@@ -422,7 +421,7 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 	//som_scene_44d810_flush/batch_os?
 	if(2==((BYTE(__cdecl*)(som_scene_element*))0x44D810)(se)) 
 	{
-		assert(se->mode==3); //som_scene_reprogram?
+		assert(se->fmode==3); //som_scene_reprogram?
 
 		/*can't work because this is also the trigger to batch 
 		//above... so 0x1d69da4 is set to 0 temporarily instead
@@ -575,7 +574,7 @@ static void *som_scene_SetMaterial_red(HRESULT *hr,DDRAW::IDirect3DDevice7*,DX::
 	00448170 33 C0                xor         eax,eax  
 	00448172 C3                   ret  
 	*/
-	DWORD &_mat = som_scene_state::material;
+	DWORD &_mat = sss::material;
 
 	//float r = x->emissive.r; 
 	static DX::D3DCOLORVALUE swap; //2020	
@@ -768,7 +767,7 @@ struct som_scene_logger : som_scene_static
 		{
 			som_scene_element *se = ses[tes];
 
-			if(se->mode!=3) continue; //shadow?
+			if(se->fmode!=3) continue; //shadow?
 
 			se->batch = 1; //2021
 
@@ -1184,6 +1183,16 @@ som_scene_logger<som_scene_enemies>
 			som_scene_lit[3] = enemy[SOM::AI::radius];
 			som_scene_lit[4] = enemy[SOM::AI::height];
 		}
+		
+		auto *m = (SOM::MDL*)enemy[SOM::AI::mdl];
+		if(m->ext.kage&&m->ext.kage->ext.mdo_elements)
+		if(m&&(unsigned)m->mdl_data->ext.kage+1u>4096) //2024
+		{
+			auto t = som_kage.size();			
+			m->ext.kage->ext.mdo_elements->texture = (WORD)t+4096u;
+			som_kage.push_back(m);
+		}
+
 		return (SOM::Struct<>*)&enemy;
 	}	
 	static void draw() //408090
@@ -1282,8 +1291,13 @@ som_scene_logger<som_scene_enemies>
 		mov         dword ptr [eax],ecx  
 		mov         ecx,dword ptr [edx+4]  
 		mov         dword ptr [eax+4],ecx  
-		mov         edx,dword ptr [edx+8]  
-		mov         dword ptr [eax+8],edx  
+		mov         ecx,dword ptr [edx+8] //edx  
+		mov         dword ptr [eax+8],ecx //edx...
+
+			//2023: include rotation
+			mov ecx,dword ptr [edx+16]  
+			mov dword ptr [eax+16],ecx 
+
 		mov         eax,dword ptr [esi]  
 		//adds 0.001 to the elevation
 		fld         dword ptr [eax+8]  		
@@ -1360,6 +1374,7 @@ som_scene_logger<som_scene_NPCs>
 	static SOM::Struct<> *prologger(DWORD esi)
 	{
 		auto &npc = *(SOM::Struct<43>*)(esi-64);			
+
 		if(som_scene_alit) //NECESSARY???
 		{
 			som_scene_lit = som_scene_lit5;
@@ -1369,6 +1384,16 @@ som_scene_logger<som_scene_NPCs>
 			som_scene_lit[3] = npc[SOM::AI::radius2];
 			som_scene_lit[4] = npc[SOM::AI::height2];
 		}
+
+		auto *m = (SOM::MDL*)npc[SOM::AI::mdl2];
+		if(m->ext.kage&&m->ext.kage->ext.mdo_elements)
+		if(m&&(unsigned)m->mdl_data->ext.kage+1u>4096) //2024
+		{
+			auto t = som_kage.size();			
+			m->ext.kage->ext.mdo_elements->texture = (WORD)t+4096u;
+			som_kage.push_back(m);
+		}
+
 		return (SOM::Struct<>*)&npc;
 	}
 	static void draw()	//429B10
@@ -1449,16 +1474,23 @@ som_scene_logger<som_scene_NPCs>
 		//je          _00429BFA  
 		//copy position into shadow
 		mov         edx,dword ptr [esi+24h]  
-		mov         eax,dword ptr [esi]  
-		mov         dword ptr [edx+4],eax 
+			//2023: source data from mdl 
+			mov ecx,dword ptr [esi+20h]
+		mov         eax,dword ptr [ecx+4] //esi 
+		mov         dword ptr [edx+4],eax
 		//adds 0.001 to the elevation
-		fld         dword ptr [esi+4]  
-		mov         ecx,dword ptr [esi+24h]  
+		fld         dword ptr [ecx+8] //esi+4
+		mov         eax,dword ptr [esi+24h] //ecx
 		fadd        dword ptr ds:[458314h]  
-		fstp        dword ptr [ecx+8]  
+		fstp        dword ptr [eax+8] //ecx
 		mov         edx,dword ptr [esi+24h]  
-		mov         eax,dword ptr [esi+8]  
-		mov         dword ptr [edx+0Ch],eax  
+		mov         eax,dword ptr [ecx+12] //esi+8
+		mov         dword ptr [edx+0Ch],eax 
+
+			//2023: include rotation
+			mov eax,dword ptr [ecx+20]  
+			mov dword ptr [edx+14h],eax 
+
 		mov         ecx,dword ptr ds:[4C223Ch]  
 		mov         edx,dword ptr [esi+24h]  
 		push        ecx  
@@ -1820,7 +1852,7 @@ namespace som_scene_skyswap
 	}
 	static void draw()
 	{
-		if(!SOM::sky) return;
+		if(!SOM::sky||SOM::L.fill==2) return; //2024: MHM?
 
 		//2022: sky blending logic
 		float t2 = SOM::mpx2_blend;
@@ -1846,11 +1878,9 @@ namespace som_scene_skyswap
 		//2022: should be able to do just once
 		som_hacks_skycam(+1);
 
-		namespace sss = som_scene_state;
-
 		auto *d7 = DDRAW::Direct3DDevice7;
 
-		//som_scene_state::push(); //2022: OVERKILL?
+		//sss::push(); //2022: OVERKILL?
 		
 		//mov eax,dword ptr ds:[004C223Ch]
 		som_scenery &te = *som_scene_transparentelements; 
@@ -1997,7 +2027,7 @@ extern void som_scene_compass(float *x)
 {
 		som_scene_batchelements_off _be; //RAII
 
-	som_scene_state::push();
+	sss::push();
 
 	//TESTING
 	//som_hacks_DrawPrimitive calls this when the compass
@@ -2266,97 +2296,9 @@ extern void som_scene_compass(float *x)
 	//in and out... not sure how long this has been like this or
 	//why the 2021 demo seems unaffected
 	//som_scene_ambient2 = a2;
-	if(a2) som_scene_ambient2 = -1; //HACK
+	if(a2) som_scene_ambient2 = 1; //HACK
 
-	som_scene_state::pop();
-}
-
-//REMOVE ME?
-//trying to isolate a bug wherein the vbuffer
-//is locked with the expectation of preserving
-//its contents (despite DDLOCK_DISCARDCONTENTS)
-//I BELIEVE THIS WORKS BECAUSE D3D7 CANNOT DO A
-//PARTIAL LOCK, SO IT MUST MARK BUFFERS AS DIRTY
-//AND UPDATE ON DRAW... D3D9C CAN IMPLEMENT THIS
-static void *som_scene_4137F0_Lock(HRESULT*hr,DDRAW::IDirect3DVertexBuffer7*in,DWORD&x,LPVOID*&y,LPDWORD&z)
-{
-	//enable dx_d3d9c_immediate_mode experimentation
-	//REMINDER: som_hacks_CreateVertexBuffer is adding
-	//D3DVBCAPS_WRITEONLY to all but 59892C (2021)
-	x&=~DDLOCK_DISCARDCONTENTS;
-
-//REMINDER: DDLOCK_DISCARDCONTENTS is suboptimal but 
-//there's no time to investigate this subroutine now
-//
-return 0; //1.2.2.4 release
-/*
-	//HERE the Lock call is known to be in the map tile 
-	//context. some form of reprogramming is called for
-#ifdef NDEBUG
-#error and what about me?
-#endif
-
-	if(!hr) return som_scene_4137F0_Lock;	
-	return 0; //breakpoint
-*/
-	//first Unlock (doesn't fill in??? reading?)
-	//0041438F FF 52 10             call        dword ptr [edx+10h]
-
-
-	//vbuffer is locked, but this is collecting upto EDX 24B tiles into EAX
-	/*
-	004142DF 0F 8E A2 00 00 00    jle         00414387  
-	004142E5 8B D1                mov         edx,ecx  
-	004142E7 8B 0E                mov         ecx,dword ptr [esi]  
-	004142E9 D9 44 24 14          fld         dword ptr [esp+14h]  
-	004142ED 8B 2D 3C 89 59 00    mov         ebp,dword ptr ds:[59893Ch]  
-	004142F3 8B AD 00 02 00 00    mov         ebp,dword ptr [ebp+200h]  
-	004142F9 8D 0C 89             lea         ecx,[ecx+ecx*4]  
-	004142FC 8D 4C 8D 00          lea         ecx,[ebp+ecx*4]  
-	00414300 8B 6E 04             mov         ebp,dword ptr [esi+4]  
-	00414303 89 68 0C             mov         dword ptr [eax+0Ch],ebp  
-	00414306 D8 21                fsub        dword ptr [ecx]  
-	00414308 83 C6 08             add         esi,8  
-	0041430B 83 C0 18             add         eax,18h  
-	0041430E 4A                   dec         edx  
-	0041430F D9 58 E8             fstp        dword ptr [eax-18h]  
-	00414312 D9 41 04             fld         dword ptr [ecx+4]  
-	00414315 D8 47 04             fadd        dword ptr [edi+4]  
-	00414318 D9 58 EC             fstp        dword ptr [eax-14h]  
-	0041431B D9 44 24 10          fld         dword ptr [esp+10h]  
-	0041431F D8 61 08             fsub        dword ptr [ecx+8]  
-	00414322 D9 58 F0             fstp        dword ptr [eax-10h]  
-	00414325 8B 69 0C             mov         ebp,dword ptr [ecx+0Ch]  
-	00414328 89 68 F8             mov         dword ptr [eax-8],ebp  
-	0041432B 8B 49 10             mov         ecx,dword ptr [ecx+10h]  
-	0041432E 89 48 FC             mov         dword ptr [eax-4],ecx  
-	00414331 75 B4                jne         004142E7  
-	00414333 EB 52                jmp         00414387  
-	00414335 85 C9                test        ecx,ecx  
-	00414337 7E 4E                jle         00414387 
-	*/
-	//GRABBING VBUFFER
-	/*00414387 A1 2C 89 59 00       mov         eax,dword ptr ds:[0059892Ch]  
-	0041438C 8B 10                mov         edx,dword ptr [eax]  
-	0041438E 50                   push        eax  
-	0041438F FF 52 10             call        dword ptr [edx+10h]  
-	00414392 8B 6C 24 30          mov         ebp,dword ptr [esp+30h]  
-	00414396 8B 44 24 4C          mov         eax,dword ptr [esp+4Ch]  
-	0041439A 8B 74 24 1C          mov         esi,dword ptr [esp+1Ch]  
-	0041439E 8B 4C 24 20          mov         ecx,dword ptr [esp+20h]  
-	004143A2 8B 10                mov         edx,dword ptr [eax]  
-	004143A4 83 C6 10             add         esi,10h  
-	004143A7 41                   inc         ecx  
-	004143A8 3B CA                cmp         ecx,edx 
-	...
-	//AGAIN
-	00414114 A1 2C 89 59 00       mov         eax,dword ptr ds:[0059892Ch]  
-	00414119 6A 00                push        0  
-	0041411B 50                   push        eax  
-	0041411C 6A 04                push        4  
-	0041411E 53                   push        ebx  
-	0041411F FF 92 80 00 00 00    call        dword ptr [edx+80h]  
-	*/
+	sss::pop();
 }
 
 extern int som_hacks_shader_model;
@@ -2385,6 +2327,7 @@ static HRESULT __stdcall som_scene_4137F0_Lock2 //King's Field II
 			//will probably get around to pooling these... no big deal
 			som_scene_transparentelements2.push_back(el);			
 		}
+		else assert(0); //UNIMPLEMENTED
 	}
 
 	//TODO: work with som_scene_4137F0 to not have to call Lock for every
@@ -2410,48 +2353,18 @@ static void som_scene_zwritenable_text_clear() //HACK
 
 //THESE HAPPEN IN SEQUENCE
 extern bool som_scene_sky = false;
-static void som_scene_4133E0_layers() //2022
-{
-	//TODO: I'll probably be removing this shortly
-	//to interleave layers and draw tiles in small
-	//chunks to reduce overdraw
-	((void(__cdecl*)())0x4133E0)();
-
-	return; //2023
-//	if(0||!EX::debug) return; //???
-
-	som_MPX &mpx = *SOM::L.mpx->pointer;
-	int &ls = mpx[SOM::MPX::layer_selector];
-	auto &l = *(SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
-
-//	if(1&mpx[SOM::MPX::flags]) return; //???
-
-	auto &mpx2 = *SOM::L.mpx;
-	auto *dl = mpx2.tiles_on_display;
-	DWORD jN = mpx2.tiles_to_display;
-
-	if(jN!=10000)
-	memset(dl[jN],0xffff,2); //mark end
-
-	int y = (int)(SOM::xyz[2]*0.5f);
-	int x = (int)(SOM::xyz[0]*0.5f);
-	struct yx{ BYTE y, x; };
-	std::sort((yx*)dl,(yx*)dl+jN,[x,y](yx &a, yx &b)->bool
-	{
-		int ax = x-a.x, ay = y-b.y;
-		int bx = x-b.x, by = y-b.y;
-		return ax*ax+ay*ay>bx*bx+by*by; //sort back-to-front
-	});	
-}
 extern void __cdecl som_scene_4133E0() //2022 //DEBUGGING
 {
-	som_MPX &mpx = *SOM::L.mpx->pointer;
+	/*som_MPX &mpx = *SOM::L.mpx->pointer;
 	int &ls = mpx[SOM::MPX::layer_selector];
 	assert(0==ls);
-	som_scene_4133E0_layers();
+	som_scene_4133E0_layers();*/
+	return; //NOP //2023
 }
 static void __cdecl som_scene_4137F0() //TILES
 {	
+	som_kage.clear();
+
 	 //REMOVE ME
 	//2021: som.hacks.cpp refactor
 	extern void som_game_once_per_scene();
@@ -2480,13 +2393,13 @@ static void __cdecl som_scene_4137F0() //TILES
 
 	//REMINDER: the whole of this subroutine is for the
 	//sky, except at the very end (41391E) when the map
-	//is drawn by 413F10, or when there's not a vbuffer
+	//is drawn by 413f10, or when there's not a vbuffer
 	//at [59892C] 413940
 	/*
 	0041391E A1 2C 89 59 00       mov         eax,dword ptr ds:[0059892Ch]  
 	00413923 85 C0                test        eax,eax  
 	00413925 74 09                je          00413930  
-	00413927 E8 E4 05 00 00       call        00413F10  
+	00413927 E8 E4 05 00 00       call        00413f10  
 	0041392C 83 C4 10             add         esp,10h  
 	0041392F C3                   ret  
 	00413930 E8 0B 00 00 00       call        00413940  
@@ -2499,101 +2412,64 @@ static void __cdecl som_scene_4137F0() //TILES
 		som_scene_sky = true; som_scene_skyswap::draw();
 		som_scene_sky = false;
 	}	
-		extern unsigned som_hacks_fill;
-
-		if(DDRAW::inStereo //menus don't reset tiles //VR
-		&&!DDRAW::isPaused //debugging
-		&&0!=EX::context()
-		||som_hacks_fill==SOM::frame)
+	//	extern unsigned som_hacks_fill;
+	//
+	// 2023: just do it every frame?
+	//
+	//	if(DDRAW::inStereo //menus don't reset tiles //VR
+	//	&&!DDRAW::isPaused //debugging
+	//	&&0!=EX::context()
+	//	||som_hacks_fill==SOM::frame)
 		{
 			extern void som_mocap_403BB0(); //set up view frustum
 			som_mocap_403BB0();
-			som_scene_4133E0_layers(); //sets tiles_on_display	
+		//	som_scene_4133E0_layers(); //sets tiles_on_display	
+			extern void som_MPY_4133E0_layers();
+			som_MPY_4133E0_layers();
 		}
 
-	//BUGFIX NEEDED HERE (PERFORMANCE)
-	//this seems to be locking on a per MSM basis
-	//it needs to be locked here, and this code needs
-	//to be knocked out
-	//004141C8 FF 52 0C             call        dword ptr [edx+0Ch]
-	//Unlock? (don't see intervening calls. coast is clear?)
-	//FLUSHING? (THIS SHOULD BE INVESTIGATED)
-	//00414220 FF 24 95 CC 44 41 00 jmp         dword ptr [edx*4+4144CCh] 
-	//...
-	//0041438F FF 52 10             call        dword ptr [edx+10h]
-	if(DDRAW::hack_interface(DDRAW::DIRECT3DVERTEXBUFFER7_LOCK_HACK,som_scene_4137F0_Lock))
-	assert(0);
-	{	
-		auto &mpx2 = *SOM::L.mpx;
-		som_MPX &mpx = *mpx2.pointer;
-		int &ls = mpx[SOM::MPX::layer_selector]; //DEBUGGING
-		assert(0==ls);
+	
+	if(1) //som_MPY_reprogram
+	{
+		//2023: rewriting this subroutine to draw layers interleaved
+		sss::worldtransformed = 0;
+		DDRAW::Direct3DDevice7->SetTransform(DX::D3DTRANSFORMSTATE_WORLD,&DDRAW::Identity);
+		som_scene_lighting(0);
+		DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLOROP,sss::tex0colorop=DX::D3DTOP_MODULATE);
+		DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLORARG1,sss::tex0colorarg1=D3DTA_TEXTURE);
+		DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLORARG2,sss::tex0colorarg2=D3DTA_DIFFUSE);
+		DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_ALPHAOP,sss::tex0alphaop=DX::D3DTOP_DISABLE);							  		
+		//OpenGL needs this here
+		//I think this is why sky makes map pieces colorkey transparent
+		//DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,0);
+		//DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_SRCBLEND,sss::srcblend=DX::D3DBLEND_ONE);
+		//DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_DESTBLEND,sss::destblend=DX::D3DBLEND_ZERO);	
+		som_scene_alphaenable(0);
 
-		/*REFERENCE
-		//
-		// this was a debugging session (empty som_tool_wector
-		// scenario below) but I need to rewrite this subroutine
-		// to interleave layers (som_scene_4133E0_layers) with
-		// regard to reducing overdraw, for which this code will
-		// be a starting point. (the code will also need to draw
-		// tiles in local groups, instead of all of each texture
-		// at a time)
-		//
-		if(EX::debug) //((void(__cdecl*)())0x413F10)();
+		extern void som_MPY_413f10(),som_MPY_413f10_mhm(); 
+
+		//2024: I'm making this what players can see in case they need
+		//to see the clipping geometry, otherwise it shows what's behind
+		//the BSP system and doors (this removes X-Ray, todo, maybe switch)
+		if(SOM::L.fill==2) som_MPY_413f10_mhm(); else som_MPY_413f10();	
+
+		som_scene_lighting(1);
+		DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_ALPHAOP,sss::tex0alphaop=DX::D3DTOP_SELECTARG1);
+	}
+	else //OLD WAY (faster?)
+	{
+		((void(__cdecl*)())0x413f10)();
 		{
-			//DEBUGGING (reimplementing main loop)
+			auto &mpx2 = *SOM::L.mpx;
+			som_MPX &mpx = *mpx2.pointer;
+			int &ls = mpx[SOM::MPX::layer_selector]; //DEBUGGING
+			assert(0==ls);
 
-			typedef SOM::MPX::Layer L;
-			auto *lp = (L*)&mpx[SOM::MPX::layer_0];
-			auto &l = lp[ls];
-			auto *tp = l.tiles;
-
-			//scanning for the crash so I can inspect it
-			auto *dl = mpx2.tiles_on_display;
-			DWORD jN = mpx2.tiles_to_display;
-			auto tc = mpx[SOM::MPX::texture_counter];
-			for(int i=0;i<tc;i++)			
-			for(DWORD j=jN;j-->0;) //413F10 scans backwards
-			{
-				auto &yx = dl[j];
-				DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
-				auto &t = tp[k];
-				if(t.mhm==139&&t.msm==0xffff)
-				{
-					k = k; //breakpoint
-				}
-				auto *p = tp[k].pointer; 
-				if(!p) //4140B7 crash
-				{
-					//I think these are the "plug" setup by
-					//som_MPX_401500... what I can't figure
-					//out is why they're not normally added
-					//to the display list except here where
-					//entering the menu at this exact point
-				
-					p = p; //breakpoint
-
-					//som_scene_4133E0_layers();
-					//goto test;
-					goto unlock;
-				}
-				auto *pp = p->pointer;
-				DWORD pc = p->counter;
-				for(k=0;k<pc;k++) if(pp[k].texture==(DWORD)i)
-				{
-					//add MSM to vbuffer //UNFINISHED
-				}
-			}
-		}*/
-		((void(__cdecl*)())0x413F10)();
-
-		//if(1&&EX::debug) //testing layers theory 
-		{
 			DWORD *p = (DWORD*)&mpx;
 			
 			//HACK/OPTIMIZING			
-			extern std::vector<WCHAR> som_tool_wector;
-			//assert(som_tool_wector.empty());
+		//	extern std::vector<WCHAR> som_tool_wector;
+		//	//assert(som_tool_wector.empty());
 			//2022: base layer may have 0 tiles... this is only a
 			//problem inside menus because they don't update the
 			//display list (som_state_reprogram_image forces this
@@ -2612,16 +2488,11 @@ static void __cdecl som_scene_4137F0() //TILES
 						//TEST: rendering with base's frustum
 					//	int &ls = mpx[SOM::MPX::layer_selector];
 						ls = i>=66?0:(66-i)/-10-1;
-						//if(som_tool_wector.empty())
-						if(!swap++)
-						som_tool_wector.assign((WCHAR*)mpx2.tiles_on_display,
-						(WCHAR*)mpx2.tiles_on_display+mpx2.tiles_to_display);
-						//((void(__cdecl*)())0x4133E0)(); //sets tiles_on_display											
-						som_scene_4133E0_layers();
-					//	((void(__cdecl*)())0x4137F0)(); //draw (413F10)
-					//2020: crashing, 4137F0 draws the sky and then the
-						//tiles... is that what's desired?
-						((void(__cdecl*)())0x413F10)();
+					//	if(!swap++)
+					//	som_tool_wector.assign((WCHAR*)mpx2.tiles_on_display,
+					//	(WCHAR*)mpx2.tiles_on_display+mpx2.tiles_to_display);
+						((void(__cdecl*)())0x4133E0)(); //sets tiles_on_display
+						((void(__cdecl*)())0x413F10)(); //draw
 						ls = 0;
 					}					   
 					else assert(!p[i]); //breakpoint
@@ -2631,14 +2502,12 @@ static void __cdecl som_scene_4137F0() //TILES
 			//crashes on reentry???
 			//((void(__cdecl*)())0x4133E0)(); //sets tiles_on_display
 			//if(!som_tool_wector.empty())			
-			if(swap)
-			wmemcpy((WCHAR*)mpx2.tiles_on_display,
-			(WCHAR*)som_tool_wector.data(),mpx2.tiles_to_display=som_tool_wector.size());
+		//	if(swap)
+		//	wmemcpy((WCHAR*)mpx2.tiles_on_display,
+		//	(WCHAR*)som_tool_wector.data(),mpx2.tiles_to_display=som_tool_wector.size());
 			//som_tool_wector.clear();
 		}
 	}
-	DDRAW::hack_interface(DDRAW::DIRECT3DVERTEXBUFFER7_LOCK_HACK,0);
-
 		if(som_scene_batchelements)
 		assert(!som_scene_batchelements->se_commit);
 }
@@ -2653,7 +2522,7 @@ static void __cdecl som_scene_42B220() //OBJECTS
 	{
 		//shader register corruption???
 
-		som_scene_ambient2 = -1; //HACK //TESTING
+		som_scene_ambient2 = 1; //HACK //TESTING
 	}
 
 	if(1) som_scene_objects.draw();
@@ -2844,7 +2713,7 @@ static void __cdecl som_scene_42DC20() //MAGIC (SCREEN EFFECTS)
 
 extern int som_scene_volume;
 namespace som_scene_shadows
-{									   
+{
 	static bool on()
 	{	
 		som_scene_gamma_n = false;
@@ -2852,23 +2721,23 @@ namespace som_scene_shadows
 		//if(shadow_pass==transparency_pass)
 		som_scene_volume = 0; 
 
-		som_scene_state::texture = 0; 
-		//som_scene_state::zwriteenable = 0;
+		//sss::zwriteenable = 0;
 		//DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ZWRITEENABLE,0);	
-		assert(!som_scene_state::zwriteenable);
+		assert(!sss::zwriteenable);
 		//hack: make DDRAW::vsWorldView vsView
-		som_scene_state::worldtransformed = 0; 
+		sss::worldtransformed = 0; 
 		DDRAW::Direct3DDevice7->SetTransform(DX::D3DTRANSFORMSTATE_WORLD,&DDRAW::Identity);			
-		som_scene_state::alphaenable = 1;
+		sss::alphaenable = 1;
 		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,1);
-		som_scene_state::srcblend = DX::D3DBLEND_SRCALPHA;
-		som_scene_state::destblend = DX::D3DBLEND_INVSRCALPHA; 						  		
-		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_SRCBLEND,som_scene_state::srcblend);
-		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_DESTBLEND,som_scene_state::destblend);	
+		sss::srcblend = DX::D3DBLEND_SRCALPHA;
+		sss::destblend = DX::D3DBLEND_INVSRCALPHA; 						  		
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_SRCBLEND,sss::srcblend);
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_DESTBLEND,sss::destblend);	
 
 		//assert(shadow==0);
 		//call 4487D0: texture* is at 0x1D3D2F0+A0*shadow	   		 
-		DDRAW::Direct3DDevice7->SetTexture(0,*(DX::IDirectDrawSurface7**)0x1D3D2F0); 
+	//	sss::texture = 0; 
+	//	DDRAW::Direct3DDevice7->SetTexture(0,*(DX::IDirectDrawSurface7**)0x1D3D2F0); 
 		DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_ADDRESS,DX::D3DTADDRESS_CLAMP);
 
 		DDRAW::vs = DDRAW::ps = 7;
@@ -2878,64 +2747,214 @@ namespace som_scene_shadows
 		return true;
 	}
 	static bool off()
-	{	
+	{
 		//I think does no good inside of som_scene_44d7d0
 		//DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)190,0xF);
 		return false;
 	}
-	static void draw(float (&worldxform)[4][4], DX::D3DCOLOR color)
+	static void draw(int txr, float (&worldxform)[4][4], DX::D3DCOLOR color)
 	{
-		EX::INI::Adjust ad;		
-		int alpha = -ad->npc_shadows_modulation*(color>>24);
-		if(alpha>0xFF) alpha = 0xFF;
-		if(alpha<0) alpha = color>>24;
-		color = alpha<<24|(DWORD)ad->npc_shadows_saturation;
+		EX::INI::Adjust ad;
 
-		const float x = EX_INI_SHADOWRADIUS, //0.512f
-		t = EX_INI_SHADOWVOLUME,b = -EX_INI_SHADOWVOLUME; //0.2
-		const DWORD fvf = D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX1|D3DFVF_TEXCOORDSIZE4(0);
-		static float v[8][8] = //const
-		{
-		{-x,t,-x}, {+x,t,-x}, //0,1
-			{-x,t,+x}, {+x,t,+x}, //2,3
-		{-x,b,-x}, {+x,b,-x}, //4,5
-			{-x,b,+x}, {+x,b,+x}, //6,7
-		};
-		static const WORD i[6*6] = 
-		{
-		1,0, 2,2 ,3,1, //top
-		4,5, 6,6 ,5,7, //bottom
-		2,0, 6,6 ,0,4, //left
-		1,3, 7,7 ,5,1, //right
-		3,2, 6,6 ,7,3, //front
-		0,1, 5,5 ,4,0, //back
-		};				
-		float scale =
-		ad->npc_shadows_multiplier*
-		worldxform[0][0]; //*1024; //MDL
-		//see notes about this value in the PC
-		//shadow overload
-		worldxform[3][1]-=som_scene_shadowdecal; //0.0001
-		
-		/*DSTEREO_SKY seems to address this
-		//HACK: the shift in perspective sands the sides off 
-		//the shadows. This pulls the UVs in while the scale
-		//is enlarged to compensate inside som_scene_shadows
-		if(DDRAW::inStereo) scale+=DDRAW::stereo; //0.1f; */
+		int passes = 1;
 
-		//2021: som_scene_batchelements is using DrawIndexedPrimitive ATM
-		void *swap = DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_DRAWINDEXEDPRIMITIVE_HACK,0);
+		float tween = 1.0f;
+		bool first = false;
+		float _kage_bbox2[2][6] = {};
+		float *kage_bbox = nullptr;
+		SOM::Animation *ba = nullptr;		
+		if(txr>=4096) //2024: kage2?
 		{
-			for(int i=0;i<8;v[i++][7]=scale) //center		
-			*((DWORD*)memcpy(v[i]+4,worldxform[3],3*sizeof(float))-1) = color;		
-			//NOTE: SOM doesn't use DrawIndexedPrimitive (except in software mode?)			
-			DDRAW::Direct3DDevice7->DrawIndexedPrimitive(DX::D3DPT_TRIANGLELIST,fvf,(LPVOID)v,8,(LPWORD)i,6*6,0);
+			int k = txr-4096;
+			if(k<(int)som_kage.size()) 
+			{
+				passes = 2;
+
+				SOM::MDL *l = som_kage[k];
+
+				ba = l->find_first_kage();
+
+				float t = som_kage[k]->f;
+				t = (t-ba[0].t)/(ba[1].t-ba[0].t);
+				t = 1-max(0,min(1,t));
+				
+				if(1) //try lightest first?
+				{
+					if(t>0.5f) //try darkest first?
+					{
+						t = 1-t; first = true;
+					}
+				}
+				else //try darkest first?
+				{
+					if(t<0.5f) 
+					{
+						t = 1-t; first = true;
+					}
+				}
+
+				t = t*0.9f+0.1f;
+				tween = t;
+
+				//TODO: do this in SOM::MDL::control_point?
+				int skip = l->c==0&&l->mdl_data->hard_anim_buf; //YUCK
+
+				memcpy(_kage_bbox2[0],ba[0].bbox,sizeof(_kage_bbox2[0]));	
+				memcpy(_kage_bbox2[1],ba[1].bbox,sizeof(_kage_bbox2[0]));	
+				float cp[3] = {};
+				//this way stutters more
+			//	l->control_point(cp,l->c,l->f,-1,true);
+				//TODO? maybe x2mdl should consult the CP file
+				//when figuring out the center of its shadow??
+				//(it seems there's only be a correspondance!)
+				l->control_point(cp,l->c,ba[0].t+skip,-1,!!true);
+				_kage_bbox2[0][0]-=cp[0];
+				_kage_bbox2[0][2]-=cp[1];
+				_kage_bbox2[0][4]-=cp[2];		
+				l->control_point(cp,l->c,ba[1].t+skip,-1,!!true);				
+				_kage_bbox2[1][0]-=cp[0];
+				_kage_bbox2[1][2]-=cp[1];
+				_kage_bbox2[1][4]-=cp[2];
+
+				if(sss::texture!=txr) //2023: som.kage.cpp
+				{
+					sss::texture = txr;
+					if(tween)
+					DDRAW::Direct3DDevice7->SetTexture(0,ba[first].texture);
+				//	DDRAW::Direct3DDevice7->SetTexture(1,ba[1].texture);
+				}
+			}
 		}
-		DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_DRAWINDEXEDPRIMITIVE_HACK,swap);
+		else //classic way
+		{
+			if(sss::texture!=txr)
+			{
+				sss::texture = txr;
+				DDRAW::Direct3DDevice7->SetTexture(0,SOM::L.textures[txr].texture);	
+			//	DDRAW::Direct3DDevice7->SetTexture(1,SOM::L.textures[txr].texture);	
+			}
+			kage_bbox = txr?SOM::L.textures[txr].kage_bbox:0; //single shadow icon?
+		}
+		float *bb = kage_bbox?kage_bbox:_kage_bbox2[first];
+		for(int pass=1;pass<=2;pass++)
+		{
+			if(pass==2)
+			{
+				bb = _kage_bbox2[!first];				
+				if(tween=1-tween)
+				DDRAW::Direct3DDevice7->SetTexture(0,ba[pass==1?first:!first].texture);
+			}			
+			if(!tween) continue;
+		
+			float x = EX_INI_SHADOWRADIUS, //0.512f
+			t = EX_INI_SHADOWVOLUME, b = -EX_INI_SHADOWVOLUME; //0.2
+				
+			float sx = worldxform[1][1]; //*1024; //MDL
+			float rx = 1/sx*worldxform[0][0];
+			float rz = 1/sx*worldxform[2][0];
+			sx*=ad->npc_shadows_multiplier();
+
+			float tx,sz = sx; if(bb[1]) 
+			{
+				//tx = 0.5/(sx/EX_INI_SHADOWUVBIAS);
+			//	tx = 5*sx*bb[1]/(1+0.15); //X2ICO_SHADOW_EXPAND?
+				tx = 5*sx*bb[1];
+
+				sx*=bb[1];
+				sz*=bb[5];
+			}
+			else 
+			{
+				tx = 0.5/(sx/EX_INI_SHADOWUVBIAS);
+
+				sz*=x; sx*=x;
+			}
+		
+			float fade = color>>24; assert(color<<8==0xffffff00);
+		//	fade = powf(fade/255,0.55f)*255;
+			int alpha = sqrtf(ad->npc_shadows_modulation()*0.5f)*fade*sqrtf(tween);
+			//color = alpha<<24|(DWORD)ad->npc_shadows_saturation();
+			DWORD color2 = alpha<<24|(DWORD)ad->npc_shadows_saturation();
+		//	if(pass==1) color2|=0xff; 
+		//	if(pass==2) color2|=0xff0000;
+
+			BYTE *c = (BYTE*)&color2; if(fade!=0xFF) //white ghost?		
+			{
+				float f = 1-fade/255.0f;
+				static const float l[3] = { 0.00087058632f,0.00277254292f,0.00027843076f};
+				float gray = l[0]*c[0]+l[1]*c[1]+l[2]*c[2];
+				for(int i=3;i-->0;)
+				{
+					float g = (c[i]+(gray-c[i])*f)+f*0.6f; //som.shader.cpp
+					c[i] = (BYTE)min(255,g);
+				}
+			}
+
+			float v[8][12] = //const
+			{
+			{-sx,t,-sz}, {+sx,t,-sz}, //0,1
+				{-sx,t,+sz}, {+sx,t,+sz}, //2,3
+			{-sx,b,-sz}, {+sx,b,-sz}, //4,5
+				{-sx,b,+sz}, {+sx,b,+sz}, //6,7
+			};
+			static const WORD i[6*6] = 
+			{
+			1,0, 2,2 ,3,1, //top
+			4,5, 6,6 ,5,7, //bottom
+			2,0, 6,6 ,0,4, //left
+			1,3, 7,7 ,5,1, //right
+			3,2, 6,6 ,7,3, //front
+			0,1, 5,5 ,4,0, //back
+			};						
+
+			/*DSTEREO_SKY seems to address this
+			//HACK: the shift in perspective sands the sides off 
+			//the shadows. This pulls the UVs in while the scale
+			//is enlarged to compensate inside som_scene_shadows
+			if(DDRAW::inStereo) sx+=DDRAW::stereo; //0.1f; */
+
+			/*update shadow matrix?
+			{			
+				float center[4];
+				Somvector::multiply<4>(worldxform[3],SOM::analogcam,center);
+				for(int i=0;i<3;i++) 
+				{
+					float col[3] = {SOM::shadowcam[0][i],SOM::shadowcam[1][i],SOM::shadowcam[2][i]};
+					SOM::shadowcam[3][i] = -(col[0]*center[0]+col[1]*center[1]+col[2]*center[2]);
+				}
+				DDRAW::pset9(SOM::shadowcam[3],1,DDRAW::psTexMatrix[3]);
+				DDRAW::vset9(SOM::shadowcam[0],4,DDRAW::vsTexMatrix[0]);
+			}*/
+		
+			const DWORD fvf = D3DFVF_XYZ|D3DFVF_DIFFUSE|D3DFVF_TEX2|D3DFVF_TEXCOORDSIZE4(0)|D3DFVF_TEXCOORDSIZE4(1);
+
+			//2021: som_scene_batchelements is using DrawIndexedPrimitive ATM
+			void *swap = DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_DRAWINDEXEDPRIMITIVE_HACK,0);
+			{
+				for(int i=8;i-->0;) //center
+				{
+					(DWORD&)v[i][3] = color2;
+					//BLACK MAGIC (FIX ME)
+					//I have no clue why *m makes this helps :(
+					float m = 1/2.5f;
+					v[i][4] = worldxform[3][0]+(-bb[0]*m*-rx-bb[4]*m*-rz);				
+					v[i][5] = worldxform[3][1]-som_scene_shadowdecal;
+					v[i][6] = worldxform[3][2]+(-bb[0]*m*rz-bb[4]*m*-rx);				
+					v[i][7] = tx;
+					v[i][8] = rx;
+					v[i][9] = rz;
+					v[i][10] = sx;
+					v[i][11] = sz;					
+				}
+				//NOTE: SOM doesn't use DrawIndexedPrimitive (except in software mode?)			
+				DDRAW::Direct3DDevice7->DrawIndexedPrimitive(DX::D3DPT_TRIANGLELIST,fvf,(LPVOID)v,8,(LPWORD)i,6*6,0);
+			}
+			DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_DRAWINDEXEDPRIMITIVE_HACK,swap);
+		}
 	}
 	static void draw(float radius)
 	{			
-		float tmp[3],worldxform[4][4]; 
+		float tmp[3],worldxform[4][4] = {}; 
 		//2020: can't hurt to do all of these
 		worldxform[0][0] = worldxform[1][1] = 
 		worldxform[2][2] = radius/EX_INI_SHADOWRADIUS; ///1024; //MDL
@@ -2948,7 +2967,13 @@ namespace som_scene_shadows
 		//to be a constant of 0.0201... it's possible to knock out the 0.0001
 		//code in some.scene.cpp
 		worldxform[3][1]+=som_scene_shadowdecal-0.0001f;
-		draw(worldxform,0xffffffff);		
+
+		float rx = cos(-SOM::L.pcstate[4]);
+		float rz = sin(-SOM::L.pcstate[4]);
+		worldxform[0][0] = rx; worldxform[0][2] = -rz;
+		worldxform[2][0] = rz; worldxform[2][2] = rx;
+
+		draw(0,worldxform,0xffffffff);		
 	}
 }
 //transparency/shadows sort call
@@ -2964,7 +2989,7 @@ static float som_scene_depth2(float a[3], float b[3])
 static void __cdecl som_scene_44d5a0(som_scenery *ts) //depth-sort
 {
 	//TODO! MAKE lightselector MORE ACCURATE
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 
 	EX::INI::Option op;
 
@@ -2974,16 +2999,8 @@ static void __cdecl som_scene_44d5a0(som_scenery *ts) //depth-sort
 	som_scene_elements &ses = *ts->ses;	
 	if(op->do_alphasort&&som_hacks_shader_model)
 	{
-		extern void som_bsp_add_vbufs(som_MDL::vbuf**,size_t);
-		som_bsp_add_vbufs(ses,ts->se_commit);
-		iN = ts->se_commit;
-		for(int j=i=0;j<iN;j++) 
-		{
-			auto se = ses[j]; //ses[j] = 0; //ts->clear?
-
-			if(!se->sort) ses[i++] = se;
-		}
-		ts->se_commit = i; //ts->clear?
+		extern DWORD som_bsp_add_vbufs(som_MDL::vbuf**,DWORD);
+		ts->se_commit = som_bsp_add_vbufs(ses,ts->se_commit);
 	}
 	else
 	{
@@ -2995,7 +3012,7 @@ static void __cdecl som_scene_44d5a0(som_scenery *ts) //depth-sort
 		float *prev = (float*)&i;
 		for(i=0,iN=ts->se_commit;i<iN;i++,prev=p)
 		{
-			switch(ses[i]->mode)
+			switch(ses[i]->fmode)
 			{			
 			/*mode 2??? I think this is averaging a quad (in screen space)
 			0044D6D4 D9 40 7C             fld         dword ptr [eax+7Ch]  
@@ -3117,7 +3134,7 @@ extern int som_scene_volume_select(DWORD txr, int vg=-1)
 	if(1&&som_scene_batchelements) return -1;
 	#else
 	//batch?
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	#endif
 
 	if(SOM::volume_textures&&txr!=65535)	
@@ -3140,7 +3157,7 @@ extern int som_scene_volume_select(DWORD txr, int vg=-1)
 	som_scene_volume = 0; return -1;
 }
 extern bool som_scene_shadow = false;
-static void som_scene_413F10_maybe_flush
+static void som_scene_413f10_maybe_flush
 (SOM::MPX::Layer::tile::scenery::per_texture *pt)
 {
 	//004140E4 A1 68 A9 9A 01       mov         eax,dword ptr ds:[019AA968h]  
@@ -3157,8 +3174,8 @@ static void som_scene_413F10_maybe_flush
 
 		som_MPX &mpx = *SOM::L.mpx->pointer;
 		DWORD txr = ((WORD*)mpx[SOM::MPX::texture_pointer])[pt->texture];
-		DWORD &sss = som_scene_state::texture;
-		assert((int)sss<1024); //assert((int)sss<4096);
+		DWORD sss = sss::texture;
+		assert((int)sss<1024);
 
 		//2022: this was overflowing the ibuffer array because it didn't
 		//factor in transparent_indicesN. because this code is scanning
@@ -3167,11 +3184,11 @@ static void som_scene_413F10_maybe_flush
 
 		if(txr!=sss||896<vbN+pt->vcolor_indicesN||2688<ibN+indices2)
 		{
-			if(ibN) som_scene_413F10_maybe_flush(0); 
+			if(ibN) som_scene_413f10_maybe_flush(0); 
 			
 			if(txr!=sss&&txr<1024)
 			{	
-				sss = txr;
+				sss::texture = txr;
 				
 				DDRAW::IDirectDrawSurface7 *t = SOM::L.textures[txr].texture;
 				DDRAW::Direct3DDevice7->SetTexture(0,t);
@@ -3199,12 +3216,158 @@ static void som_scene_413F10_maybe_flush
 	(DX::D3DPT_TRIANGLELIST,vb,0,vbN,ib,ibN,0);	
 	vbN = ibN = 0;
 }
-extern float som_scene_413F10_uv = 0; //testing
-static void som_scene_413F10(float &depth,
+static void som_scene_413f10_mhm(float xyz[3], int a, SOM::MHM &h, float* &p)
+{
+	DWORD &ibN = SOM::L.mpx_ibuffer_size;
+	DWORD &vbN = SOM::L.mpx_vbuffer_size; 
+
+	int iN = 0;
+	int vN = h.verts;
+	for(int n,i=h.polies;i-->0;iN+=n)
+	{
+		n = h.poliesptr[i].verts; n+=2*(n-3);
+	}	
+		
+	if(896<vbN+vN||2688<ibN+iN)
+	{
+		som_scene_413f10_maybe_flush(0);
+	}	
+	if(!ibN)
+	{
+		DWORD f = DDLOCK_DISCARDCONTENTS|DDLOCK_WAIT|DDLOCK_WRITEONLY;
+		SOM::L.mpx->vbuffer->Lock(f,(void**)&p,0);	
+	}
+	assert(ibN<=2688);
+
+	WORD *q = SOM::L.mpx->ibuffer+ibN; //emulate 413f10
+
+	int vbase = vbN;
+	for(int i=h.polies;i-->0;)
+	{
+		auto &pi = h.poliesptr[i];
+		auto *vp = pi.vertsptr;		
+		*q++ = vbase+*vp++;
+		*q++ = vbase+*vp++;
+		*q++ = vbase+*vp++;
+		if(pi.verts>3)
+		{
+			auto *v0 = vp-3;
+			for(int j=pi.verts-3;j-->0;vp++)
+			{
+				*q++ = vbase+*v0; 
+				*q++ = vbase+vp[-1];
+				*q++ = vbase+*vp;
+			}
+		}
+	}
+	ibN+=iN;
+	vbN+=vN;
+
+	for(auto*vp=h.vertsptr;vN-->0;vp+=3,p+=6)
+	{
+		float *v = vp;
+		p[0] = xyz[0];
+		p[1] = xyz[1]+v[1];
+		p[2] = xyz[2];
+		switch(a) //might want to unroll this part 
+		{
+		case 0: p[0]+=v[0]; p[2]+=v[2]; break; //S
+		case 1: p[0]-=v[2]; p[2]+=v[0]; break; //W 
+		case 2: p[0]-=v[0]; p[2]-=v[2]; break; //N
+		case 3: p[0]+=v[2]; p[2]-=v[0]; break; //E
+		}
+	//	(DWORD&)p[3] = 0xff2787a7; //clip_model_pixel_value
+		(DWORD&)p[3] = 0xff3ACAFB; //observed SOM_MAP value
+		p[4] = 0.0f; //u
+		p[5] = 0.0f; //v
+	}
+}
+extern float som_scene_413f10_uv = 0; //testing
+static void som_scene_413f10(float xyz[3], int a,
+SOM::MPX::Layer::tile::scenery::per_texture *pt, float* &p)
+{	
+	som_MPX &mpx = *SOM::L.mpx->pointer;
+
+	//transparent triangles are hidden like so	
+	if(int i=pt->_transparent_indicesN)
+	{
+		if(!pt->triangle_indicesN) //EXPERIMENTAL
+		{	
+			som_scene_element2 el = {{xyz[0],xyz[1],xyz[2]},a,pt};
+
+			//will probably get around to pooling these... no big deal
+			som_scene_transparentelements2.push_back(el);			
+		}
+		else assert(0); return; //UNIMPLEMENTED
+	}
+
+	som_scene_413f10_maybe_flush(pt);
+
+	int tuv = 0; float tu,tv;
+	if(SOM::material_textures)
+	{
+		DWORD txr = ((WORD*)mpx[SOM::MPX::texture_pointer])[pt->texture];
+
+		if(txr<1024) if(auto*mt=(*SOM::material_textures)[txr])
+		{
+			if(tuv=mt->mode&(8|16))
+			{
+				tu = mt->data[7]*som_scene_413f10_uv;
+				tv = mt->data[8]*som_scene_413f10_uv;
+			}
+		}
+	}
+
+	DWORD &ibN = SOM::L.mpx_ibuffer_size;
+	DWORD &vbN = SOM::L.mpx_vbuffer_size; 
+	float *vp = (float*)mpx[SOM::MPX::vertex_pointer];
+
+	if(!ibN)
+	{
+		DWORD f = DDLOCK_DISCARDCONTENTS|DDLOCK_WAIT|DDLOCK_WRITEONLY;
+		SOM::L.mpx->vbuffer->Lock(f,(void**)&p,0);	
+	}
+	assert(ibN<=2688);
+
+	WORD *q = SOM::L.mpx->ibuffer+ibN; //emulate 413f10
+
+	int i = pt->triangle_indicesN;
+	ibN+=i;
+	memcpy(q,pt->triangle_indices,2*i);		
+	WORD vo = vbN;
+	for(;i-->0;q++)
+	*q+=vo;
+	i = pt->vcolor_indicesN;
+	vbN+=i;
+	DWORD *vc = *pt->vcolor_indices;		
+	for(;i-->0;vc+=2,p+=6)
+	{
+		float *v = vp+5*vc[0];
+		p[0] = xyz[0];
+		p[1] = xyz[1]+v[1];
+		p[2] = xyz[2];
+		switch(a) //might want to unroll this part 
+		{
+		case 0: p[0]+=v[0]; p[2]+=v[2]; break; //S
+		case 1: p[0]-=v[2]; p[2]+=v[0]; break; //W 
+		case 2: p[0]-=v[0]; p[2]-=v[2]; break; //N
+		case 3: p[0]+=v[2]; p[2]-=v[0]; break; //E
+		}
+		(DWORD&)p[3] = vc[1];
+		p[4] = v[3];
+		p[5] = v[4];
+		if(tuv) switch(tuv&16?a:0) //2020
+		{				
+		case 0: p[4]+=tu; p[5]+=tv; break; //KF2
+		case 1: p[4]-=tu; p[5]+=tv; break; //UNTESTED
+		case 2: p[4]-=tu; p[5]-=tv; break; //UNTESTED
+		case 3: p[4]+=tu; p[5]-=tv; break; //UNTESTED
+		}
+	}
+}
+static void som_scene_413f10(float &depth,
 som_scene_element2* &se2, som_scene_element2*send2)
 {	
-	namespace sss = som_scene_state;
-
 	som_MPX &mpx = *SOM::L.mpx->pointer;	
 
 	if(!sss::alphaenable)
@@ -3221,12 +3384,9 @@ som_scene_element2* &se2, som_scene_element2*send2)
 	DWORD &cop = sss::tex0colorop; //4
 	DWORD &ca1 = sss::tex0colorarg1; //2
 	DWORD &ca2 = sss::tex0colorarg2; //1
-//	if(cop!=4) //TESTING
-//	DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLOROP,cop=DX::D3DTOP_MODULATE);
-//	if(ca1!=2) //TESTING
-//	DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLORARG1,ca1=D3DTA_TEXTURE);
-	if(ca2!=1) //D3DTA_CURRENT? 
-	DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLORARG2,ca2=D3DTA_CURRENT);
+	if(cop!=4) DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLOROP,cop=DX::D3DTOP_MODULATE);
+	if(ca1!=2) DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLORARG1,ca1=D3DTA_TEXTURE);
+	if(ca2!=0) DDRAW::Direct3DDevice7->SetTextureStageState(0,DX::D3DTSS_COLORARG2,ca2=D3DTA_DIFFUSE);
 
 	//2022: this should be off (not on?) does som.hacks.cpp manage this?
 	//assert(sss::lighting_current);
@@ -3249,7 +3409,7 @@ som_scene_element2* &se2, som_scene_element2*send2)
 
 	int tex = -1, tuv = 0; float tu,tv; 
 
-	WORD *ib = SOM::L.mpx->ibuffer; do //emulate 413F10
+	WORD *ib = SOM::L.mpx->ibuffer; do //emulate 413f10
 	{
 		//transparent triangles are hidden like so
 		//int i = 2*se2->model->triangle_indicesN;
@@ -3259,7 +3419,7 @@ som_scene_element2* &se2, som_scene_element2*send2)
 			assert(0); continue; 
 		}
 
-		som_scene_413F10_maybe_flush(se2->model);
+		som_scene_413f10_maybe_flush(se2->model);
 
 		if(tex!=se2->model->texture)
 		{
@@ -3270,15 +3430,15 @@ som_scene_element2* &se2, som_scene_element2*send2)
 			if(SOM::material_textures)
 			{
 				DWORD txr = ((WORD*)mpx[SOM::MPX::texture_pointer])[tex];
-				//assert(txr==som_scene_state::texture);
+				//assert(txr==sss::texture);
 
 				if(txr<1024)
 				if(SOM::MT *mt=(*SOM::material_textures)[txr])
 				{
 					if(tuv=mt->mode&(8|16))
 					{
-						tu = mt->data[7]*som_scene_413F10_uv;
-						tv = mt->data[8]*som_scene_413F10_uv;
+						tu = mt->data[7]*som_scene_413f10_uv;
+						tv = mt->data[8]*som_scene_413f10_uv;
 					}
 				
 					if(mt->mode&0x100) blend = DX::D3DBLEND_ONE;
@@ -3342,7 +3502,7 @@ som_scene_element2* &se2, som_scene_element2*send2)
 
 	}while(--se2>send2&&se2->depth_44D5A0>=depth);
 
-	som_scene_413F10_maybe_flush(0); 
+	som_scene_413f10_maybe_flush(0); 
 
 	depth = se2==send2?0:se2->depth_44D5A0;
 }
@@ -3358,15 +3518,15 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 	//190: D3DRS_COLORWRITEENABLE1 (switch MRT to texture 1)
 	DDRAW::Direct3DDevice7->SetRenderState((DX::D3DRENDERSTATETYPE)190,0);
 
-	som_scene_state::texture = -1; //som_scene_volume	
+	sss::texture = -1; //som_scene_volume	
 
 	//2018: does 44D7D0 set this up? took a long time to notice
 	//this was missing... I guess depth sorting makes it rarely
 	//an issue		
-	if(som_scene_state::zwriteenable) //assert(!sss::zwriteenable)
+	if(sss::zwriteenable) //assert(!sss::zwriteenable)
 	{
 		DDRAW::Direct3DDevice7->SetRenderState
-		(DX::D3DRENDERSTATE_ZWRITEENABLE,som_scene_state::zwriteenable=0);
+		(DX::D3DRENDERSTATE_ZWRITEENABLE,sss::zwriteenable=0);
 	}
 	else //assert(0); //2021???
 	{
@@ -3403,10 +3563,16 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 	{				
 		//2020: legacy modes (som_hacks_DrawIndexedPrimitiveVB) 
 		//assume fog is disabled
-		som_scene_state::fogenable = 0;
+		sss::fogenable = 0;
 		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_FOGENABLE,0);
 		som_scene_alphaenable(1);
 	}
+	/*else //2023: building shadow shader matrix?
+	{		
+		Somvector::transpose<4,4>(SOM::analogcam,SOM::shadowcam);
+
+		DDRAW::pset9(SOM::shadowcam[0],3,DDRAW::psTexMatrix[0]);
+	}*/
 
 	//TRYING SHADOWS ON TRANSPARENT
 	//(since the PC shadow is also functional)
@@ -3444,10 +3610,13 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 		// FIX ME: I'm thinking this is only implemented for
 		// transparent geometry
 		//
-		som_scene_413F10_uv = SOM::motions.tick%4000/4000.0f;
+		som_scene_413f10_uv = SOM::motions.tick%4000/4000.0f;
 	}
 
 	int pass = shadow?2:1; pass2:
+
+	if(som_scene_ambient2) som_scene_ambient2 = 1; //2023: seeing flickering
+
 	DWORD i; //technically this subroutine returns a value
 	for(i=0;i<ts->se_commit;i++)
 	{
@@ -3459,7 +3628,7 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 			som_scene_red(v?SOM::Versus[v-1].EDI:0);
 		}
 
-		if(se->texture==shadow) //!
+		if(se->kage||se->texture==shadow) //2023
 		{	
 			if(pass!=shadow_pass) continue;
 
@@ -3473,14 +3642,14 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 			//assert(vdat->x==-512);
 			//assert((int)(vdat->x*1024-0.5f)==-512); //2021
 			float *test = &vdat->tu; //MDL?
-			if(se->mode==3) test+=8; //MDO?
+			if(se->fmode==3) test+=8; //MDO?
 			assert(*test==EX_INI_SHADOWUVBIAS);
 			#endif
 
 			//2021: MDO? vdat2? material?
 			//NOTE: color is really just for the fade out effect
 			//(it might use color in the future?)
-			DX::D3DCOLOR color; if(se->mode!=4)
+			DX::D3DCOLOR color; if(se->fmode!=4)
 			{
 				//neither the shader nor old path use materials
 				//in this case... this could be a problem for SFX
@@ -3503,7 +3672,12 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 
 			if(!som_scene_shadow)
 			som_scene_shadow = som_scene_shadows::on();
-			som_scene_shadows::draw(se->worldxform,color);
+
+			SomEx_npc = se->ai;
+			if(SomEx_npc&0x400) //0x800 won't fit into se->ai
+			SomEx_npc = 1<<12|~SomEx_npc;
+			som_scene_shadows::draw(se->texture,se->worldxform,color);
+			SomEx_npc = -1;
 		}
 		else //som_scene_44d810(se);
 		{
@@ -3527,17 +3701,17 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 				{
 					npc = false; goto npc; 
 				}
-				som_scene_413F10(depth=se->depth_44D5A0,se2,send2);
+				som_scene_413f10(depth=se->depth_44D5A0,se2,send2);
 			}
 
-			if(som_scene_state::texture!=se->texture)
+			if(sss::texture!=se->texture)
 			{
 				som_scene_volume_select(se->texture);
 			}
 
 			//WTH???
 			//shouldn't matter with batching logic in 44d810
-			//except som_scene_413F10 has troubles 
+			//except som_scene_413f10 has troubles 
 			if(se->npc==3&&DDRAW::vshaders9[8])
 			{
 				som_scene_gamma_n = true; som_scene_44d810(se);
@@ -3554,7 +3728,9 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 		{
 			if(!som_scene_shadow)
 			som_scene_shadow = som_scene_shadows::on();
+			SomEx_npc = 12288;
 			som_scene_shadows::draw(EX::INI::Player()->player_character_shadow);	
+			SomEx_npc = -1;
 		}
 	}
 	if(som_scene_shadow) 
@@ -3564,11 +3740,11 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 	{
 		if(op->do_alphasort&&som_hacks_shader_model) //TESTING
 		{
-			som_scene_state::worldtransformed = 0; 
+			sss::worldtransformed = 0; 
 			DDRAW::Direct3DDevice7->SetTransform(DX::D3DTRANSFORMSTATE_WORLD,&DDRAW::Identity);
 			extern void som_bsp_sort_and_draw(bool push=false);
 			som_bsp_sort_and_draw();
-			som_scene_state::setss(1); //HACK
+			sss::setss(1); //HACK
 			som_scene_lighting(0);
 		}
 		else
@@ -3580,7 +3756,7 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 					if(npc_mask) som_hacks_skyconstants[2] = 1; 
 					if(npc_mask) DDRAW::pset9(som_hacks_skyconstants);
 				}
-				som_scene_413F10(depth=0,se2,send2);  
+				som_scene_413f10(depth=0,se2,send2);  
 			}
 		}
 
@@ -3603,7 +3779,7 @@ static BYTE __cdecl som_scene_44d7d0(som_scenery *ts)
 	//REMOVE ME (TESTING)
 	//this is normally done at the top of the frame, but it's done before
 	//the swing model also?
-	som_scene_transparentelements->clear(); 
+	som_scene_transparentelements->clear();
 
 	return i; //unused by caller
 }
@@ -3619,19 +3795,19 @@ static int som_scene_4412E0_frame()
 	extern float som_MDL_arm_fps; //0.06f
 	return 1+(int)(som_MDL_arm_fps*(300-EX::INI::Player()->arm_ms_windup));
 }
-static BYTE __cdecl som_scene_4412E0_swing(SOM::MDL *mdl, DWORD id)
+static BYTE __cdecl som_scene_4412E0_swing(SOM::MDL &mdl, DWORD id)
 {
 	//HACK: this is a SOM::PARARM::Item.arm record
 	//NOTE: currently the glove overwrites weapons
 	if(auto*mv=SOM::movesets[0][0]) 
 	{
-		id = mdl->animation(mv->us[0]);
+		id = mdl.animation(mv->us[0]);
 	}
-	if(!((BYTE(__cdecl*)(SOM::MDL*,DWORD))0x4412E0)(mdl,id))
+	if(!((BYTE(__cdecl*)(void*,DWORD))0x4412E0)(&mdl,id))
 	return 0;
 	int d = som_scene_4412E0_frame();
-	mdl->f = -1;
-	return ((BYTE(__cdecl*)(SOM::MDL*,DWORD))0x4414c0)(mdl,d);
+	mdl.rewind(); //mdl.f = -1;
+	return ((BYTE(__cdecl*)(void*,DWORD))0x4414c0)(&mdl,d);
 }
 extern DWORD som_MDL_449d20_swing_mask(bool);
 static bool som_scene_swing_mirror(bool mirror, som_scenery &tes)
@@ -3690,7 +3866,7 @@ extern void som_scene_swing(bool clear, float alpha)
 	}
 	else //return; //OPTIMIZING?
 	{
-		mdl.update_animation(); //sync f/d??
+		//mdl.update_animation(); //sync f/d??
 
 		return; //OPTIMIZING?
 	}
@@ -3705,51 +3881,6 @@ extern void som_scene_swing(bool clear, float alpha)
 
 	int rt = mdl.running_time(mdl.c);
 
-	int rdir,rdir2;
-	WORD *rewind = 0, *rewind2 = 0;
-	if(clear&&DDRAW::fx2ndSceneBuffer) //som_hacks_Clear?
-	{
-		//this is drawing the opaque model immediately after
-		//clearing the back-buffer to be able to skip pixels
-		//hidden by the arm model
-
-		int update = 0;
-		//if(som_scene_425d50_swing2!=mdl.d) //REMOVE ME?
-		if(mdl.d>1&&mdl.f!=mdl.d&&mdl.d<rt-1)
-		{			
-			update|=1;
-		}
-		if(mdl.ext.d2&&mdl.ext.f2!=mdl.ext.d2)
-		{
-			//wraparound?
-			//assert(mdl.ext.d2+1<mdl.running_time(mdl.ext.e2));
-			int rt2 = mdl.running_time(mdl.ext.e2);
-			if(mdl.ext.d2<rt2-1) update|=2;
-		}
-		if(update)
-		{			
-			rdir = mdl.d-mdl.f;
-			rdir2 = mdl.ext.d2-mdl.ext.f2;
-			rdir = max(-1,min(1,rdir));
-			rdir2 = max(-1,min(1,rdir2));
-
-			if(update&1) mdl.d-=rdir;
-			if(update&2) mdl.ext.d2-=rdir2;
-
-			mdl.update_animation();
-
-			if(!mdl.ext.d2) update&=~2; //canceled?
-
-			if(update&1) mdl.d+=rdir;
-			if(update&2) mdl.ext.d2+=rdir2;
-
-			if(update&1) rewind = mdl.hardanim_read_head;
-			if(update&2) rewind2 = mdl.ext.anim_read_head2;
-			for(int i=mdl->skeleton_size;i-->0;)		
-			memcpy(mdl.skeleton[i]._uvw_scale_xyz2,mdl.skeleton[i].uvw,sizeof(float)*9);
-		}
-	}
-
 	//REMOVE ME?
 	//
 	// I'd like to remove this (especially if 0==legacy)
@@ -3763,7 +3894,7 @@ extern void som_scene_swing(bool clear, float alpha)
 	//HACK: fade is limited to regular attacks... the
 	//new guard ability shouldn't be subject to it
 	bool swing; //UNACCEPTABLE
-	float fade; if(swing=1&&mdl.d>1&&!SOM::motions.swing_move)
+	float fade; if(swing=mdl.d>1&&!SOM::motions.swing_move)
 	{
 		//this is a neglible difference however there's a minor
 		//glitch if the shield sits at 0 and the attack starts
@@ -3772,7 +3903,7 @@ extern void som_scene_swing(bool clear, float alpha)
 		//float fade = M_PI*mdl.d/rt;
 		fade = M_PI*max(0,mdl.d-f)/(rt-f);
 		//EX::dbgmsg("fade: %f (%f)",fade,sinf(fade));
-		fade = sinf(fade);
+		fade = sqrtf(sinf(fade));
 	}
 	else fade = 0;
 
@@ -3812,6 +3943,11 @@ extern void som_scene_swing(bool clear, float alpha)
 		y = -0.17f;
 		z = 0.3f; //needs shoulders	
 	}
+
+	#ifdef NDEBUG
+//	#error fix me
+	#endif
+//	z+=1;
 
 	//NOTE: same for VR?
 	//y-=0.025f*l_fade4*(1-SOM::motions.shield*3.75f); 
@@ -3896,12 +4032,11 @@ extern void som_scene_swing(bool clear, float alpha)
 
 		
 		som_scene_batchelements_off _be; //RAII
-
-
-	som_scene_state::push();
+		
+	sss::push();
 
 	som_scene_gamma_n = true; //KF2?
-		
+	 		
 	//select lamps?
 	((BYTE(__cdecl*)(float*,DWORD))0x411210)(SOM::L.pcstate,3);
 	if(som_scene_ambient2)
@@ -3912,10 +4047,24 @@ extern void som_scene_swing(bool clear, float alpha)
 		//of the frame) but the transparency showed the wrong
 		//color (I assume the shader registers are corrupted)
 
-		som_scene_ambient2 = -1; //HACK
+		som_scene_ambient2 = 1; //HACK
 
 		float a2[3+2] = {SOM::xyz[0],SOM::xyz[1],SOM::xyz[2],0.25f,SOM::L.duck};
 		som_scene_ambient2_vset9(a2);
+	}
+
+	//2024: create afterimage when compositing?
+	extern void dx_d3d9X_SEPARATEALPHABLENDENABLE_knockout(bool);
+	if(!DDRAW::isPaused)
+	{
+		//this sets alpha pixels to black and som.shader.cpp
+		//has this code for testing it:
+		//cmp1*=sum1.a; cmp0*=sum0.a;
+		//sum1*=sum1.a; sum0*=sum0.a;
+		dx_d3d9X_SEPARATEALPHABLENDENABLE_knockout(true);		
+		//have to enable blending for SEPARATEALPHABLENDENABLE
+		//to work
+		som_scene_alphaenable(1);sss::alphaenable=0; //???
 	}
 	
 	if(!clear&&som_scene_transparentelements3)	
@@ -3944,14 +4093,19 @@ extern void som_scene_swing(bool clear, float alpha)
 		mdl.xyzuvw[4] = SOM::L.pcstate[4]+3.141593f;
 		mdl.xyzuvw[5] = SOM::L.pcstate[5];
 
+		//REMINDER: must do this before cp manipulations
 		mdl.update_animation();
+		mdl.update_transform();
+		enum{ cp_skeleton=1 }; //YUCK
+		extern BYTE __cdecl som_MDL_transform_hard(DWORD*);
+		som_MDL_transform_hard((DWORD*)&mdl);
 
 		float cp[2][3] = {}; if(!legacy) //Moratheia?
 		{
 			if(mdl.d>1)
-			mdl.control_point(cp[0],mdl.c,mdl.d);		
+			mdl.control_point(cp[0],mdl.c,mdl.d,false);		
 			if(mdl.ext.d2)
-			mdl.control_point(cp[1],mdl.ext.e2,mdl.ext.d2);
+			mdl.control_point(cp[1],mdl.ext.c2,mdl.ext.d2,true);
 			//2022: I think I inverted the Y axis in cpgen
 			//at some point (rightly so--I think) but with
 			//the old CP file I had this was right side up
@@ -3962,18 +4116,19 @@ extern void som_scene_swing(bool clear, float alpha)
 			if(~sm&1<<30)
 			{
 				cp[0][0]+=cp[1][0]; //recenter weapon?
-				cp[1][2]-=xx;//*l024; //HACK				
+				cp[1][0]-=xx;//*l024; //HACK				
 				cp[1][1]-=yy;//*l024; //HACK
 				cp[1][2]-=zz;//*l024; //HACK
 			}
 			else memcpy(cp[1],cp[0],12);
-			//else //???
-			//if(sm&1<<31)
-			//memcpy(cp[0],cp[1],12);			
+			
+		//EX::dbgmsg("z %f %f",cp[1][2],mdl.skeleton[7].xform[3][2]);
+		//cp[1][2] = 0;
+
+			if(cp_skeleton)
 			for(int i=mdl->skeleton_size;i-->0;)
 			for(int j=3;j-->0;)
 			mdl.skeleton[i].xform[3][j]+=cp[i>=4][j];
-			//EX::dbgmsg("cp: %f %f %f",cp[1][0]/l024,cp[1][1]/l024,cp[1][2]/l024);
 		}
 
 		//2022: MDL+MDO makes this more complicated
@@ -3999,7 +4154,7 @@ extern void som_scene_swing(bool clear, float alpha)
 			for(int j=mdo->chunk_count;j-->0;)
 			{			
 				auto pt = els[j].extra().part;
-				mdl.ext.mdo_elements[j].mode = sm2&(1<<pt)?3:15;					
+				mdl.ext.mdo_elements[j].fmode = sm2&(1<<pt)?3:15;					
 			}
 			else assert(0);
 		}
@@ -4008,7 +4163,7 @@ extern void som_scene_swing(bool clear, float alpha)
 			DWORD *pcs = &mdl->element_count;
 			DWORD *p = pcs+1;
 			for(DWORD j=0;j<*pcs;j++,p+=9)
-			mdl.elements[j].se->mode = sm2&(1<<*p)?3:15;
+			mdl.elements[j].se->fmode = sm2&(1<<*p)?3:15;
 		}
 
 		//drawing after so it will cover the weapon
@@ -4018,7 +4173,7 @@ extern void som_scene_swing(bool clear, float alpha)
 		if(!f2b) //back-to-front?
 		{
 			//mdl.draw does this
-			mdl.update_transform(); //mdl.xform
+	//		mdl.update_transform(); //mdl.xform //cp_skeleton
 		}
 		else mdl.draw(tes); //front-to-back?
 
@@ -4047,7 +4202,7 @@ extern void som_scene_swing(bool clear, float alpha)
 					if(auto*mv=SOM::shield_or_glove(5))
 					{
 						int lo = mv->uc[86]-1, hi = mv->uc[87];
-						int rt2 = mdl.running_time(mdl.ext.e2);
+						int rt2 = mdl.running_time(mdl.ext.c2);
 						int dd = mdl.ext.d2;
 						if(dd>hi) dd = hi-(dd-hi);
 						//fade2 = sinf(M_PI*mdl.ext.d2/rt2);
@@ -4147,187 +4302,192 @@ extern void som_scene_swing(bool clear, float alpha)
 
 		if(mirror) DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_CCW);
 		
-		//HACK: can't accumulate
+		if(cp_skeleton) //HACK: can't accumulate
 		{
 			for(int i=mdl->skeleton_size;i-->0;)
 			for(int j=3;j-->0;)
 			mdl.skeleton[i].xform[3][j]-=cp[i>=4][j];
+
+			//EX::dbgmsg("z %f %f",cp[1][2],mdl.skeleton[7].xform[3][2]);
 		}
 	}
-	else mdl.update_animation(); //sync f/d??
-
-	if(rewind||rewind2) //som_hacks_Clear?
-	{
-		if(rewind) mdl.f-=rdir;
-		if(rewind) mdl.hardanim_read_head = rewind;
-		if(rewind2) mdl.ext.f2-=rdir2;
-		if(rewind2) mdl.ext.anim_read_head2 = rewind2;
-		for(int i=mdl->skeleton_size;i-->0;)
-		memcpy(mdl.skeleton[i].uvw,mdl.skeleton[i]._uvw_scale_xyz2,sizeof(float)*9);
-		//this just isn't backed up (recompute)
-		extern BYTE som_MDL_transform_hard(DWORD*);
-		som_MDL_transform_hard((DWORD*)&mdl);
-	}
+	//else mdl.update_animation(); //sync f/d??
 
 	som_scene_gamma_n = false; //KF2?
 	
-	som_scene_state::pop(); 
+	som_scene_44d810_flush(); //Clear? //SEPARATEALPHABLENDENABLE
+
+	dx_d3d9X_SEPARATEALPHABLENDENABLE_knockout(false); //2024
+
+	sss::pop(); 
 
 	SOM::reset_projection();
-
-		som_scene_44d810_flush(); //Clear?
 }
 extern bool som_scene_hud = false;
 static void __cdecl som_scene_425d50()
 {
-	auto &mdl = *SOM::L.arm_MDL;
+	auto &mdl = *SOM::L.arm_MDL;	
+
 	BYTE &swing = SOM::L.swinging,swap;
 	if((swap=swing)||mdl.d>1||mdl.ext.d2!=0) //do_arm?
 	{
 		bool weapon = (swap&1)!=0||mdl.d>1;
 
 		swing = 0;
-
-		int dir = weapon?mdl.d-mdl.f:0;
-		int dir2 = mdl.ext.d2?mdl.ext.d2-mdl.ext.f2:0;
-		dir = max(-1,min(1,dir)); dir2 = max(-1,min(1,dir2));
-
-		//EX::dbgmsg("swing: %d (%d)",som_scene_425d50_swing,som_scene_425d50_swing2);
-
+		
 		//call som_hacks_Clear (emulating 425d50)
 		DDRAW::Direct3DDevice7->Clear(0,0,D3DCLEAR_ZBUFFER,0,1,0);
+		
+		//som_hacks_Clear will draw this
+		//(there used to be after-images drawn here)
+		if(!EX::INI::Bugfix()->do_fix_zbuffer_abuse)
+		som_scene_swing(false,1.0f); 
+		som_scene_swing(false,0); //transparency?						
+		
+		int rt = mdl.running_time(mdl.c)-1;
+		int rt2 = mdl.ext.d2?mdl.running_time(mdl.ext.c2)-1:0;
 
-		int rt = mdl.running_time(mdl.c);
-		int rt2 = mdl.ext.d2?mdl.running_time(mdl.ext.e2):0;
-		int fps = EX::INI::Bugfix()->do_fix_animation_sample_rate?2:1;		
-		int inc = 2==fps&&!DDRAW::fx2ndSceneBuffer?2:1; 
-		if(2==inc&&!DDRAW::isPaused)
+		mdl.ext.speed = mdl.ext.speed2 = 1.25f;
 		{
-			//HACK: this isn't working? OpenXR or not
-			if(!dir&&swap&1)
-			{
-				dir = 1; //breakpoint
-			}
+			auto *prm = &SOM::L.item_prm_file;
 
-			//F1 supersampling mode means do_lap can't
-			//be a constant setting
-			if(mdl.d>1) mdl.d+=dir;
-			if(mdl.ext.d2>1) mdl.ext.d2+=dir2;
+			int r = SOM::L.pcequip[0];
+			int h = SOM::L.pcequip[3];
+			int l = SOM::L.pcequip[5];
+			float wt = h!=0xff?prm[h].f[74]/2:0;
+			float wt2 = wt;
+			if(r!=h&&r!=0xff) wt+=prm[r].f[74];
+			if(l!=h&&l!=0xff) wt2+=prm[l].f[74];
+
+			WORD *st = SOM::L.pcstatus;
+			int str = st[SOM::PC::str];
+
+			EX::INI::Player pc;
+			float sw = str/2/(wt*5+pc->player_character_weight/2);
+			float sw2 = str/2/(wt2*5+pc->player_character_weight2/2);
+			if(sw>1) mdl.ext.speed+=sw-1;
+			if(sw<1) mdl.ext.speed-=1-sw;
+			if(sw2>1) mdl.ext.speed2+=sw2-1;			
+			if(sw2<1) mdl.ext.speed2-=1-sw2;
+
+			float &sp = mdl.d>1?mdl.ext.speed:mdl.ext.speed2;
+			sp+=min(5000,st[SOM::PC::attack_power])/5000.0f-0.5;
+
+			if(sp>0) sp = sqrtf(sp); //som_MPX_reset_model_speeds does this
+
+			sp = max(0.75f,min(sp,1.75f));
+
+		//	EX::dbgmsg("sp: %f %f",sp);
 		}
+		float x = 30.0f*som_MDL::fps/DDRAW::refreshrate;
 
-		//shield attacks needs afterimages
-		//int images[3] = {weapon?mdl.d:mdl.ext.d2}; //hack?
-		int images[3] = {mdl.d};
-		int images2[3] = {mdl.ext.d2};
-		//float alpha[3] = {0.5f,1,0.9f};	
-	float alpha[3] = {0,1,0}; //2023: DISABLING FOR NOW :(	
-		if(DDRAW::fx2ndSceneBuffer //double exposure		
-		&&!DDRAW::isPaused)		
-		{
-			if(dir||dir2) //menu or? //or holding shield steady?
+		x*=2; //arm animations are twice as long
+
+		if(16&*mdl->file_head) x*=2; //60fps?
+
+		mdl.ext.speed*=x; mdl.ext.speed2*=x; 
+		
+		if(!SOM::motions.swing_move)
+		{									
+			int pce = SOM::L.pcequip[0]; if(pce!=255)
 			{
-				if(images[0]>2||images2[0]>2)
+				auto &prm = SOM::L.item_prm_file[pce];
+				auto &pr2 = SOM::L.item_pr2_file[prm.s[0]];
+
+				if(SOM::frame-SOM::swing>15) //2023
 				{
-					//redraw earlier frame without advancing the animation?
-					if(dir) images[0] = mdl.d-dir;
-					if(dir2) images2[0] = mdl.ext.d2-dir2;
-				//	alpha[0] = 0.5f; //25% (lower is invisible unblended)
-				//	assert(alpha[0]==0.5f);
-					for(int i=0;i<fps;i++)
+					int snd = pr2.uc[73];			
+					if(mdl.d>=snd-1&&mdl.d<=snd+4)
 					{
-						if(dir) images[i+1] = images[i]+dir;
-						if(dir2) images2[i+1] = images2[i]+dir2;
+						SOM::swing = SOM::frame;
+
+						//I think 0 is silence or ignored 
+						//but this is for som_game_nothing
+						SomEx_npc = 12288;
+						if(snd=pr2.us[37]) SOM::se(snd,pr2.c[85]);
+						SomEx_npc = -1;
 					}
 				}
-				else alpha[0] = 0; //NEW: just hide it?
 			}
 		}
-		else alpha[0] = 1;
 
-		bool once = false; //REMOVE ME
+		if(weapon&&!SOM::motions.swing_move)
+		mdl.ext.dir = 1;
+		//int dir = mdl.d-mdl.f;		
+		int dir  = mdl.ext.dir; //holding up?
+		//int dir2 = mdl.ext.d2-mdl.ext.f2;		
+		int dir2 = mdl.ext.dir2; //holding up?
+		if(!weapon) dir = 0;
 
-		if(2&swap) //som_hacks_Clear?
+		//425940 is no longer incrementing high speed
+		//if(2==inc&&!DDRAW::isPaused)
+		if(!DDRAW::isPaused&&0==EX::context())
 		{
-			once = true;
-
-			//the opaque model was already drawn immediately after the
-			//backbuffer was cleared
-			alpha[images[1]||images2[1]?1:0] = 0;
+			//F1 supersampling mode means do_lap can't
+			//be a constant setting
+			//if(mdl.d>1) mdl.d+=dir*inc;
+			//if(mdl.ext.d2>1) mdl.ext.d2+=dir2*inc;
+			if(mdl.d>1) mdl.advance(dir);
+			if(mdl.ext.d2>1) mdl.advance2(dir2);
 		}
-		else
+		
+		if(weapon&&mdl.d)
 		{
-			dir = dir; //breakpoint
-		}
-		assert(!alpha[1]||!images[1]);
+			int dd = mdl.d;
 
-		for(int i=0;i<3;i++) if(images[i]||images2[i])
-		{
-			if(weapon&&images[i])
+			if(dd>=rt)
 			{
-				int dd = images[i];
-
-				//hitting when not using som_hacks_Clear in 60 fps mode???
-				//assert(dd<rt);
-				//SEEMS UNNECESSARY ATM?
-				if(1) if(dd>=rt) //continue; 
+				auto *mv = SOM::shield_or_glove(0);
+				if(!mv||mv->s[0]!=mdl.animation_id())
 				{
-					auto *mv = SOM::shield_or_glove(0);
-					if(!mv||mv->s[0]!=mdl.animation_id())
+					if(mdl.ext.d2) //shield?
 					{
-						if(!mdl.ext.d2) continue; //shield?
-
 						//NOTE: I think som_MDL_449d20_swing_mask
 						//will hide the arm
 						dd = 1; swap = 0; assert(mdl.f>dd); 
 					}
-					else //handle wraparound behavior?
-					{
-						assert(0); //REMOVE ME
-						int lo = mv->uc[86]-1, hi = mv->uc[87];
-						dd = lo;
-						mdl.f = -1;
-					}
 				}
-				mdl.d = min(dd,rt-1);
-			}
-			if(mdl.ext.d2&&images2[i])
-			{
-				int dd = images2[i];
-				
-				assert(dd<rt2);
-				//SEEMS UNNECESSARY ATM?
-				if(1) if(dd>=rt2)
+				else //handle wraparound behavior?
 				{
-					auto *mv = SOM::shield_or_glove(5);
-					if(!mv||mv->s[0]!=mdl.animation_id(mdl.ext.e2))
+					//assert(0); //REMOVE ME
+					int lo = mv->uc[86]-1, hi = mv->uc[87];
+					dd = lo;
+					mdl.rewind(); //mdl.f = -1
+				}
+			}
+			mdl.d = min(dd,rt);
+		}
+		if(mdl.ext.d2)
+		{
+			int dd = mdl.ext.d2;
+				
+			assert(dd<=rt2);
+
+			if(dd>=rt2)
+			{
+				auto *mv = SOM::shield_or_glove(5);
+				if(!mv||mv->s[0]!=mdl.animation_id(mdl.ext.c2))
+				{
+					assert(0);
+
+					//duplicating above logic... does
+					//this even make sense for shield?
+
+					if(mdl.d>1) //weapon?
 					{
-						assert(0);
-
-						//duplicating above logic... does
-						//this even make sense for shield?
-
-						if(mdl.d<=1) continue; //weapon?
-
 						dd = 0;
 					}
-					else //handle wraparound behavior?
-					{
-						assert(0); //REMOVE ME
-						int lo = mv->uc[86]-1, hi = mv->uc[87];
-						dd = lo;
-						mdl.ext.f2 = -1;
-					}
 				}
-				mdl.ext.d2 = min(dd,rt2-1);
+				else //handle wraparound behavior?
+				{
+					int lo = mv->uc[86]-1, hi = mv->uc[87];
+					dd = lo;
+					mdl.rewind2(); //mdl.ext.f2 = -1
+					
+				}
 			}
-			once = false;
-
-			som_scene_swing(false,alpha[i]);
+			mdl.ext.d2 = min(dd,rt2);
 		}
-		//YUCK: sometimes som_scene_transparentelements3
-		//isn't cleared after changing maps... I want to
-		//know if this is getting bypassed
-		if(once) som_scene_swing(false,0);
 
 		//2020: som_logic_reprogram enables this by
 		//knocking out 4250F6		
@@ -4343,7 +4503,7 @@ static void __cdecl som_scene_425d50()
 		{
 			//300ms or maybe 150ms since arm models are sped
 			//up?
-			if(rt-mdl.d<9*fps) //300ms?
+			if(rt-mdl.d<18) //300ms?
 			{
 				//if(EX::INI::Option()->do_arm) //EXTENSION?
 				{
@@ -4351,13 +4511,16 @@ static void __cdecl som_scene_425d50()
 					{
 						swap = 0;
 
-						mdl.d+=fps==2?inc:2; //425c8a
+						//mdl.d+=inc; //425c8a
+						mdl.advance();
 					}
 				}
 			}
 			if(mdl.d>=rt) //425cfc
 			{
 				mdl.d = 1; assert(mdl.f>mdl.d); 
+
+				mdl.rewind(); //mdl.f = -1;
 				
 				//SOM::L.pcequip2 is beginning a new swing
 				//after equipping
@@ -4411,7 +4574,59 @@ static void __cdecl som_scene_43F540_swing(DWORD snd)
 		//(som_db actually sets it to 2.5m)
 		//auto &mdl = *SOM::L.arm_MDL;
 	}
-	((void(__cdecl*)(DWORD,INT32))0x43f540)(snd,pitch);	
+	((void(__cdecl*)(DWORD,INT32))0x43f540)(snd,pitch);
+}
+static int __cdecl som_scene_428220_magic_shield(INT32 esi, DWORD timer)
+{
+	auto &mpf = SOM::L.magic_prm_file; //HACK: save file is pre-adjusted
+	if(esi>=(INT32)&mpf) esi = (esi-(INT32)&mpf)/320;
+
+	int prf = mpf[esi].us[0];
+	int index = SOM::L.magic_pr2_file[prf].us[16]; //recovering first argument
+
+	if(index<0xf)
+	{
+		if(!((int(__cdecl*)(INT32,DWORD))0x428220)(index,timer))
+		{
+	err:	assert(0); return 0; 
+		}
+	}
+	else if(timer) //EXTENSION (green Missile Shield magic?)
+	{
+		int ti = 207+index-11;
+		if(ti<211||ti>219) goto err; //these are reserved texture numbers
+
+		void* &t = SOM::L.fullscreen_SFX_images_ext[ti-211]; 
+		if(t==(void*)~0) goto err;
+
+		if(!t) //YUCK: this locks the MPX thread and so may pause the game
+		{
+			char a[MAX_PATH];
+			sprintf(a,(char*)0x45aadc,(void*)0x4c0dcc,ti); //%s%4.4d.txr
+			extern DWORD __cdecl som_TXR_4485e0(char*,int,int,int);
+			t = (void*)som_TXR_4485e0(a,0,0,0);
+			if(t==(void*)~0) goto err;
+		}
+
+		int iVar3 = (-1&0xfffffffe)+2; //428220
+		auto puVar2 = &SOM::L.fullscreen_quads[iVar3]; //42d8eb
+		if(puVar2->uc[0]=((BYTE(__cdecl*)(void*,void*,DWORD))0x42e380)(puVar2,t,1000))
+		{
+			puVar2->uc[12] = timer; puVar2->uc[1] = 10; //index-2
+
+			SOM::se(0x37b,0);
+		}
+		else goto err;
+	}
+	SOM::L.pcmagic_support_index = esi; //note: save files will read this in
+	SOM::L.pcmagic_support_timer = timer;
+
+	//TODO: accumulate timers and damage ratings unless the same
+	//sfx texture is used, in which case subtract the old values
+	//and add the new values/time
+	for(int i=8;i-->0;) SOM::L.pcmagic_shield_timers[i] = timer; //BYTE->DWORD
+
+	return 1;
 }
 
 extern void som_scene_reprogram()
@@ -4476,6 +4691,24 @@ extern void som_scene_reprogram()
 		memmove((void*)0x4024d2,(void*)0x4024cc,24);
 		*(WORD*)0x4024cc = 0x168B;
 		*(DWORD*)0x4024ce = 0x1452FF56;
+
+		if(1) //2024: fix missing defense ratings to support magic
+		{
+			//00425B9B 75 02                jne         00425B9F
+			//*(BYTE*)0x425B9B = 0x74; //jne->je (bug?)
+			//EXTENSION 
+			//0042566a 74 06           JZ         LAB_00425672
+			*(WORD*)0x42566a = 0x9090; //nop will always set the ratings
+			//004256bb 50              PUSH       EAX
+			*(BYTE*)0x4256bb = 0x56; //eax->esi
+			//004256BC E8 5F 2B 00 00       call        00428220
+			//0042cd07 e8 14 b5 ff ff       call        00428220
+			*(DWORD*)0x4256Bd = (DWORD)som_scene_428220_magic_shield-0x4256c1;
+			*(DWORD*)0x42cd08 = (DWORD)som_scene_428220_magic_shield-0x42cd0c;
+			//00427a11 8a 86 3c 1d 9c 01    mov        al,byte ptr[ESI+DAT_019c1d3c]
+			*(WORD*)0x427a11 = 0x868b;
+			*(DWORD*)0x427a13 = (DWORD)SOM::L.pcmagic_shield_timers; //not 019c1d3c
+		}
 	}	
 
 	//sky flag?
@@ -4508,7 +4741,7 @@ extern void som_scene_reprogram()
 		//memcpy((void*)0x41391E,"\xB8\x00\x00\x00\x00",5); 
 		//00413923 85 C0                test        eax,eax  
 		//00413925 74 09                je          00413930  
-		//00413927 E8 E4 05 00 00       call        00413F10  
+		//00413927 E8 E4 05 00 00       call        00413f10  
 		//0041392C 83 C4 10             add         esp,10h  
 		//0041392F C3                   ret  
 		//NO VERTEX BUFFER path
@@ -4585,6 +4818,7 @@ extern void som_scene_reprogram()
 	//NOTE: comes after transparent elements
 	//00402556 E8 C5 B6 02 00       call        0042DC20  
 	*(DWORD*)0x402557 = (DWORD)som_scene_42DC20-0x40255B;
+
 	/*
 
 	//??????
@@ -4676,7 +4910,7 @@ extern void som_scene_reprogram()
 
 	//TRANSPARENT TILES (ETC.) 
 	//
-	// 413F10 renders tiles. the objective here is to 1) keep it from
+	// 413f10 renders tiles. the objective here is to 1) keep it from
 	// locking/unlocking the vbuffer in an unhealthy pattern. 2) have
 	// the tile/model passed to a filter that piggy-backs on the Lock
 	// call that will A) collect transparent models, and B) on Unlock 
@@ -4684,7 +4918,7 @@ extern void som_scene_reprogram()
 	// 
 	// the filter is passed EDI and the saved value of ESI along with
 	// the stack pointer for forwarding to the Lock method (or not if
-	// the lock is held for the duration of 413F10, and flushed where
+	// the lock is held for the duration of 413f10, and flushed where
 	// necessary)
 	//
 	//stores the per-texture MSM pointer (will need tile index also)
@@ -4726,7 +4960,7 @@ extern void som_scene_reprogram()
 			//really this is not enough, but I've never seen Lock
 			//fail via dx.d3d9c.cpp???
 			//
-			// NOTE: the real problem was som_scene_413F10_maybe_flush
+			// NOTE: the real problem was som_scene_413f10_maybe_flush
 			// wasn't checking _transparent_indicesN but this is still
 			// good practice in case Lock fails, and it's much simpler
 			// than the above approach given the additional complexity
@@ -4820,7 +5054,7 @@ extern void som_scene_reprogram()
 		//UNFINSHED
 		#ifdef NDEBUG
 		//#error do_red? som_scene_volume_select?
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		#endif
 	}
 	//TEARDOWN
@@ -4834,4 +5068,658 @@ extern void som_scene_reprogram()
 
 	som_scene_onreset_passthru = DDRAW::onReset; //2021
 	DDRAW::onReset = som_scene_onreset;
+}
+
+/////////////////////////////////////////////////////////
+
+//THIS CODE MAY HIT FPS HARD IN OTHER TRANSLATION UNIT?
+static void __cdecl som_MPY_417c60_recursive(float *_1, int _2, int _3, int _4)
+{
+	//NOTE: some names are derived from Ghidra's variable names
+	
+	som_MPX &mpx = *SOM::L.mpx->pointer;	
+	int ls = mpx[SOM::MPX::layer_selector];
+	auto *lp = (SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
+	auto &l = lp[ls];
+
+	auto *p2 = l.pointer2; //iVar7
+	auto *p1 = l.pointer1; //piVar2[4]
+
+	auto &t2 = p2[_3]; //piVar1
+
+ 	int iv8 = t2.unknown1[0]; //iVar8
+
+	if((iv8!=-1)&&(iv8!=_4))
+	som_MPY_417c60_recursive(_1,_2,iv8,_3);
+
+	//uVar3 = piVar1[3];
+	int uv3 = t2.leaf; if(uv3!=-1) //uVar3
+	{
+		/*Ghidra's code doesn't seem to match this???
+		00417ccc 8b 54 24 24     MOV        EDX,dword ptr [ESP + param_3]
+		00417cd0 8b 4a 0c        MOV        ECX,dword ptr [EDX + 0xc]
+		00417cd3 8b 54 24 10     MOV        EDX,dword ptr [ESP + 0x10] //local_8 (l)
+		00417cd7 8b 6a 10        MOV        EBP,dword ptr [EDX + 0x10]
+		00417cda 8b c6           MOV        EAX,ESI
+		00417cdc 99              CDQ //makes EDX 0 (probably always)
+		00417cdd c1 e1 05        SHL        ECX,0x5	//*0x20
+		00417ce0 8b 6c 29 1c     MOV        EBP,dword ptr [ECX + EBP*0x1 + 0x1c]
+		00417ce4 83 e2 07        AND        EDX,0x7
+		00417ce7 03 c2           ADD        EAX,EDX
+		00417ce9 8b ce           MOV        ECX,ESI
+		00417ceb c1 f8 03        SAR        EAX,0x3
+		00417cee 81 e1 07        AND        ECX,0x80000007
+					00 00 80
+		00417cf4 79 05           JNS        LAB_00417cfb
+		00417cf6 49              DEC        ECX
+		00417cf7 83 c9 f8        OR         ECX,0xfffffff8
+		00417cfa 41              INC        ECX
+								LAB_00417cfb                                    XREF[1]:     00417cf4(j)  
+		00417cfb ba 01 00        MOV        EDX,0x1
+					00 00
+		00417d00 d3 e2           SHL        EDX,CL
+		00417d02 84 14 28        TEST       byte ptr [EAX + EBP*0x1],DL
+		*/
+		UINT uv6 = uv3&0x80000007; //uVar6
+		if((int)uv6<0)
+		{
+			assert(0); //unnecessary?
+			uv6 = (uv6-1|0xfffffff8)+1; 
+		}
+		assert(uv3>=0); //CDQ should be 0?
+		if(0==(
+		//  *(int*)(*(int*)(iVar7+_2*0x2c+0xc)*0x20+0x1c+piVar2[4]))
+			p1[p2[_2].unknown1[3]].pointer_into_pointer4
+			[
+		//	((int)(uv3+((int)uv3>>0x1f&7))>>3) //0x1f???
+		 	((int)(uv3+((int)uv3>>0x1f&7))/8) //0x1f???
+			]			
+		//	&((BYTE)(1<<((BYTE)uv6&0x1f)))) //0x1f???
+		    &((BYTE)(1<<((BYTE)uv6&0x1f))))) //0x1f???
+		{			
+			return;
+		}
+	}
+	if(_2!=_3)
+	{
+		//float iv5,iv10,iv8,iv7;
+		float x1,y1,x2,y2;
+		if(uv3==-1) //uVar3
+		{
+			x1 = t2.xy1[0]; y1 = t2.xy1[1]; 
+			x2 = t2.xy2[0]; y2 = t2.xy2[1];
+		}
+		else
+		{
+			auto &t1 = p1[uv3];
+			x1 = t1.xy1[0]; y1 = t1.xy1[1];
+			x2 = t1.xy2[0]; y2 = t1.xy2[1];
+		}
+		//FUN_00417e50_tile_visibility_math?(_1,iVar5,iVar10,iVar8,iVar7)
+		if(!((BYTE(__cdecl*)(float*,float,float,float,float))0x417e50)(_1,x1,y1,x2,y2))
+		{
+			return;
+		}
+	}
+
+	WORD *tod = (WORD*)SOM::L.mpx->tiles_on_display;
+	DWORD &ttd = SOM::L.mpx->tiles_to_display;
+
+	int iv7 = (int)t2.unknown1[1]; //iVar7
+	if((iv7!=-1)&&(iv7!=_4))
+	som_MPY_417c60_recursive(_1,_2,iv7,_3);
+
+	iv7 = (int)t2.unknown1[2]; //iVar7
+	if((iv7!=-1)&&(iv7!=_4))
+	som_MPY_417c60_recursive(_1,_2,iv7,_3);
+
+	if(-1!=(iv7=(int)t2.unknown1[3])) //iVar7
+	{
+		BYTE bit = 1<<-ls; //EXTENSION
+
+		auto add = [&](SOM::MPX::Layer::tile *t)
+		{
+			DWORD yx = t-lp->tiles;
+			if(l.tiles[yx].pointer)
+			{
+				if(~t->msb&0x80)
+				{
+					//TODO: check 403cc0 here?				
+							
+					t->msb|=0x80; 
+
+					tod[ttd++] = yx/100|yx%100<<8;
+				}
+
+				t->msb|=bit;
+			}
+		};
+
+		int w = l.width, h = l.height;
+
+		auto &t1 = p1[iv7]; //iVar8
+		for(DWORD i=0;i<t1.unknown2_count;i++)
+		{
+			int y = t1.unknown2_pointer[i][1]; //iVar5
+			int x = t1.unknown2_pointer[i][0]; //iVar7
+
+			int yx = w*y+x; auto *t = lp->tiles+yx;
+
+			/*som_MPY_4133E0_layers calls 403cc0
+			//FUN_00403cc0_tile_visibility_sub?_frustum_test_only?
+			if(((BYTE(__cdecl*)(float,float,int))0x403cc0)(x*2,y*2,0x40000000))*/
+			if(t->msb&0x80&&l.tiles[yx].pointer)
+			{
+			//	if(!t.msb) tod[ttd++] = (WORD)x<<8|(WORD)y;
+
+				if(t->_bsp) //HACK: this reduces need for "pin" in SOM_MAP
+				{
+					auto *s = t-1, *u = t+1;
+
+					int i = 3; if(y)
+					{
+						s-=w; t-=w; u-=w;							
+					}
+					else i--; if(y+1==h) i--;
+
+					for(;i-->0;add(t),s+=w,t+=w,u+=w)
+					{
+						if(x) add(s); if(x+2<w) add(u);
+					}
+				}
+				else t->msb|=bit;
+			}
+			//else assert(0); //adding dummies everywhere for layers
+		}
+	}
+}
+static BYTE __cdecl som_MPY_413540() //tile visibility
+{
+	som_MPX &mpx = *SOM::L.mpx->pointer;	
+	int &ls = mpx[SOM::MPX::layer_selector]; 
+	auto *lp = (SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
+
+	assert(ls==0);
+	//for(DWORD i=lp->height*lp->width;i-->0;)
+	//lp->tiles[i].msb = 0;
+	//auto &ttd = SOM::L.mpx->tiles_to_display;
+	//ttd = 0;
+
+	float *x_z = SOM::L.view_matrix_xyzuvw;
+
+	for(;ls>-7;ls--)
+	{
+		auto &l = lp[ls]; if(!l.tiles) continue;
+
+		if(!l.pointer2)
+		{
+			assert(0); continue;
+		}
+
+		BYTE bit = 1<<-ls; //EXTENSION
+
+		//iVar5 = piVar2[6];
+		auto *p2 = l.pointer2;
+
+		//iVar6 = *(int*)(iVar5+0xc);
+		int leaf = p2->leaf;
+		//_DAT_00598940 = 0;
+		int node = 0;
+		SOM::L.mpx->current_node = 0; //NODE_%s readout???
+		auto *p = p2; //iVar7 = iVar5;
+		for(;;)
+		{
+			if(leaf!=-1)
+			{
+				SOM::L.mpx->current_node = node;
+				SOM::L.mpx->current_leaf = leaf; //LEAF_%s readout???
+
+				WORD *tod = (WORD*)SOM::L.mpx->tiles_on_display;
+				//DWORD &ttd = SOM::L.mpx->tiles_to_display;
+				//ttd = 0; //???
+
+				som_MPY_417c60_recursive(x_z,node,node,-1);
+
+				int x,y; //&local_20,&local_1c
+				//FUN_00415bc0_transform_pos_to_tile_xy?(x_z[0],x_z[2],&x,&y);
+				((BYTE(__cdecl*)(FLOAT,FLOAT,int*,int*))0x415bc0)(x_z[0],x_z[2],&x,&y);
+				int i = y-3;
+				for(;i<=y+3;i++) if(-1<i&&i<(int)l.height)
+				{
+					for(int j=x-3;j<=x+3;j++) if(-1<j&&j<(int)l.width)
+					{
+						int yx = l.width*i+j;
+
+						auto &t = lp->tiles[yx];
+
+						if(l.tiles[yx].pointer)
+						{							
+						//	if(!t.msb) tod[ttd++] = (WORD)(j<<8|i);
+
+							//NOTE: this is 6x6 squares by the pc
+							t.msb|=0x80|bit;
+						}
+					}
+				}
+				goto _3; //return 1;
+			}
+			static const float l = 1; //1
+
+			int bm = p->blinders; //bitmask
+			if(~bm&1)
+			{
+				if(~bm&2)
+				{
+					if(~bm&4)
+					{
+						if(~bm&8)
+						{
+							assert(0); //NOP?
+						}
+						else
+						{
+							if(p->x*2+l<x_z[0]) goto _2; goto _1;
+						}
+					}
+					else
+					{
+						if(p->z*2-l>x_z[2]) goto _2; goto _1;
+					}
+				}
+				else
+				{
+					if(p->x*2-l>x_z[0]) goto _2; goto _1;
+				}
+			}
+			else if(p->z*2+l<x_z[2]) _2:
+			{
+				node = p->left;
+			}
+			else _1:
+			{
+				node = p->right;
+			}
+
+			p = p2+node; leaf = p->leaf;
+		}
+	
+		_3:; //return 1;
+	}
+	ls = 0;
+
+	return 1;
+}
+extern bool som_MPY_nobsp = false;
+extern void som_MPY_4133E0_layers() //2023
+{	
+	som_MPX &mpx = *SOM::L.mpx->pointer;
+	assert(0==mpx[SOM::MPX::layer_selector]);
+	
+	auto &mpx2 = *SOM::L.mpx;
+	auto *dl = mpx2.tiles_on_display;
+	DWORD jN = mpx2.tiles_to_display;
+
+	typedef SOM::MPX::Layer L;
+	auto *lp = (L*)&mpx[SOM::MPX::layer_0];
+
+	auto &flags = mpx[SOM::MPX::flags];
+	int bsp1 = flags&1; 
+	bool bsp = bsp1==1;
+	if(som_MPY_nobsp||!EX::INI::Option()->do_bsp) //2023
+	bsp = false;
+	flags&=~1;
+	//if(!bsp)
+	{	
+		//2024: 3x3 sample to reduce "pins" in SOM_MAP
+		if(bsp1) if(0)
+		{
+			for(DWORD i=lp->height*lp->width;i-->0;)
+			{
+				lp->tiles[i].msb = 0; //unused
+			}
+		}
+		else for(DWORD j=jN;j-->0;) //faster?
+		{
+			auto &yx = dl[j];
+
+			DWORD k = 100*yx[0]+yx[1];
+
+			lp->tiles[k].msb = 0;
+		}
+
+		//2023: this now includes every cell
+		//(som_MPY_reprogram nops 4134a0)
+		((void(__cdecl*)())0x4133E0)();
+	}
+	flags|=bsp1; //!
+	
+	jN = mpx2.tiles_to_display; //2024: 3x3?	
+
+	if(bsp)
+	{
+		for(DWORD j=jN;j-->0;)
+		{
+			auto &yx = dl[j];
+
+			DWORD k = 100*yx[0]+yx[1];
+
+			lp->tiles[k].msb = 0x80; //not ff
+
+			lp->tiles[k]._bsp = 1; //2024: 3x3?
+		}
+		
+		som_MPY_413540();
+	}
+
+	jN = mpx2.tiles_to_display; //2024: 3x3?
+
+	if(*(WORD*)0x4134a0==0x9090) //som_MPY_reprogram
+	{
+		DWORD kept = 0;	
+		int lN = 0; while(lN>-7&&lp[lN].tiles) lN--;
+		for(DWORD j=jN;j-->0;)
+		{
+			auto &yx = dl[j];
+
+			DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
+
+			if(bsp)
+			{
+				lp->tiles[k]._bsp = 0; //2024: 3x3? 
+
+				for(int l=0;l>lN;l--) 
+				if(lp[l].tiles[k].nobsp)				
+				lp->tiles[k].msb|=1<<-l;
+
+				if(0x80==lp->tiles[k].msb)
+				{
+					lp->tiles[k].msb = 0;
+					*(WORD*)&yx = 0xffff; continue;
+				}
+			}
+
+			for(int l=0;l>lN;l--) 
+			if(lp[l].tiles[k].pointer)		
+			goto keep;
+			{
+				lp->tiles[k].msb = 0;
+				*(WORD*)&yx = 0xffff; continue;
+			}
+			keep: kept++;		
+		}
+		mpx2.tiles_to_display = kept;
+	
+		int y = (int)(SOM::xyz[2]*0.5f);
+		int x = (int)(SOM::xyz[0]*0.5f);
+		struct yx{ BYTE y,x; };
+		std::sort((yx*)dl,(yx*)dl+jN,[x,y](yx &a, yx &b)->bool
+		{
+			if(*(WORD*)&b==0xffff) 
+			return *(WORD*)&a!=0xffff; //marked?
+
+			//sort back-to-front (tiles are drawn in reverse)
+			int ax = x-a.x, ay = y-b.y;
+			int bx = x-b.x, by = y-b.y;
+		//	return ax*ax+ay*ay>bx*bx+by*by; 
+			return ax*ax+ay*ay<bx*bx+by*by; 
+		});
+	}
+}
+extern void som_MPY_413f10()
+{
+	auto &mpx2 = *SOM::L.mpx;
+	som_MPX &mpx = *mpx2.pointer;
+	int &ls = mpx[SOM::MPX::layer_selector]; //DEBUGGING
+
+	typedef SOM::MPX::Layer L;
+	auto *lp = (L*)&mpx[SOM::MPX::layer_0];
+	int lN = 0; while(lN>-7&&lp[lN].tiles) lN--;
+
+	float *p = 0; //DETAIL
+
+	//scanning for the crash so I can inspect it
+	auto *dl = mpx2.tiles_on_display;
+	DWORD jN = mpx2.tiles_to_display;
+	auto tc = mpx[SOM::MPX::texture_counter];
+	auto tp = (WORD*)mpx[SOM::MPX::texture_pointer];
+	
+	//			auto *ib = SOM::L.mpx->ibuffer;
+	//			auto *vb = SOM::L.mpx->vbuffer;	
+	//			DWORD &ibN = SOM::L.mpx_ibuffer_size;
+	//			DWORD &vbN = SOM::L.mpx_vbuffer_size; 
+	//			float *vp = (float*)mpx[SOM::MPX::vertex_pointer];
+
+	if(1) //interleaved?
+	{
+		int chunk = 16; 
+		
+		DWORD jj = 0; jj: 
+		DWORD jjN = min(jN,jj+chunk);
+
+		for(int i=0;i<tc;i++)
+		{
+			//for(DWORD j=jN;j-->0;) //413F10 scans backwards
+			for(DWORD j=jj;j<jjN;j++) //this makes std::sort with ffff easier
+			{
+				auto &yx = dl[j];
+				float xyz[3] = {2*yx[1],0,2*yx[0]};
+				DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
+				if(int msb=lp->tiles[k].msb)
+				{
+					for(int l=0;l>lN;l--) if(msb&1<<-l)
+					{
+						auto &t = lp[l].tiles[k];
+						if(auto*tsp=t.pointer)
+						{
+							xyz[1] = t.elevation;
+
+							auto *pp = tsp->pointer;
+							DWORD pc = tsp->counter;
+							for(;pc-->0;pp++)						
+							if(i==pp->texture)
+							som_scene_413f10(xyz,t.rotation,pp,p);
+						}
+					}
+				}
+				else assert(0);
+			}
+		}
+		jj = jjN; chunk = chunk*3/2; 
+
+		if(jjN<jN) goto jj;
+	}
+	else for(int l=0;l>lN;l--) //uninterleaved
+	{
+		assert(0); //msb?
+
+		if(ls=l)
+		{
+			if(*(WORD*)0x4134a0!=0x9090) //som_MPY_reprogram
+			{
+				((void(__cdecl*)())0x4133E0)();
+			}
+		}
+
+		if(0) //TESTING PERFORMANCE
+		{
+			((void(__cdecl*)())0x413F10)(); //draw
+		}
+		else for(int i=0;i<tc;i++)
+		{
+			//for(DWORD j=jN;j-->0;) //413F10 scans backwards
+			for(DWORD j=0;j<jN;j++) //this makes std::sort with ffff easier
+			{
+				auto &yx = dl[j];
+				float xyz[3] = {2*yx[1],0,2*yx[0]};
+				DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
+			//	for(int l=0;l>lN;l--) 
+				{		
+					auto &t = lp[l].tiles[k];
+					if(t.msm==0xffff) continue;
+
+					xyz[1] = t.elevation; int a = t.rotation;
+
+					if(auto*tsp=t.pointer)
+					{
+						auto *pt = tsp->pointer;
+						DWORD pc = tsp->counter;
+						for(;pc-->0;pt++)
+						{
+							if(i==pt->texture)
+							{
+								if(0) //TESTING PERFORMANCE
+								{	
+									//RESULTS: need to put these functions in the same file
+									//(translation unit) to avoid having a much reduced fps
+
+									/*som_scene_413f10_maybe_flush()
+									{										
+										DWORD txr = tp[pt->texture];
+										DWORD sss = som_scene_state::texture;
+
+										int indices2 = pt->triangle_indicesN+pt->_transparent_indicesN;								
+
+										if(txr!=sss||896<vbN+pt->vcolor_indicesN||2688<ibN+indices2)
+										{
+											if(ibN) //som_scene_413f10_maybe_flush(0)
+											{ 
+												vb->Unlock();	
+												DDRAW::Direct3DDevice7->DrawIndexedPrimitiveVB
+												(DX::D3DPT_TRIANGLELIST,vb,0,vbN,ib,ibN,0);	
+												vbN = ibN = 0;
+											}
+			
+											if(txr!=sss&&txr<1024)
+											{	
+												som_scene_state::texture = txr;
+				
+												DDRAW::IDirectDrawSurface7 *t = SOM::L.textures[txr].texture;
+												DDRAW::Direct3DDevice7->SetTexture(0,t);
+
+												//NOTE: doing after SetTexture because it had set psColorkey 
+									//			som_scene_volume_select(txr);
+											}
+										}
+									}
+
+									//som_scene_413f10()
+									{
+										if(!ibN)
+										{
+											DWORD f = DDLOCK_DISCARDCONTENTS|DDLOCK_WAIT|DDLOCK_WRITEONLY;
+											SOM::L.mpx->vbuffer->Lock(f,(void**)&p,0);	
+										}
+										assert(ibN<=2688);
+
+										WORD *q = ib+ibN; //emulate 413f10
+
+										int i = pt->triangle_indicesN;
+										ibN+=i;
+										memcpy(q,pt->triangle_indices,2*i);		
+										WORD vo = vbN;
+										for(;i-->0;q++)
+										*q+=vo;
+										i = pt->vcolor_indicesN;
+										vbN+=i;
+										DWORD *vc = *pt->vcolor_indices;		
+										for(;i-->0;vc+=2,p+=6)
+										{
+											float *v = vp+5*vc[0];
+											p[0] = xyz[0];
+											p[1] = xyz[1]+v[1];
+											p[2] = xyz[2];
+											switch(a) //might want to unroll this part 
+											{
+											case 0: p[0]+=v[0]; p[2]+=v[2]; break; //S
+											case 1: p[0]-=v[2]; p[2]+=v[0]; break; //W 
+											case 2: p[0]-=v[0]; p[2]-=v[2]; break; //N
+											case 3: p[0]+=v[2]; p[2]-=v[0]; break; //E
+											}
+											(DWORD&)p[3] = vc[1];
+											p[4] = v[3];
+											p[5] = v[4];									
+										}
+									}*/
+								}
+								else som_scene_413f10(xyz,a,pt,p);
+							}
+						}
+					}
+					else assert(0);
+				}
+			}
+		}
+	}
+	ls = 0; //uninterleaved?
+
+	som_scene_413f10_maybe_flush(nullptr);
+}
+extern void som_MPY_413f10_mhm()
+{
+	DDRAW::Direct3DDevice7->SetTexture(0,0);
+
+	auto &mpx2 = *SOM::L.mpx;
+	som_MPX &mpx = *mpx2.pointer;
+
+	typedef SOM::MPX::Layer L;
+	auto *lp = (L*)&mpx[SOM::MPX::layer_0];
+	int lN = 0; while(lN>-7&&lp[lN].tiles) lN--;
+	
+	float *p = 0; //DETAIL
+
+	auto *dl = mpx2.tiles_on_display;
+	DWORD jN = mpx2.tiles_to_display;
+
+	auto **pp = (SOM::MHM**)mpx[SOM::MPX::mhm_pointer];
+
+	int chunk = 16; //UNNECESSARY //might change colors?
+	{	
+		DWORD jj = 0; jj: 
+		DWORD jjN = min(jN,jj+chunk);
+
+		//for(DWORD j=jN;j-->0;) //413F10 scans backwards
+		for(DWORD j=jj;j<jjN;j++) //this makes std::sort with ffff easier
+		{
+			auto &yx = dl[j];
+			float xyz[3] = {2*yx[1],0,2*yx[0]};
+			DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
+			if(int msb=lp->tiles[k].msb)
+			{
+				for(int l=0;l>lN;l--) if(msb&1<<-l)
+				{
+					auto &t = lp[l].tiles[k];					
+					if(t.mhm!=0xffff)
+					{
+						auto &h = *pp[t.mhm]; if(h.polies) //debugging
+						{
+							assert(t.msm==t.mhm||t.msm==0xffff);
+
+							xyz[1] = t.elevation;
+							som_scene_413f10_mhm(xyz,t.rotation,h,p);
+						}
+					}
+				}
+			}
+			else assert(0);
+		}
+
+		jj = jjN; chunk = chunk*3/2; 
+
+		if(jjN<jN) goto jj;
+	}
+
+	som_scene_413f10_maybe_flush(nullptr);
+}
+
+extern void som_MPY_reprogram()
+{
+	//accept empty for frustrum visibility test? layers? nobsp?
+	//004134a0 74 67 JZ LAB_00413509
+	*(WORD*)0x4134a0 = 0x9090;
+	//set msb for all layers
+	//00413501 81 c9 00 00 00 80 OR ECX,0x80000000
+	*(BYTE*)0x413506 = 0xff; 
+
+	//004136b6 e8 a5 45 00 00 CALL 00417c60
+	*(DWORD*)0x4136b7 = (DWORD)som_MPY_417c60_recursive-0x4136bb;
 }

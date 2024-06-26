@@ -35,7 +35,7 @@ BEGIN
             VALUE "FileDescription", "Moonlight Sword"
             VALUE "FileVersion", SOM_EX_VSTRING
             VALUE "InternalName", "SOM_EX.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2011-2021"
+            VALUE "LegalCopyright", "Copyright (C) 2011-2024"
             VALUE "OriginalFilename", "SOM_EX.exe"
             VALUE "ProductName", "SOM Desktop IDE"
             VALUE "ProductVersion", SOM_EX_VSTRING

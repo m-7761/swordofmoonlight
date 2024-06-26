@@ -1,10 +1,10 @@
 
 #ifndef X2MDL_VERSION
-#define X2MDL_VERSION 1,0,1,4
-#define SOMEX_VNUMBER 0x1000104UL
-#define X2MDL_VSTRING "1, 0, 1, 4"
-#define X2MDL_WSTRING L"1, 0, 1, 4"
-#define X2MDL_UPTODATE 2023,9,20 //x2mdl.dll
+#define X2MDL_VERSION 1,0,1,8
+#define SOMEX_VNUMBER 0x1000108UL
+#define X2MDL_VSTRING "1, 0, 1, 8"
+#define X2MDL_WSTRING L"1, 0, 1, 8"
+#define X2MDL_UPTODATE 2024,6,25 //x2mdl.dll
 #endif
 
 #ifndef X2MDL_INCLUDED

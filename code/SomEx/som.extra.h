@@ -56,7 +56,7 @@ namespace SOM //miscellaneous externals
 	//src is relative to the installation folder
 	extern bool xcopy(const wchar_t *dst, const wchar_t *src); //som.tool.h	
 
-	struct xxiix //2018
+	struct xxiix //EXTENSION //2018
 	{
 		unsigned x1:10,x3:10,ii:2,x2:10;
 		
@@ -64,12 +64,9 @@ namespace SOM //miscellaneous externals
 		
 		int &operator=(int i){ return *(int*)this = i; }
 
-		WORD &operator[](int i){ return ((WORD*)this)[i]; }
+		WORD &operator[](int i){ return ((WORD*)this)[i]; } //???
 
-		int ryoku(int i)
-		{ 
-			i = i==2?x2:i==3?x3:x1; return i==0?50:i-1;
-		}			
+		int ryoku(int i){ i = i==2?x2:i==3?x3:x1; return i==0?50:i-1; }
 	};
 	
 	//EXPERIMENTAL

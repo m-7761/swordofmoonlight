@@ -102,7 +102,7 @@ namespace SOM
 					float _center;
 					DWORD _1:10,_2:10,_3:10,_0b:2;
 					BYTE _0a,_,_rem1[6];
-					float _radius;
+					float _scale;
 					CHAR _nz,_rem2[3];
 
 				}records[records_s];

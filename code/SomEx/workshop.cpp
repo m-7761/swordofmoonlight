@@ -246,7 +246,7 @@ extern HWND som_tool_taskbar;
 extern int som_tool_initializing; 
 extern HWND som_tool_stack[16+1];
 extern std::vector<WCHAR> som_tool_wector; 
-extern POINTS som_tool_tile, som_tool_tilespace;
+extern POINTS som_map_tile, som_map_tilespace;
 extern HANDLE WINAPI som_map_LoadImageA(HINSTANCE,LPCSTR,UINT,int,int,UINT);
 
 //0: maximized 1: minimized
@@ -265,7 +265,7 @@ extern HWND &workshop_tool;
 extern HWND &workshop_host;
 extern HMENU &workshop_menu;
 extern HANDLE &workshop_reading; 
-extern RECT &workshop_picture_window;	
+extern RECT workshop_picture_window = {};	
 extern const wchar_t* &workshop_title;
 typedef struct 
 {
@@ -372,13 +372,20 @@ extern HACCEL workshop_accelerator(HMENU hm)
 	return workshop_accel = av.empty()?0:CreateAcceleratorTable(&av[0],av.size());
 }
 
-static void workshop_menu_COMMAND(WPARAM wp)
+static void workshop_menu_CHECK(WPARAM wp)
 {
 	MENUITEMINFO mii = {sizeof(mii),MIIM_STATE};
 	GetMenuItemInfo(workshop_menu,wp,0,&mii);
-	mii.fState^=MFS_CHECKED;
-	if(SOM::tool==ItemEdit.exe)		
+	mii.fState^=MFS_CHECKED;		
 	SetMenuItemInfo(workshop_menu,wp,0,&mii);	
+}
+static void workshop_menu_RADIOCHECK(WPARAM id)
+{
+	MENUITEMINFO mii = {sizeof(mii),MIIM_TYPE};
+	char td[64]; mii.cbSize = sizeof(td);
+	GetMenuItemInfo(workshop_menu,id,0,&mii);
+	mii.fType|=MFT_RADIOCHECK;	
+	SetMenuItemInfo(workshop_menu,id,0,&mii);	
 }
 static void workshop_submenu(HMENU hm)
 {
@@ -942,11 +949,11 @@ static void EneEdit_default_descriptions(workshop_cpp::enemy_prf &enemy)
 	for(int i=enemy.indirect;i<3;i++)
 	sprintf(enemy.descriptions[3+i],som_932_EneEdit_attack123,kanji,som_932_Numerals[1+i]);		
 }
-static char *workshop_generate(char *io, char *icon)
+static char *workshop_generate(char *io, char *ico=0)
 {
-	char &sep = io[strlen(icon)];
+	char &sep = io[ico?strlen(ico):0];
 	extern const char *SOM_MAIN_generate();
-	memcpy(io,icon,&sep-io);
+	if(ico) memcpy(io,ico,&sep-io);
 	memcpy(&sep,SOM_MAIN_generate(),23);
 	switch(sep)
 	{
@@ -972,7 +979,7 @@ static HANDLE workshop_CreateFile_32772()
 	{
 	case PrtsEdit.exe: sz = 228;
 		
-		workshop_generate(prt.bmp,"ico0683!"); //column
+		workshop_generate(prt.bmp,"ico0000!"); //column
 		break; 
 
 	case ItemEdit.exe: sz = 88;
@@ -1138,11 +1145,8 @@ static HANDLE SfxEdit_CreateFile_TXR(wchar_t *in, wchar_t *txr_reference)
 		//HACK: SfxEdit_CreateFile sets to D3DCULL_CCW (speculatively)
 		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_NONE);
 		
-		if(workshop_texture()) 
-		{
-			workshop_texture()->Release();
-			workshop_texture() = 0;
-		}
+		auto &wt = workshop_texture();
+		if(wt) wt->Release(); wt = 0;
 		
 		//DUPLICATE //SOM_MAP.cpp
 		namespace txr = SWORDOFMOONLIGHT::txr;	
@@ -1158,16 +1162,21 @@ static HANDLE SfxEdit_CreateFile_TXR(wchar_t *in, wchar_t *txr_reference)
 			desc.ddsCaps.dwCaps = DDSCAPS_TEXTURE|DDSCAPS_VIDEOMEMORY; 
 			DX::DDPIXELFORMAT pf = {0,DDPF_RGB,0,32,0xff0000,0x00ff00,0x0000ff};
 			desc.ddpfPixelFormat = pf;
-			if(!DDRAW::DirectDraw7->CreateSurface(&desc,&workshop_texture(),0)
-			&&!workshop_texture()->Lock(0,&desc,DDLOCK_WAIT|DDLOCK_WRITEONLY,0))
+			if(!DDRAW::DirectDraw7->CreateSurface(&desc,&wt,0)
+			&&!wt->Lock(0,&desc,DDLOCK_WAIT|DDLOCK_WRITEONLY,0))
 			{
 				//primary color screen effect?
-				int ff = GetDlgItemInt(som_tool,1001,0,0);
-				if(ff<12&&IsDlgButtonChecked(som_tool,1002))
+				int c = GetDlgItemInt(som_tool,1001,0,0);
+				int ff = 0xFF, ffb = 64; //hack
+				if(c<12&&IsDlgButtonChecked(som_tool,1002))
 				{
-					if(!(ff/=3)) ff = 2; else if(ff==2) ff = 0; //swap?
+					ff/=2-c%3+1; ff = ffb+(255-ffb)*powf(ff/255.0f,0.25f);
+
+					if(!(c/=3)) c = 2; else if(c==2) c = 0; //swap?
 				}
-				else ff = 3;
+				else c = 3;
+				
+				float aa = ff/255.0f;
 
 				const txr::palette_t *p = txr::palette(img);
 				txr::palette_t *d; (void*&)d = desc.lpSurface; 
@@ -1178,13 +1187,25 @@ static HANDLE SfxEdit_CreateFile_TXR(wchar_t *in, wchar_t *txr_reference)
 					{
 						if(p) d[j] = p[row.indices[j]];					
 						if(!p) d[j] = *(txr::palette_t*)&row.truecolor[j];
-						d[j].bgr[ff] = 0xFF;
+						if(c!=3||ff!=0xff)
+						for(int k=3;k-->0;)
+						{
+							if(k==c) 
+							{
+								if(c==1) //green?
+								{
+									d[j].bgr[k] = ff-64*(1-d[j].bgr[k]/255.0f);
+								}
+								else d[j].bgr[k] = ff;
+							}
+							else d[j].bgr[k]*=aa;
+						}
 					}
 				}
-				workshop_texture()->Unlock(0);
+				wt->Unlock(0);
 
 				DX::DDCOLORKEY black = {}; //allow black knockout
-				workshop_texture()->SetColorKey(DDCKEY_SRCBLT,&black);
+				wt->SetColorKey(DDCKEY_SRCBLT,&black);
 			}
 			else assert(0);
 		} 
@@ -1269,7 +1290,7 @@ extern HANDLE WINAPI workshop_CreateFileA(LPCSTR in, DWORD A, DWORD B, LPSECURIT
 	//assert(!workshop_reading);
 	if(*(DWORD*)in!=*(DWORD*)SOMEX_(A)) a:
 	return SOM::Tool.CreateFileA(in,A,B,C,D,E,F);	
-	assert(!workshop_reading);
+	assert(!workshop_reading||workshop_reading==INVALID_HANDLE_VALUE);
 	wchar_t w[MAX_PATH]; 
 	HANDLE out = INVALID_HANDLE_VALUE; 
 	if(*(DWORD*)(in+4)!=*(DWORD*)"\\.ws") //model/texture?
@@ -1445,6 +1466,14 @@ extern int PrtsEdit_punc(char *pp, char **sep=nullptr)
 	}
 	else return 0; return p-pp;		
 }
+static VOID CALLBACK workshop_ReadFile_part_1013(HWND win, UINT, UINT_PTR id, DWORD)
+{
+	KillTimer(win,id);
+
+	//SetWindowTextA(win,"ico0000.bmp");
+	Edit_SetModify(win,1);
+	InvalidateRect(GetDlgItem(som_tool,1021),0,0);
+}
 static bool workshop_ReadFile_part(workshop_cpp::part_prt &part, size_t part_s)
 {
 	if(part_s<228) return false; assert(sizeof(part)==228);
@@ -1454,18 +1483,25 @@ static bool workshop_ReadFile_part(workshop_cpp::part_prt &part, size_t part_s)
 	HWND bmp = GetDlgItem(som_tool,1013);
 	
 	//HACK: coax icon to updating itself
-	PostMessage(bmp,EM_SETMODIFY,1,0);
-	PostMessage(som_tool,WM_COMMAND,IDOK,0);
+	//PostMessage(bmp,EM_SETMODIFY,1,0);
+	//PostMessage(som_tool,WM_COMMAND,IDOK,0);
+	SetTimer(GetDlgItem(som_tool,1013),'1013',1,workshop_ReadFile_part_1013);
 
 	//2023: add UUID framework to icon file
 	if(workshop_SetWindowTextA(GetDlgItem(som_tool,1017),part.bmp))
 	{
 		//ShowWindow(bmp,SW_HIDE);
-		//SetWindowRedraw(bmp,0);
-		MoveWindow(bmp,0,0,0,0,1);
+		//SetWindowRedraw(bmp,0);		
 		if(int punc=PrtsEdit_punc(part.bmp))
 		memcpy(part.bmp+punc,".bmp",5);
 	}
+
+	CheckMenuRadioItem(workshop_menu,34000,34315,34000+part.aim*45,0);
+
+	//blinders somehow corrupts the bsp data outputted by MapComp
+	//I think it may pack extra data into that memory at runtime?
+	SendDlgItemMessage(som_tool,1004,BM_SETCHECK,part.features&(1<<4)?0:1,0); //blinders
+	SendDlgItemMessage(som_tool,1018,BM_SETCHECK,part.features&(1<<5)?0:1,0); //blinders
 
 	memcpy(workshop->icard,part.text_and_history,96);
 
@@ -2875,7 +2911,7 @@ static void PrtsEdit_Pen_Mode()
 	workshop_mode2 = workshop_mode2==1?-1:1;
 	CheckMenuItem(workshop_menu,35005,workshop_mode2==1?MF_CHECKED:0);
 }
-static void PrtsEdit_SoftMSM(int wp)
+/*static void PrtsEdit_SoftMSM(int wp)
 {	
 	if(SOM::tool!=PrtsEdit.exe) return;
 	extern int SoftMSM(const wchar_t*,int); 
@@ -2883,7 +2919,7 @@ static void PrtsEdit_SoftMSM(int wp)
 	workshop_file_system(-1005); //set som_tool_text to msm path
 
 	if(SoftMSM(som_tool_text,wp&3)) MessageBeep(-1);
-}
+}*/
 
 static wchar_t*workshop_filters[3] = {};
 static void workshop_init_filter(int id)
@@ -2916,14 +2952,39 @@ static void workshop_init_filter(int id)
 	i+=swprintf(filter+i+1,L"%hs%hs%hs%lc",a,b,art,0);	
 	wmemcpy(*f=new wchar_t[i+2],filter,i+2);
 }
+static VOID CALLBACK PrtsEdit_INITDIALOG_1013(HWND win, UINT, UINT_PTR id, DWORD)
+{
+	KillTimer(win,id);
+
+	SetWindowTextA(win,"ico0000.bmp");
+	Edit_SetModify(win,1);
+	InvalidateRect(GetDlgItem(som_tool,1021),0,0);
+}
 static void PrtsEdit_INITDIALOG()
-{			  
+{	
 	workshop_init_filter(1006);
 	workshop_init_filter(1013);
+
+	if(HWND hw=GetDlgItem(som_tool,1017)) //2023
+	{
+		char id[32];
+		workshop_generate(id,"ico0000!"); //column
+		SetWindowTextA(hw,id);
+
+		hw = GetDlgItem(som_tool,1013);
+		MoveWindow(hw,0,0,0,0,1);
+
+		SetTimer(hw,'1013',1,PrtsEdit_INITDIALOG_1013);
+	}
+	SendDlgItemMessage(som_tool,1004,BM_SETCHECK,1,0);
+	SendDlgItemMessage(som_tool,1018,BM_SETCHECK,1,0);
 
 	if(workshop_menu)
 	workshop_accelerator(workshop_menu);
 	else assert(0);
+
+	for(int i=34315;i>=34000;i-=45)
+	workshop_menu_RADIOCHECK(i);
 
 	char hide[] = {7,9,10,12,25};
 	for(int i=0;i<sizeof(hide);i++)
@@ -2938,7 +2999,7 @@ static void PrtsEdit_INITDIALOG()
 	//be standard 30 chars
 	PostMessage(GetDlgItem(som_tool,1008),EM_LIMITTEXT,126,0);
 
-	som_tool_tilespace.x = 0; //SOM_MAP sets it to -1
+	som_map_tilespace.x = 0; //SOM_MAP sets it to -1
 
 	SendDlgItemMessage(som_tool,1026,UDM_SETRANGE32,0,255);
 
@@ -2946,13 +3007,6 @@ static void PrtsEdit_INITDIALOG()
 	//in SOM_MAP to standardize its palette window
 	if(workshop_menu) 
 	{ 
-		for(int i=34000;i<=34270;i+=90)
-		{
-			int check = i==34000?i:0;
-			CheckMenuRadioItem(workshop_menu,i,i,check,0);
-			if(!check) //feature is unimplemented
-			EnableMenuItem(workshop_menu,i,MF_GRAYED);
-		}
 		for(int i=35001;i<=35004;i++)
 		{
 			int check = i==35001?i:0;
@@ -3445,8 +3499,8 @@ static void workshop_drawitem(DRAWITEMSTRUCT *dis)
 
 					if(!captured)
 					{	
-						som_tool_tile.x = 2+(pt.x+som_tool_tilespace.x)/9*9;
-						som_tool_tile.y = 2+(pt.y+som_tool_tilespace.y)/9*9;
+						som_map_tile.x = 2+(pt.x+som_map_tilespace.x)/9*9;
+						som_map_tile.y = 2+(pt.y+som_map_tilespace.y)/9*9;
 					}
 					else
 					{	
@@ -3463,22 +3517,22 @@ static void workshop_drawitem(DRAWITEMSTRUCT *dis)
 							//changing +=d to -=d scrolls like SOM_MAP
 							//+= seems like a more natural fit in this
 							//case
-							(&som_tool_tile.x)[i]+=d;
-							(&som_tool_tilespace.x)[i]+=d;
+							(&som_map_tile.x)[i]+=d;
+							(&som_map_tilespace.x)[i]+=d;
 						}							
 						LONG lim = 20-dis->rcItem.right/9;
 						LONG lim2 = lim-7;
-						som_tool_tilespace.x = max(0,min(lim*9,som_tool_tilespace.x));
-						som_tool_tilespace.y = max(0,min(lim2*9,som_tool_tilespace.y));						
+						som_map_tilespace.x = max(0,min(lim*9,som_map_tilespace.x));
+						som_map_tilespace.y = max(0,min(lim2*9,som_map_tilespace.y));						
 					}	
-					som_tool_tile.x = max(2,min(2+20*9-9,som_tool_tile.x));
-					som_tool_tile.y = max(2,min(2+13*9-9,som_tool_tile.y));
+					som_map_tile.x = max(2,min(2+20*9-9,som_map_tile.x));
+					som_map_tile.y = max(2,min(2+13*9-9,som_map_tile.y));
 
-					BitBlt(dis->hDC,0,0,dis->rcItem.right,dis->rcItem.bottom,som_tool_dc,som_tool_tilespace.x,som_tool_tilespace.y,SRCCOPY);
+					BitBlt(dis->hDC,0,0,dis->rcItem.right,dis->rcItem.bottom,som_tool_dc,som_map_tilespace.x,som_map_tilespace.y,SRCCOPY);
 					
-					pt.x = som_tool_tile.x-som_tool_tilespace.x-2;
+					pt.x = som_map_tile.x-som_map_tilespace.x-2;
 					rc.right = pt.x+13;
-					pt.y = som_tool_tile.y-som_tool_tilespace.y-2; 
+					pt.y = som_map_tile.y-som_map_tilespace.y-2; 
 					rc.bottom = pt.y+13;
 					//HACK: recentering mouse after it is released
 					if(captured)
@@ -3920,6 +3974,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			break;
 		case 1011: file_system: //PtrsEdit 		
 
+			if(som_tool==hWnd) //2024 //EneEdit 103 paste is going here?!
 			if(!som_tool_initializing)
 			{
 				int id = 1005;
@@ -4206,9 +4261,16 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			}
 			break;
 
-		case 34001: case 34002: case 34004: 
+		/*case 34001: case 34002: case 34004: //SoftMSM???
 
-			workshop_menu_COMMAND(wParam);
+			if(SOM::tool==ItemEdit.exe)	
+			workshop_menu_CHECK(wParam);
+			break;*/
+
+		case 34000: case 34045: case 34090: case 34135: 
+		case 34180: case 34225: case 34270: case 34315:
+
+			CheckMenuRadioItem(workshop_menu,34000,34315,wParam,0);
 			break;
 		}
 		break;
@@ -4250,7 +4312,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		{
 			POINT pt = {GET_X_LPARAM(lParam),GET_Y_LPARAM(lParam)};
 			MapWindowPoints(0,hWnd,&pt,1);
-			HWND ch = RealChildWindowFromPoint (hWnd,pt);
+			HWND ch = RealChildWindowFromPoint(hWnd,pt);
 			if(SOM::tool==PrtsEdit.exe)
 			{
 				switch(GetDlgCtrlID(ch))
@@ -4261,7 +4323,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 					break;
 				}
 			}
-			else if(!ch||DLGC_STATIC&&SendMessage(ch,WM_GETDLGCODE,0,0))
+			else //if(!ch||DLGC_STATIC&SendMessage(ch,WM_GETDLGCODE,0,0))
 			{
 				workshop_MOUSEWHEEL(GET_WHEEL_DELTA_WPARAM(wParam));
 			}
@@ -4340,7 +4402,7 @@ PrtsEdit_3x3:
 				}
 				else if(uMsg==WM_LBUTTONDOWN)
 				{
-					int i = som_tool_tile.y/9*20+som_tool_tile.x/9;
+					int i = som_map_tile.y/9*20+som_map_tile.x/9;
 					if(i>=255) i = 255;				
 					HWND ec = GetDlgItem(som_tool,1011);
 					SetDlgItemInt(som_tool,1011,i,0);
@@ -4771,8 +4833,8 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 				SfxEdit_1002_1003_continued:
 				if(workshop_reading) //HACK?
 				break;
-				WCHAR w[10];
-				GetWindowText((HWND)lParam,w,8);
+				WCHAR w[8+1] = {}; //0000.mdl
+				GetWindowText((HWND)lParam,w,4);
 				*w = _wtoi(w);
 				HWND ch = GetDlgItem(som_tool,1005);
 				GetWindowText(ch,w+1,5);
@@ -4793,10 +4855,12 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 					default: *w = *w<12?207:0; break;
 					case 12:
 					case 13:
-					case 14: *w = 208+(*w-12); break;
+					case 14: //2024: renamed light (gold)
+					case 15: //2024: missile shield (green)
+					*w = 208+(*w-12); break;
 					}
 					if(!*w) 
-					return SetWindowText((HWND)lParam,L"14");
+					return SetWindowText((HWND)lParam,L"15"); //maximum
 				}
 				else break;
 					
@@ -5651,7 +5715,7 @@ extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			if(int i=PrtsEdit_punc(a,&sep))
 			{
 			sel:a[i+1] = '\0';
-				workshop_generate(a,a);
+				workshop_generate(a);
 				SetDlgItemTextA(hwndDlg,1009,a+i+1);
 				SetDlgItemTextA(hwndDlg,1017,a);
 			}
@@ -5974,7 +6038,7 @@ static BOOL CALLBACK workshop_alt_click_cb(HWND w, LPARAM l)
     GetWindowThreadProcessId(w,(DWORD*)&l);
     if(l=l==*lp) *lp = (DWORD)w; return !l;
 }
-extern bool workshop_edit_model(const wchar_t *path)
+static bool workshop_edit_model(const wchar_t *path)
 {
 	SHELLEXECUTEINFO si={sizeof(si)};
 	si.lpFile = path; si.nShow = 1;
@@ -6176,6 +6240,9 @@ static int workshop_WriteFile_int(int id, int def=0)
 static void workshop_WriteFile_part()
 {
 	workshop_cpp::part_prt part = {};
+	for(int i=0;i<8;i++)
+	if(MF_CHECKED&GetMenuState(workshop_menu,34000+i*45,0))
+	part.aim = i;
 	workshop_WriteFile_text(1005,part.msm);
 	workshop_WriteFile_text(1006,part.mhm);
 	if(GetDlgItem(som_tool,1017))
@@ -6193,6 +6260,10 @@ static void workshop_WriteFile_part()
 	part.blinders|=IsDlgButtonChecked(som_tool,1001)<<2;
 	part.blinders|=IsDlgButtonChecked(som_tool,1002)<<1;
 	part.blinders|=IsDlgButtonChecked(som_tool,1003)<<3;
+	if(GetDlgItem(som_tool,1004))
+	part.features|=IsDlgButtonChecked(som_tool,1004)?0:1<<4; //blinders
+	if(GetDlgItem(som_tool,1018))
+	part.features|=IsDlgButtonChecked(som_tool,1018)?0:1<<5; //blinders
 	part.features|=IsDlgButtonChecked(som_tool,1019);
 	part.features|=IsDlgButtonChecked(som_tool,1020)<<1;
 
@@ -6693,7 +6764,8 @@ static bool workshop_WriteFile(const wchar_t *to)
 	//HACK: signaling modification flag to workshop_tool (SOM_PRM)
 	//this is just a trick to force the PR2 files to track changes
 	//in most instances, although imperfect
-	PostMessage(workshop_tool,WM_APP+'ws+w',0,0);
+	//PostMessage(workshop_tool,WM_APP+'ws+w',0,0);
+	PostMessage(workshop_tool,WM_APP+'ws'+'w',0,0);
 
 	DWORD wr = 2*som_tool_wector.size();
 	if(SOM::tool==PrtsEdit.exe) 
@@ -6741,7 +6813,8 @@ extern BOOL APIENTRY workshop_GetSaveFileNameA(LPOPENFILENAMEA a)
 
 	EXLOG_LEVEL(7) << "workshop_GetSaveFileNameA()\n";
 	
-	if(IsDlgButtonChecked(som_tool,1031)) //my/arm?	
+	if(SOM::tool==ItemEdit.exe
+	&&IsDlgButtonChecked(som_tool,1031)) //my/arm?	
 	wcscpy(som_tool_text,SOMEX_L(B)L"\\data\\my\\arm");
 	else wcscpy(som_tool_text,workshop_savename);
 	bool skin = (void*)0x416068==a->lpstrFilter;
@@ -6769,6 +6842,18 @@ extern BOOL APIENTRY workshop_GetSaveFileNameA(LPOPENFILENAMEA a)
 	}
 	else 
 	{
+		if(SOM::tool==PrtsEdit.exe
+		&&wcsicmp(workshop_savename,som_tool_text))
+		{
+			char a[32];
+			GetDlgItemTextA(som_tool,1017,a,31);
+			if(int i=PrtsEdit_punc(a,0))
+			{			
+				workshop_generate(a+i+1);
+				SetDlgItemTextA(som_tool,1017,a);
+			}
+		}
+
 		if(workshop_WriteFile(som_tool_text))
 		wcscpy(workshop_savename,som_tool_text);
 		*som_tool_text = '\0';
@@ -6779,16 +6864,14 @@ extern BOOL APIENTRY workshop_GetSaveFileNameA(LPOPENFILENAMEA a)
 
 //HACK: this ensures that failure in the workshop tool doesn't leave the
 //container in a disabled state
+extern HWND som_tool_workshop;
 static VOID CALLBACK workshop_timer(HWND,UINT,UINT_PTR id,DWORD)
 {
-	extern HWND som_tool_workshop;
 	if(IsWindowEnabled(som_tool)||!IsWindow(som_tool_workshop))
 	{
 		KillTimer(0,id); EnableWindow(som_tool,1);
 	}
 }
-
-extern HWND som_tool_workshop;
 extern bool workshop_exe(int hlp)
 {
 	//MessageBeep(-1);
@@ -6814,15 +6897,15 @@ extern bool workshop_exe(int hlp)
 
 	if(!hlp) //destroy?
 	{
-		if(!som_tool_workshop) 
-		return false;
-		//DestroyWindow only works on the window's own
-		//thread... so this may just be a hint to have
-		//workshop_subclassproc quit itself
-		//DestroyWindow(som_tool_workshop);
-		PostMessage(som_tool_workshop,WM_NCDESTROY,0,0);
-		som_tool_workshop = 0;
-		return true;
+		BOOL iw; if(iw=IsWindow(som_tool_workshop))
+		{
+			//DestroyWindow only works on the window's own
+			//thread... so this may just be a hint to have
+			//workshop_subclassproc quit itself
+			//DestroyWindow(som_tool_workshop);
+			PostMessage(som_tool_workshop,WM_NCDESTROY,0,0);
+		}
+		som_tool_workshop = 0; return !!iw;
 	}		
 
 	wchar_t *ws = som_tool_text, *_;
@@ -6903,13 +6986,12 @@ extern bool workshop_exe(int hlp)
 		//I think disabling first can curb flicker
 		maybe_disable: if(1)
 		{
-			if(som_tool_workshop)
 			EX::vblank(); //better?
 
 			//may want to not disable if the window is a tool
 			//window (always on top)
 			EnableWindow(som_tool,0);
-			SetTimer(0,0,1000,workshop_timer);
+		//	SetTimer(0,0,1000,workshop_timer);
 
 			//FLICKERS
 			//once the windows were mutually disabled (!) on
@@ -6917,7 +6999,7 @@ extern bool workshop_exe(int hlp)
 			//EX::sleep(20); 
 		}
 		
-		if(som_tool_workshop) //maybe_disable
+		//maybe_disable
 		{
 			EX::vblank(); //better?
 
@@ -6925,12 +7007,6 @@ extern bool workshop_exe(int hlp)
 			//cannot seem do this attractively, as when 
 			//opened for the first time :(
 			ShowWindow/*Async*/(som_tool_workshop,SW_SHOW);
-
-			if(0&&EX::debug)
-			{
-				PostMessage(som_tool_workshop,WM_COMMAND,1017,0);
-				PostMessage(som_tool_workshop,WM_COMMAND,32773,1);
-			}
 		}
 
 		//2023: work with WM_APP+'ws' to make modeless
@@ -7200,6 +7276,8 @@ extern void workshop_reprogram()
 	}
 }
 
+enum{ workshop_fps2=2 }; //2024
+
 //HACK: theses are defined in workshop.cpp only because the data 
 //structures are already defined here... they could be moved out
 template<class T>
@@ -7208,7 +7286,7 @@ static void som_game_60fps_flame_132(T *p)
 	if(p->flameSFX>=0&&p->flameSFX<1024)	
 	switch((BYTE)SOM::L.SFX_dat_file[p->flameSFX].c[0])
 	{
-	case 132: p->flameSFX_periodicty*=2; break;
+	case 132: p->flameSFX_periodicty*=workshop_fps2; break;
 	}
 }
 extern void som_game_60fps()
@@ -7217,15 +7295,17 @@ extern void som_game_60fps()
 
 	BYTE *o = SOM::L.obj_pr2_file->uc;
 
+	int fps = som_MDL::fps;
+	
 	if(fix) for(int i=1024;i-->0;o+=108)
 	{
 		if(auto p=(workshop_cpp::object_prf*)o)
 		{
 			som_game_60fps_flame_132(p);
 
-			p->loopingSND_delay*=2;
-			p->openingSND_delay*=2;
-			p->closingSND_delay*=2;
+			p->loopingSND_delay*=fps;
+			p->openingSND_delay*=fps;
+			p->closingSND_delay*=fps;
 		}
 		/*som_game_60fps_npc_etc does this overflow safety checks
 		if(auto p=(workshop_cpp::npc_prf*)SOM::L.NPC_pr2_data[i])
@@ -7236,7 +7316,7 @@ extern void som_game_60fps()
 		{
 			//REMOVED
 		}*/
-		SOM::L.enemy_prm_file[i].c[318]*=2; //post_attack_vulnerability
+		SOM::L.enemy_prm_file[i].c[318]*=workshop_fps2; //post_attack_vulnerability
 
 		if(auto p=(workshop_cpp::sfx_record*)&SOM::L.SFX_dat_file[i])
 		{
@@ -7249,7 +7329,7 @@ extern void som_game_60fps()
 			{
 			case 132: //candle flames		
 
-				p->unknown6[0]*=2; break;
+				p->unknown6[0]*=workshop_fps2; break;
 
 			case 9: //the bird seems to travel further
 			
@@ -7261,13 +7341,13 @@ extern void som_game_60fps()
 					//the animation but not the actual
 					//range of the magic
 				
-				p->unknown6[1]*=2; break;
+				p->unknown6[1]*=workshop_fps2; break;
 
 			case 21: //firewall
 				
 				//0043bff4 8a 46 05        MOV        AL,byte ptr [ESI + 0x5]
-				p->unknown6[1]*=2;
-				p->unknown6[3]*=2; break;
+				p->unknown6[1]*=workshop_fps2;
+				p->unknown6[3]*=workshop_fps2; break;
 			}
 			if(1) //compound lightning SFX (surveying)
 			{
@@ -7280,13 +7360,13 @@ extern void som_game_60fps()
 
 					//I think this effects overall timing
 
-					p->unknown6[0]*=2; //break		
+					p->unknown6[0]*=workshop_fps2; //break		
 			
 				//these pause in the middle? looks better
 				//at 2x speed anyway
 				//case 42: case 43: //lightning fallout
 
-					p->unknown6[1]*=2; break;
+					p->unknown6[1]*=workshop_fps2; break;
 				}
 			}
 		}
@@ -7304,7 +7384,7 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 	bool arm60 = other||60==SOM::arm[0];	
 
 	//REMOVE ME
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	//UNFINISHED: this needs to be able to change on the fly
 	extern float som_MDL_arm_fps; //0.06f	
 	int armX = 1+(int) 
@@ -7319,9 +7399,11 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 	{
 		if(arm60) 
 		{
-			i->SND_delay*=2;
-			i->hit_window[0]*=2; i->swordmagic_window[0]*=2;
-			i->hit_window[1]*=2; i->swordmagic_window[1]*=2;
+			i->SND_delay*=som_MDL::fps;
+			i->hit_window[0]*=som_MDL::fps;
+			i->swordmagic_window[0]*=som_MDL::fps;
+			i->hit_window[1]*=som_MDL::fps; 
+			i->swordmagic_window[1]*=som_MDL::fps;
 		}
 		
 		//REMOVE ME
@@ -7373,7 +7455,7 @@ static void som_game_60fps_sxx(bool upscale, void *b0, void *bs, WORD *sxx)
 				assert(d->time<127); //overflow?
 
 				if(upscale)
-				d->time = 1+(d->time-1)*2; //breakpoint
+				d->time = 1+(d->time-1)*som_MDL::fps; //breakpoint
 			}
 			else d->time = 1;
 		}
@@ -7393,7 +7475,7 @@ extern void som_game_60fps_npc_etc(std::vector<BYTE*> &v)
 		{
 			if(upscale) som_game_60fps_flame_132(p);
 
-			for(int i=0;i<4;i++) p->title_frames[i]*=2;
+			for(int i=0;i<4;i++) p->title_frames[i]*=som_MDL::fps;
 
 			for(int i=0;i<32;i++)
 			{
@@ -7405,7 +7487,7 @@ extern void som_game_60fps_npc_etc(std::vector<BYTE*> &v)
 		{
 			if(upscale) som_game_60fps_flame_132(p);
 			if(upscale)
-			for(int i=3*3;i-->0;) p->hit_delay[0][i]*=2;
+			for(int i=3*3;i-->0;) p->hit_delay[0][i]*=som_MDL::fps;
 
 			for(int i=0;i<32;i++)
 			{

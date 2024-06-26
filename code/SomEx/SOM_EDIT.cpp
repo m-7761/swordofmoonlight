@@ -443,8 +443,8 @@ static bool SOM_EDIT_program(wchar_t inout[MAX_PATH])
 				for(wchar_t *q=++p;*q;q++) if(*q=='"') *q-- = '\0';
 			}
 			else for(wchar_t *q=p;*q;q++) if(iswspace(*q)) *q-- = '\0';
-			ExpandEnvironmentStringsW(p,inout,MAX_PATH);
-			return *inout;
+			
+			ExpandEnvironmentStringsW(p,inout,MAX_PATH); return *inout;
 		}
 	}
 	return false;
@@ -1296,7 +1296,7 @@ static void SOM_EDIT_cduser(wchar_t (&cd)[MAX_PATH], wchar_t (&user)[MAX_PATH])
 }
 static int SOM_EDIT_chkstkworkaround(HWND text) 
 {
-	enum{x_s=4096}; wchar_t x[x_s] = L"";				
+	enum{x_s=2048}; wchar_t x[x_s] = L"";				
 	if(GetWindowTextW(text,x,x_s)>=x_s-1) assert(0);
 	SOM_EDIT_tree.fill(x); return 0;
 }
@@ -1523,6 +1523,7 @@ extern INT_PTR CALLBACK SOM_EDIT_151(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 				L"-ICON",
 				L"-TEXT=%TEXT%",
 				L"-TEMP=%TEMP%",
+				L"-ART=%INSTALL%\\art",
 				L"-PLAYER=%PLAYER%",
 				L"-TITLE=%TITLE%",
 				L"-SOM=%SOM%",
@@ -2323,7 +2324,7 @@ static int SOM_EDIT_vars(HWND tv, HTREEITEM item)
 	{
 		sep = wcschr(p,'='); if(sep) *sep = '\0';
 		//SOM: includes Som.h and som.exe.cpp and SOM_EX.cpp
-		if(sep&&*p&&*p!='.'&&(*p!='S'||wcsncmp(p,L"SOM",3)))
+		if(sep&&*p&&*p!='.')
 		{
 			switch(SOM_EDIT_tree.dict_if_1_userdict_if_2(p))
 			{			

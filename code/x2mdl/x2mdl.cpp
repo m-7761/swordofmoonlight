@@ -407,7 +407,7 @@ unsigned pushback(S* &buf, T &len, S cp, int n=1)
 	delete[] swap; len+=n; return len-n;
 }
 
-enum{ hardn_fps=30*2, modern=1 }; //1||mm3d
+enum{ hardn_fps=30*1, modern=1 }; //1||mm3d
 
 int hardn(int i)
 {
@@ -459,7 +459,7 @@ void x2mdl_animate(aiAnimation*,aiMatrix4x4*,float);
 void x2mdo_split_XY();
 
 extern bool x2msm_ico(int,WCHAR*,IDirect3DDevice9*,IDirect3DSurface9*[3]);
-extern bool x2mdo_ico(int,WCHAR*,IDirect3DDevice9*,IDirect3DSurface9*[3]);
+extern bool x2mdo_ico(int,WCHAR*,IDirect3DDevice9*,IDirect3DSurface9*[4]);
 
 extern HWND X2MDL_MODAL = 0;
 #ifdef _CONSOLE
@@ -875,8 +875,8 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 
 			D3DPRESENT_PARAMETERS null = 
 			{
-				X2MDL_TEXTURE_MAX, //256
-				X2MDL_TEXTURE_MAX,D3DFMT_X8R8G8B8,1, //256,256,D3DFMT_X1R5G5B5,0,
+				X2MDL_SHADOWS_MAX, //256
+				X2MDL_SHADOWS_MAX,D3DFMT_X8R8G8B8,1, //256,256,D3DFMT_X1R5G5B5,0,
 				D3DMULTISAMPLE_NONE,0,
 				D3DSWAPEFFECT_DISCARD,fake,1,
 				0,D3DFMT_UNKNOWN, //1,D3DFMT_D16, //todo: enum/try 0		
@@ -914,7 +914,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 
 				msq = msq?msq-1:0;
 
-				if(mst>=4) pd3Dd9->CreateRenderTarget(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,mst,msq,0,&ms,0);
+				if(mst>=4) pd3Dd9->CreateRenderTarget(X2MDL_SHADOWS_MAX,X2MDL_SHADOWS_MAX,rtf,mst,msq,0,&ms,0);
 			}
 			if(!hr&&ico) for(int i=3;i-->0;) //x2msm_ico?
 			{
@@ -925,7 +925,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 				case 0: f = D3DFMT_D16; break;
 				}
 				if(!pd3Dd9->CreateDepthStencilSurface
-				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,f,ms?mst:D3DMULTISAMPLE_NONE,ms?msq:0,0,&ds,0))
+				(X2MDL_SHADOWS_MAX,X2MDL_SHADOWS_MAX,f,ms?mst:D3DMULTISAMPLE_NONE,ms?msq:0,0,&ds,0))
 				{
 					pd3Dd9->SetDepthStencilSurface(ds); break;
 				}
@@ -1083,6 +1083,14 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			buf.push_back(ext[i]); 
 			buf.push_back('\0');
 			X = aiImportFileFromMemory(&buf[0],rd,postprocess,&buf[rd]);
+
+			auto *cc = const_cast<aiAnimation**>(X->mAnimations);
+			auto pred = [](aiAnimation *a, aiAnimation *b)->bool
+			{
+				//note: historically (default) is treated as 0
+				return ani2i(a->mName,0)<ani2i(b->mName,0);
+			};
+			std::sort(cc,cc+X->mNumAnimations,pred);
 		}
 
 		if(!X) goto_1; exit_reason = 0; 
@@ -2905,7 +2913,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 					}
 					for(int i=0;i<6;i++) 
 					{
-						short diff = p[i]-delta[i]; delta[i] = p[i]; p[i] = diff;
+						short diff = p[i]-delta[i]; 
+						
+						delta[i] = p[i]; p[i] = diff;
 					}
 
 					if(s) for(int k=3;k-->0;)
@@ -3070,7 +3080,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 						frameoutputs[j].set(frameinputs[j]);
 					}
 					for(;i<p->steps;i++)			
-					{	
+					{
 						for(int j=0;j<ctotalchans;j++)
 						{
 							known[j] = false;
@@ -3087,7 +3097,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 						SWORDOFMOONLIGHT::mdl::inverse(frameinvs,framemats,ctotalchans);
 												
 						for(int j=0;j<ctotalchans;j++)
-						{	
+						{
 							short delta[6]; frameoutputs[j].get(delta);
 
 							//o332.mdl (a door) is outside this range??? fixed above?
@@ -3102,6 +3112,11 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 
 							aiQuaternion q; aiVector3D rot, pos, scl;
 							
+							if(j==7&&p->type==11&&i>=74&&i<=76)
+							{
+								i = i; //breakpoint
+							}
+
 							ai.Decompose(scl,q,pos); rot = q2xyz(q);
 
 							SWORDOFMOONLIGHT::mdl::hardanim_t diff;
@@ -3830,7 +3845,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 				D3DX_FILTER_NONE,D3DX_FILTER_LINEAR, //D3DX_DEFAULT,0 //2022
 				0,0,0,&dt);
 				
-				icotextures.push_back(dt);
+				if(!hr) icotextures.push_back(dt);
 
 				exit_reason = i18n_direct3dgeneralfailure;
 				if(hr) goto tex_failure;
@@ -3841,7 +3856,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 				(w,h,ico?!ico_mipmaps:1,D3DUSAGE_DYNAMIC|D3DUSAGE_AUTOGENMIPMAP,//|D3DUSAGE_AUTOGENMIPMAP,
 				D3DFMT_X8R8G8B8,pool,&dt,0);
 
-				icotextures.push_back(dt);
+				if(!hr) icotextures.push_back(dt);
 
 				if(!hr) hr = dt->LockRect(0,&lock,0,0);
 				else goto tex_failure;
@@ -3866,9 +3881,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 				//dt->UnlockRect(0);
 					
 				#ifdef _CONSOLE
-				if(mm3d) //write BMP file?
+				if(mm3d&&write) //write BMP file?
 				{
-					assert(write); write = false; 
+					write = false; 
 
 					dt->UnlockRect(0); lock.Pitch = 0; //2022
 
@@ -3968,10 +3983,10 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 						if(!rt) //2022: defer?
 						{
 							hr = pd3Dd9->CreateRenderTarget 
-							(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0); 
+							(X2MDL_SHADOWS_MAX,X2MDL_SHADOWS_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0); 
 							if(!hr)
 							hr = pd3Dd9->CreateOffscreenPlainSurface
-							(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);
+							(X2MDL_SHADOWS_MAX,X2MDL_SHADOWS_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);
 							//if(hr) goto d3d_failure;
 							if(!hr) hr = pd3Dd9->SetRenderTarget(0,rt);
 						}
@@ -4177,12 +4192,12 @@ tex_failure: //allow user to discard texture if desired
 				//assert(PathFileExistsW(mdl.name)); //may be mdo only
 
 				if(!rt) pd3Dd9->CreateRenderTarget //2022: defer?
-				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0);
+				(X2MDL_SHADOWS_MAX,X2MDL_SHADOWS_MAX,rtf,D3DMULTISAMPLE_NONE,0,0,&rt,0);
 				if(!rs)
 				pd3Dd9->CreateOffscreenPlainSurface
-				(X2MDL_TEXTURE_MAX,X2MDL_TEXTURE_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);
+				(X2MDL_SHADOWS_MAX,X2MDL_SHADOWS_MAX,rtf,D3DPOOL_SYSTEMMEM,&rs,0);
 
-				IDirect3DSurface9 *ss[3] = {rt,rs,ms};
+				IDirect3DSurface9 *ss[4] = {rt,rs,ms,ds};
 
 				(msm?x2msm_ico:x2mdo_ico)(ico,mdl.name,pd3Dd9,ss);
 
@@ -4190,7 +4205,7 @@ tex_failure: //allow user to discard texture if desired
 			}
 		}		
 
-		for(auto&dt:icotextures) dt->Release();
+		for(auto&dt:icotextures) if(dt) dt->Release();
 		
 		icotextures.clear();
 
@@ -4863,12 +4878,21 @@ void MDL::File::flush()
 		//REMINDER: x2mdo.cpp assumes merger
 
 		for(int i=0;i<head.parts;i++) //2021
-		if(!parts[i].cextra)
 		{
-			diffpt.verts+=parts[i].verts;
-			diffpt.extra+=parts[i].extra;
-			diffpt.norms+=parts[i].norms;
-			diffpt.faces+=parts[i].faces;
+			if(!parts[i].cextra)
+			{
+				diffpt.verts+=parts[i].verts;
+				diffpt.extra+=parts[i].extra;
+				diffpt.norms+=parts[i].norms;
+				diffpt.faces+=parts[i].faces;
+				
+				//2024: I'm not sure how to merge these
+				//if this is possible. x2mdo.cpp has a
+				//change for x2ico_mdo/x2ico::animator
+				//NOTE: hit this on e117.mdl. Gold Golem
+				//DUPLICATE: x2mdo.cpp
+//				assert(!parts[i].cstart);
+			}
 		}
 	}
 	else ptsN = head.parts;		
@@ -5552,6 +5576,10 @@ void x2mdl_animate(aiAnimation *anim, aiMatrix4x4 *x, float t)
 	{
 		const aiNodeAnim* channel = anim->mChannels[a];
 
+		aiVector3D scl, pos; aiQuaternion rot;
+
+		x[a].Decompose(scl,rot,pos);
+
 		// ******** Position *****
 		aiVector3D presentPosition( 0, 0, 0);
 		if( channel->mNumPositionKeys > 0)
@@ -5559,17 +5587,21 @@ void x2mdl_animate(aiAnimation *anim, aiMatrix4x4 *x, float t)
 			// Look for present frame number. Search from last position if time is after the last time, else from beginning
 			// Should be much quicker than always looking from start for the average use case.
 		//	unsigned int frame = (t >= s) ? mLastPositions[a].get<0>() : 0;
-			unsigned int frame = 0;
-			while( frame < channel->mNumPositionKeys - 1)
+			int frame = -1;
+			while( frame < (int)channel->mNumPositionKeys - 1)
 			{
 				if( t < channel->mPositionKeys[frame+1].mTime)
 					break;
 				frame++;
 			}
 
+			aiVectorKey key; if(frame==-1) //2023
+			{
+				key.mTime = 0; key.mValue = pos;
+			}
 			// interpolate between this frame's value and next frame's value
-			unsigned int nextFrame = (frame + 1) % channel->mNumPositionKeys;
-			const aiVectorKey& key = channel->mPositionKeys[frame];
+			unsigned int nextFrame = (frame+1)%channel->mNumPositionKeys;
+			if(frame!=-1) key = channel->mPositionKeys[frame];
 			const aiVectorKey& nextKey = channel->mPositionKeys[nextFrame];
 			double diffTime = nextKey.mTime - key.mTime;
 			if( diffTime < 0.0)
@@ -5598,17 +5630,22 @@ void x2mdl_animate(aiAnimation *anim, aiMatrix4x4 *x, float t)
 		if( channel->mNumRotationKeys > 0)
 		{
 		//	unsigned int frame = (t >= s) ? mLastPositions[a].get<1>() : 0;
-			unsigned int frame = 0;
-			while( frame < channel->mNumRotationKeys - 1)
+			int frame = -1;
+			while( frame < (int)channel->mNumRotationKeys - 1)
 			{
 				if( t < channel->mRotationKeys[frame+1].mTime)
 					break;
 				frame++;
 			}
 
+			aiQuatKey key; if(frame==-1) //2023
+			{
+				key.mTime = 0; key.mValue = rot;
+			}
+
 			// interpolate between this frame's value and next frame's value
-			unsigned int nextFrame = (frame + 1) % channel->mNumRotationKeys;
-			const aiQuatKey& key = channel->mRotationKeys[frame];
+			unsigned int nextFrame = (frame+1)%channel->mNumRotationKeys;
+			if(frame!=-1) key = channel->mRotationKeys[frame];
 			const aiQuatKey& nextKey = channel->mRotationKeys[nextFrame];
 			double diffTime = nextKey.mTime - key.mTime;
 			if( diffTime < 0.0)
@@ -5637,12 +5674,17 @@ void x2mdl_animate(aiAnimation *anim, aiMatrix4x4 *x, float t)
 		if( channel->mNumScalingKeys > 0)
 		{
 		//	unsigned int frame = (t >= s) ? mLastPositions[a].get<2>() : 0;
-			unsigned int frame = 0;
-			while( frame < channel->mNumScalingKeys - 1)
+			int frame = -1;
+			while( frame < (int)channel->mNumScalingKeys - 1)
 			{
 				if( t < channel->mScalingKeys[frame+1].mTime)
 					break;
 				frame++;
+			}
+
+			aiVectorKey key; if(frame==-1) //2023
+			{
+				key.mTime = 0; key.mValue = pos;
 			}
 
 			/*
@@ -5653,7 +5695,7 @@ void x2mdl_animate(aiAnimation *anim, aiMatrix4x4 *x, float t)
 			*/
 			// interpolate between this frame's value and next frame's value
 			unsigned int nextFrame = (frame + 1) % channel->mNumScalingKeys;
-			const aiVectorKey& key = channel->mScalingKeys[frame];
+			if(frame!=-1) key = channel->mScalingKeys[frame];
 			const aiVectorKey& nextKey = channel->mScalingKeys[nextFrame];
 			double diffTime = nextKey.mTime - key.mTime;
 			if( diffTime < 0.0)

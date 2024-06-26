@@ -88,13 +88,13 @@ namespace EX
 		template<typename T> 
 		inline const T &operator[](const T& t){ return t; }	
 	};	
-	typedef struct : prefix
+	struct prefixes : prefix
 	{
 #ifdef EX_PREFIX_PREFIXES
 						
 		prefix EX_PREFIX_PREFIXES;
 #endif
-	}prefixes;
+	};
 	//template lets the linker generate unique layouts
 	template<class prefixes> struct Prefix_ : prefixes
 	{

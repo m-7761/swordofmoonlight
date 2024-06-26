@@ -29,6 +29,8 @@ GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,0,0
 typedef struct tagOFNA* LPOPENFILENAMEA; //Commdlg.h
 typedef struct _browseinfoA* LPBROWSEINFOA; //shlobj.h
 
+struct SOM_CWnd; //som.too.hpp
+
 namespace SOM
 {		
 	extern int tool,game;
@@ -203,8 +205,7 @@ namespace SOM
 
 		//// MapComp MAP diagnostic ////////
 
-		char * (__cdecl *MapComp_fgets)(char*,int,char**); //40c415
-
+		char *(__cdecl *MapComp_fgets)(char*,int,char**); //40c415
 		void *_detour_end;
 
 	private: const SOM::Tool *detours;

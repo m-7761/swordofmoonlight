@@ -71,6 +71,7 @@ void x2mdo_cp(float *p, aiMesh *m, int i, float *xf)
 //	p[1] = -p[1]; //invert? 
 	p[2] = -p[2];
 }
+extern int8_t x2mdo_rmatindex2[33] = {};
 bool MDL::File::x2mdo()
 {
 	auto &mdl = *this;
@@ -123,7 +124,7 @@ bool MDL::File::x2mdo()
 	//textures and filter duplicated materials
 	//2022: I don't think it was ever setup to
 	//filter out "materials without textures"?
-	int8_t matindex2[33],rmatindex2[33];
+	int8_t matindex2[33];
 	memset(matindex2,0xff,sizeof(matindex2));
 		
 	struct uv //2022
@@ -236,19 +237,19 @@ bool MDL::File::x2mdo()
 		&&!memcmp(materials2+i,materials2+j,4*sizeof(float)))
 		break;
 		if(j==i)
-		rmatindex2[dw++] = (uint8_t)j;
+		x2mdo_rmatindex2[dw++] = (uint8_t)j;
 		for(auto k=dw;k-->0;)
-		if(rmatindex2[k]==j)
+		if(x2mdo_rmatindex2[k]==j)
 		matindex2[i] = (uint8_t)k;
 	}
 	if(f) fwrite(&dw,4,1,f);
 	if(g) fwrite(&dw,4,1,g);
 	for(i=0;i<dw;i++)
 	{
-		if(f) fwrite(materials+rmatindex2[i],16,1,f);
-		if(g) fwrite(materials+rmatindex2[i],16,1,g);
-		if(f) fwrite(materials2+rmatindex2[i],16,1,f);
-		if(g) fwrite(materials2+rmatindex2[i],16,1,g);
+		if(f) fwrite(materials+x2mdo_rmatindex2[i],16,1,f);
+		if(g) fwrite(materials+x2mdo_rmatindex2[i],16,1,g);
+		if(f) fwrite(materials2+x2mdo_rmatindex2[i],16,1,f);
+		if(g) fwrite(materials2+x2mdo_rmatindex2[i],16,1,g);
 	}
 		//MODEL?
 	
@@ -440,8 +441,13 @@ bool MDL::File::x2mdo()
 					if(cv) 
 					{
 						tmp.cverts = new uint16_t[vv.size()];					
-						for(auto&ea:vv)	
+						//2024: adding cstart for x2ico_mdo/x2ico::animator #1
+						if(cvertsN) //YUCK
+						for(auto&ea:vv)
 						tmp.cverts[ea.second] = cverts00+cv[ea.first];
+						else
+						for(auto&ea:vv)
+						tmp.cverts[ea.second] = pt.cstart+cv[ea.first];
 					}
 
 					//the BP file just has different coordinates
@@ -521,6 +527,11 @@ bool MDL::File::x2mdo()
 								float *p = pp+8*ea.second;
 
 								int ci = 3*tmp.cverts[ea.second];
+
+								//2024: adding cstart for x2ico_mdo/x2ico::animator #2
+								//NOTE: hit this on e117.mdl. Gold Golem
+								//DUPLICATE: x2mdl.cpp
+//								assert(!pt.cstart);
 
 								auto *o = bv+ci, *x = d1+ci, *y = d2+ci;
 

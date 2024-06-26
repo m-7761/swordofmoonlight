@@ -532,18 +532,20 @@ extern void SOM_PRM_extend(int rec)
 	HWND hw1 = som_tool_stack[1];
 	if(!hw1) return; //too soon?
 
-	if(1003==som_prm_tab) //magic? unrelated
+	//REMOVE ME?
+	/*2024: reprogram now does this and the 8 ratings
+	//were not saved either (note, this plays the sfx
+	//effect longer and could be done by changing the
+	//profile
+	if(1003==som_prm_tab&&rec==1013) //magic? //saving?
 	{
-		if(rec==1013) //saving?
-		{
-			//BUGFIX: it seems SOM_PRM has never saved
-			//the "duration" field when the profile is
-			//a shield style magic
-			BYTE *p = SOM_PRM_47a708.data();
-			p+=320*SOM_PRM_47a708.item();
-			(FLOAT&)p[56] = GetDlgItemFloat(hw1,1061);
-		}
-	}
+		//BUGFIX: it seems SOM_PRM has never saved
+		//the "duration" field when the profile is
+		//a shield style magic
+		BYTE *p = SOM_PRM_47a708.data();
+		p+=320*SOM_PRM_47a708.item();
+		(FLOAT&)p[56] = GetDlgItemFloat(hw1,1061);
+	}*/
 
 	//object, enemy, NPC?
 	WORD *strength,*magic; 
@@ -623,8 +625,11 @@ void SOM_PRM_arm::init()
 }
 bool SOM_PRM_arm::read(bool overwrite)
 {
+	extern bool som_tool_file_appears_to_be_missing_ignore; //HACK
+	som_tool_file_appears_to_be_missing_ignore = true;
 	//som_tool_CreateFileA
 	HANDLE h = CreateFileA(SOMEX_(B)"\\PARAM\\ITEM.ARM",SOM_TOOL_READ);
+	som_tool_file_appears_to_be_missing_ignore = false;
 	if(h==INVALID_HANDLE_VALUE)
 	{
 		if(ERROR_FILE_NOT_FOUND==GetLastError())
@@ -638,7 +643,7 @@ bool SOM_PRM_arm::read(bool overwrite)
 	bool ret = false;
 	FILETIME ft; 
 	if(GetFileTime(h,0,0,&ft))
-	if(CompareFileTime(&ft,&filetime)) //OPTIMIZING
+	if(CompareFileTime(&ft,&filetime)) //OPTIMIZING?
 	{
 		filetime = ft;		
 
@@ -655,11 +660,12 @@ bool SOM_PRM_arm::read(bool overwrite)
 }
 void SOM_PRM_arm::save()
 {
+	/*
 	if(!filetime.dwLowDateTime //OPTIMIZING
 	&&!filetime.dwHighDateTime||!read(false))
 	{
 		return; //no movesets or no changes?
-	}
+	}*/
 
 	//HACK: arm->clear() is called below and
 	//it's being used as a tmp buffer
@@ -817,8 +823,33 @@ struct SOM_PRM_this
 		case 1007: sz = 0xe6a4; break; //object
 		default: assert(0); return 0;
 		}
+
 		BYTE *ll = *(BYTE**)((BYTE*)this+sz);
 		while(i-->0) ll = *(BYTE**)(ll+span); return ll;
+	}
+
+	void __thiscall init_tab()
+	{
+		BYTE *p = SOM_PRM_47a708.data();
+
+		int f,sz,os,n = 1024; switch(som_prm_tab)
+		{
+		case 1001: f = 0x419500; sz = 0x1586c; os = 336; n = 250; break; //item
+		case 1003: f = 0x41f300; sz = 0x140e0; os = 320; n = 250; break; //magic 
+		case 1007: f = 0x42a400; sz = 0xe634; os = 56; p+=36; break; //object
+		default: assert(0); return; //UNTESTED
+		}
+
+		((void(__thiscall*)(void*))f)(this);
+
+		sz = *(DWORD*)((BYTE*)this+sz);
+
+		//not sure why this happens, but the pr2 index is larger
+		//than the pr2 list
+		for(;n-->0;p+=os) if(*(WORD*)p>=sz&&*(WORD*)p<0xFFFF) //illustrating
+		{
+			assert(*(WORD*)p==sz); *(WORD*)p = 0xFFFF; //breakpoint
+		}
 	}
 }; 
 
@@ -862,7 +893,7 @@ extern void SOM_PRM_reprogram()
 		//__thiscall subroutines
 		//2021: switching to auto and pulling out of use sites
 		#define _(mf) auto mf = &SOM_PRM_this::mf;
-		_(add_profile)
+		_(add_profile)_(init_tab)
 		#undef _
 	
 	//2021: fix shared profiles update (and enemy/npc sizes)
@@ -885,11 +916,49 @@ extern void SOM_PRM_reprogram()
 		*(DWORD*)0x4034F5 = (DWORD&)add_profile-0x4034F9;
 		*(DWORD*)0x426CA1 = (DWORD&)add_profile-0x426CA5;
 	}
-	//2021: save PARAM/ITEM.ARM (+ beginning of move/delete help)
+	if(1) //2021: save PARAM/ITEM.ARM (+ beginning of move/delete help)
 	{	
 		memset((void*)0x41bf19,0x90,219);
 		*(BYTE*)0x41bf19 = 0xe8; //call
 		*(DWORD*)0x41bf1a = (DWORD)SOM_PRM_41bf19-0x41bf1e;
+
+		//2023: always save item.ARM (and everything else)
+		//since it's too much trouble to trigger item.arm
+		memset((void*)0x43e6c6,0x90,0x43e6d2-0x43e6c6);
+		memset((void*)0x43e6d5,0x90,0x43e6de-0x43e6d5);
+	}
+
+	//2023: problem removing non-items from PR2/PRO record
+	{
+		//0041C08C E8 8F 00 00 00       call        0041C120
+		//0041B8A7 E8 74 08 00 00       call        0041C120
+		//remove single item
+
+		//just sanitize instead?
+		//00415779 e8 82 3d 00 00 call fun_00419500_init_item_tab 
+		//0041cf59 e8 a2 23 00 00 call fun_0041f300_init_magic_tab
+		//004280c9 e8 32 23 00 00 call fun_0042a400_init_object_tab
+		*(DWORD*)0x41577a = (DWORD&)init_tab-0x41577e;
+		*(DWORD*)0x41cf5a = (DWORD&)init_tab-0x41cf5e;
+		*(DWORD*)0x4280ca = (DWORD&)init_tab-0x4280ce;
+	}
+
+	//2024: remove truncation to 1 decimal place
+	{
+		memcpy((void*)0x4763a4,"%g",3); //%.1f
+	}
+
+	//2024: enable support magic radius and shield ratings
+	{
+		//0042057D 74 1D                je          0042059C
+		//0042059A EB 18                jmp         004205B4
+		*(WORD*)0x42057D = *(WORD*)0x42059A = 0x9090;
+	}
+
+	//2024: autofill Enemies tab's name without error message
+	{	
+		//00403413 75 39                jne         0040344E
+		*(BYTE*)0x403413 = 0xeb; //jmp
 	}
 }
 

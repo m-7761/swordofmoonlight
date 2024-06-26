@@ -166,7 +166,7 @@ inline int data(const T *in, wchar_t out[MAX_PATH])
 
 enum{ contexts=4 };
 extern int context(),directx(); 
-extern void pause(int),unpause(int);
+extern void pause(int),unpause(int),play(int);
 extern bool alt(),numlock(),arrow();
 extern int tilt(),is_needed_to_initialize();
 extern bool ok_generic_failure(const wchar_t *one_liner,...);

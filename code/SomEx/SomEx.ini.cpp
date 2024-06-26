@@ -73,7 +73,7 @@ static void Ex_ini_foreach(Ex_ini_e e, T t, mF mf)
 		//2021: [Number] is passing these to Ex.number.cpp
 		//for some reason all spaces are stripped out...
 		//probably should fix lib/swordofmoonlight.h/cpp
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		if(*p=='#') continue; 
 
 		//NEW: '.' reinitializes p+1
@@ -601,6 +601,8 @@ void EX::INI::Adjust::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	case NPC_XZ_PLANE_DISTANCE: nc->npc_xz_plane_distance = q; break;
 		
 	case NPC_HITBOX_CLEARANCE: nc->npc_hitbox_clearance = q; break;
+
+	case NPC_FENCE: nc->npc_fence = q; break;
 	
 	case RED_FLASH_TINT: EX_INI_MENTION_(col,q,nc->red_flash_tint); break;
 	case BLUE_FLASH_TINT: EX_INI_MENTION_(col,q,nc->blue_flash_tint); break;
@@ -2737,6 +2739,10 @@ void EX::INI::Option::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	case DO_SRGB: nc->do_srgb = yes; break;
 
 	case DO_ALPHASORT: nc->do_alphasort = yes; break;
+
+//	case DO_SHADOW: nc->do_shadow = yes; break; //constant?
+
+	case DO_BSP: nc->do_bsp = yes; break;
 	}
 }
 
@@ -2910,6 +2916,12 @@ void EX::INI::Output::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 			nc->function_overlay_eclipse[f] = c;
 		}
 
+		break;
+
+	case ART_ACTION_CENTER_NOTE_MS_TIMEOUT: //2024
+
+		nc->art_action_center_note_ms_timeout = Ex_ini_xlat_int_val(q,10000); 
+		
 		break;
 	}
 }

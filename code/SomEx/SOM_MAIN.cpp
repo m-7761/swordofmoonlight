@@ -338,7 +338,7 @@ static struct SOM_MAIN_tree //singleton
 		inline bool operator<(const string &b)const{ return id<b.id; }
 		inline bool operator==(const string &b)const{ return id==b.id; }	
 	};
-	struct jtable : std::vector<const jstring> //singleton
+	struct jtable : std::vector<jstring> //singleton
 	{
 		inline const_iterator find(const string &val)const
 		{
@@ -1650,7 +1650,7 @@ extern INT_PTR CALLBACK SOM_MAIN_151(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			case 3: //SOM_RUN
 			
 				SetEnvironmentVariableW(L".SOM",path);
-				if(SOM::exe(L"SOM_RUN.exe \""SOMEX_L(A)L"\""))
+				if(SOM::exe(L"SOM_RUN.exe \"" SOMEX_L(A)L"\""))
 				{
 					//WaitForSingleObject(SOM::exe_process,INFINITE);
 					CloseHandle(SOM::exe_process);
@@ -4259,7 +4259,8 @@ static DWORD SOM_MAIN_outline_item_octets()
 {
 	int ip[4] = {0,0,0,0};
 	std::vector<size_t> &v = SOM_MAIN_outline_item_vector();
-	for(size_t i=1;i<5&&i<v.size();i++) ip[i-1] = v[i];
+	//for(size_t i=0;i<4&&i<v.size();i++) ip[i-1] = v[i];
+	for(size_t i=0;i<4&&i<v.size();i++) ip[i] = v[i];
 	return MAKEIPADDRESS(ip[0],ip[1],ip[2],ip[3]);
 }
 
@@ -6168,13 +6169,18 @@ static INT_PTR CALLBACK SOM_MAIN_153(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			}
 			else //record the change for WYSIWYG retrieval
 			{				
+				/*2023: I think the first item is now "context"
 				size_t first = {oli.find_first_of('-')}, last = first;
 				if(first==oli.npos) first = oli.size(); if(!first) break; //WM_INITDIALOG???
 				for(size_t i=0;i<4&&last!=oli.npos;i++) last = oli.find_first_of('-',last+1);
 				BYTE ip[4] = {0,0,0,0}; SendMessage((HWND)lParam,IPM_GETADDRESS,0,(LPARAM)ip);
 				wchar_t dashed[17]; swprintf(dashed,L"-%d-%d-%d-%d",ip[3],ip[2],ip[1],ip[0]);
 				oli.replace(first,last-first,dashed); 
-				if(last==oli.npos) for(int i=0;i<4&&!ip[i];i++) oli.resize(max(oli.size(),2)-2);
+				if(last==oli.npos) for(int i=0;i<4&&!ip[i];i++) oli.resize(max(oli.size(),2)-2);*/
+				BYTE ip[4] = {0,0,0,0}; SendMessage((HWND)lParam,IPM_GETADDRESS,0,(LPARAM)ip);
+				wchar_t dashed[17]; swprintf(dashed,L"%d-%d-%d-%d",ip[3],ip[2],ip[1],ip[0]);
+				oli = dashed;
+				for(int i=0;i<4&&!ip[i];i++) oli.resize(max(oli.size(),2)-2);
 				autoascribing = SOM_MAIN_list.aspects.exml.li;					
 			}
 			break;
@@ -6266,7 +6272,7 @@ static INT_PTR CALLBACK SOM_MAIN_153(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 		case 12321: case 1211: case 1212: 
 		{
 			//TODO: use SOM_MAIN_copy (notes in record)
-			int todolist[SOMEX_VNUMBER<=0x1020504UL];
+			int todolist[SOMEX_VNUMBER<=0x1020602UL];
 
 			//REMOVE ME??
 			sel = SOM_MAIN_tree[param][tv];
@@ -7019,7 +7025,7 @@ static INT_PTR CALLBACK SOM_MAIN_154(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			ListView_SortItems(lv,SOM_MAIN_sortbyText,aspect[0]);
 			else //this solution is for one release only
 			{
-			int todolist[SOMEX_VNUMBER<=0x1020504UL];			
+			int todolist[SOMEX_VNUMBER<=0x1020602UL];			
 			EXML::Attribs lp = EXML::attribs(aspect.c_str()); 
 			switch(lp)
 			{
@@ -10154,7 +10160,7 @@ inline int SOM_MAIN_skipspace(const char* &u, int &s)
 static bool SOM_MAIN_po(const char *p, const char *eof, int msgfmt)
 {		
 	//todo: SOM_MAIN_skipspace
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 
 	const char bom[4] = "\xef\xbb\xbf";
 	if(eof-p>=3&&!strncmp(p,bom,3)) p+=3;

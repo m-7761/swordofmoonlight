@@ -223,7 +223,7 @@ int wmain(int argc, const wchar_t* argv[])
 
 		int sumtimeofanis = 0;
 		for(int i=0;i<hardanis;i++)
-		sumtimeofanis+=aniptrs[i]->time;
+		sumtimeofanis+=aniptrs[i]->htime;
 
 		if(anis>hardanis) //soft animations
 		{
@@ -269,7 +269,7 @@ int wmain(int argc, const wchar_t* argv[])
 			{
 				time = 1+mdl::softanimframestrtime(aniptrs[i]->frames);
 			}
-			else time = aniptrs[i]->time;
+			else time = aniptrs[i]->htime;
 
 			int accum = cphead[34+i]+time*12;
 
@@ -319,7 +319,7 @@ int wmain(int argc, const wchar_t* argv[])
 			{
 				int now = 0;
 
-				for(int j=0;j<aniptrs[i]->time;j++)
+				for(int j=0;j<aniptrs[i]->htime;j++)
 				{
 					now = mdl::animate(aniptrs[i],animap,anichans,now,!i);
 

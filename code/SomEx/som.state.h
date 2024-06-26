@@ -2,6 +2,8 @@
 #ifndef SOM_STATE_INCLUDED
 #define SOM_STATE_INCLUDED
 
+#include <vector>
+
 #include "Ex.memory.h"
 #include "Ex.mipmap.h"
 
@@ -77,7 +79,7 @@ namespace SOM
 	arm[3], //right arm swing tweaks
 	err[4], //unbounded xyz+|xz|		
 	xyz_past[3],xyz_step, //som.mocap.cpp
-	analogcam[4][4], //tethered to SOM's digital camera
+	analogcam[4][4], //tethered to SOM's digital camera	
 	steadycam[4][4], //inverse of Ex adjustments to eye
 	stereo344[3][4][4], //OpenXR
 	heading,incline, //f6 overlay 
@@ -174,7 +176,7 @@ namespace SOM
 	extern bool escape(int); //cycle analog mode
 	extern bool thumbs(int,float[8]);
 	extern unsigned int altf,altf_mask;
-	extern bool altf1(),altf2(),altf3(int),altf4(),f10(),altf11(),altf12(int); 
+	extern bool altf1(),altf2(),altf3(int),altf4(int),altf5(),f10(),altf11(),altf12(int); 
 		
 	//mouse wheels
 	extern bool z(bool downswing); //left mouse button down/up
@@ -224,7 +226,8 @@ namespace SOM
 	ctrl,shift,space, //keys/mapping
 	limbo, //buttonSwap
 	crouched, //subtitles
-	shoved,bopped; //TESTING //REMOVE ME
+	shoved,bopped, //TESTING //REMOVE ME
+	swing,counteratk;
 	extern void __cdecl frame_is_missing();
 	/*{
 		//for when a map/som_state_409af0
@@ -302,13 +305,13 @@ namespace SOM
 
 			DWORD tiles_to_display; //598930
 
-			DWORD unknown1; //0x20 (32)
+			DWORD current_leaf; //0x20 (32)
 
 			DWORD unknown2; //206904
 
-			Struct *pointer; //59893C
+			Struct *pointer; //59893C //som_MPX
 
-			DWORD unknown3; //44
+			DWORD current_node; //598940
 
 			BYTE tiles_on_display[10000][2]; //yx coords
 
@@ -324,6 +327,16 @@ namespace SOM
 			char _client_vbuffer2[896*24]; 					
 			//5A7F68
 			WORD ibuffer[2688];
+			//5A9468
+			
+				BYTE _unk[0x1500]; //...
+
+			//5aa968 (fairy map?) //4144e0
+			//max seen is 6cf8e8-1
+			//fvf is DIFFUSE|XYZRHW DrawPrimitive(TRIANGLE_LIST)
+			//WARNING: I don't think boundaries are checked
+			//here, and 100*100 is NOT hardcoded (layer #1 only)
+			BYTE _debug_vbuffer[100*100*20]; //5A9468+119400=6C2868 
 		};
 
 		//som_db seems to a system that manages more 
@@ -351,7 +364,8 @@ namespace SOM
 				//2020: 407d21 identifies 0x40 as checkpoint bit
 				//(0 if entry isn't possible. MAP files use 'e')
 				//unsigned rotation:2,nonzero:14,icon:8,unknown2:7,msb:1;
-				unsigned rotation:2,_uk1:4,e:1,_uk2:9,icon:8,_uk3:7,msb:1;
+				//unsigned rotation:2,_uk1:4,ev:1,_uk2:8,nobsp:1,icon:8,msb:8; //:1
+				unsigned rotation:2,_uk1:4,ev:8,_bsp:1,nobsp:1,icon:8,msb:8; //:1
 
 				//TRULY WEIRD
 				//WTH?? from som.scene.cpp (rendering)
@@ -421,44 +435,48 @@ namespace SOM
 			//that doesn't render tiles that should be
 			//hidden behind other tiles
 			DWORD count1;
-			struct struct1
+			struct struct1 //32B (9)
 			{
 				//11.0 99.0 21.0 171.0 (map coords)
 				float xy1[2],xy2[2];
 
 				//5~46 2~1512 (int)
-				DWORD unknown1;
+				DWORD unknown1; //int->pointer?
 
-				DWORD unknown2_count;
+				DWORD unknown2_count; //pointer?
 
 				//00412579 E8 82 EF FE FF       call        00401500
-				DWORD (*unknown2_pointer)[2];
+				DWORD(*unknown2_pointer)[2];
 
 				BYTE *pointer_into_pointer4;
 
 			}*pointer1;
 			DWORD count2;
-			struct struct2
+			struct struct2 //44B (11)
 			{
 				//-1/0~41
 				//-1/1~45
-				//-1/2~45
-				//-1/0~19
-				DWORD unknown1[4];
+				//-1/2~45 //bitfield?
+				//-1/0~19 //ptr? 32B
+				DWORD unknown1[1]; //maybe int->pointers
+				int right;
+				int left;
+				int leaf;
 
 				//-1.0 171.0 21.0 199.0 (more map coords)
-				float xy1[2],xy2[2];
+				float xy1[2]; //0x10
+				float xy2[2]; //0x18
 
 				//-1/1~17
 				//-1/85~99
-				DWORD unknown2[2];
+				DWORD x,z; //0x20
 
 				//0~8 (1,2,4,8)
-				DWORD unknown3;
+				DWORD blinders;
 
 			}*pointer2;
 			DWORD count3;
-			struct struct3
+			struct struct3 //24B (6)
 			{			
 				//35.0 99.0 35.0 171.0 (map coords)
 				float xy1[2],xy2[2];
@@ -500,7 +518,7 @@ namespace SOM
 			//PER LAYER DATA (40B apiece)
 			//
 			// 2022: maybe it's just extra
-			// space to hold the file name
+			// space to hold the file name					 m
 			// it seems too big but 411ac2
 			// copies an unrestrained long
 			// file name at SOM::MPX::name
@@ -592,6 +610,22 @@ namespace SOM
 			starturn=124; //starting rotation (inverted)
 //	    }
 	}
+		
+	struct Animation //2024: som.kage.cpp
+	{
+		float t;
+
+		float bbox[6];
+
+		int w,h,data_s; BYTE *data;
+
+		DDRAW::IDirectDrawSurface7 *texture;
+
+		Animation(),~Animation();
+
+		void upload();
+	};
+	typedef std::vector<Animation> Kage,Face;
 	  
 	struct Texture //160B
 	{
@@ -617,7 +651,7 @@ namespace SOM
 		//mode is an argument to 0x448660
 		//mipmap_counter is an argument to 00449530
 		//(it must be a byte)
-		WORD mode; BYTE mipmap_counter,_something; 
+		WORD mode; BYTE _something,mipmap_counter; 
 		
 		//unique ID including " TIM 000" pattern for MDL files
 		//and not necessarily corresponding to the image file
@@ -630,11 +664,18 @@ namespace SOM
 		//are never used, and so are just gobbling memory
 		//Probably the loading code needs to be rewritten
 		//10 is 512/256/128/64/32/16/8/4/2/1 
-		HGDIOBJ mipmaps[10], maybe_mipmaps_beyond_512[6]; 
+		HGDIOBJ mipmaps[10];
+		
+		union
+		{
+			HGDIOBJ maybe_mipmaps_beyond_512[6]; 
+
+			float kage_bbox[6];
+		};
 		
 		//NOTE: Ex.mipmap.h defines these types
 		DDRAW::IDirectDrawSurface7 *texture;
-		DDRAW::IDirectDrawPalette *palette;
+		DDRAW::IDirectDrawPalette *_palette;
 		
 		bool update_texture(int),uptodate(); //som.MPX.cpp
 	};
@@ -853,6 +894,8 @@ namespace SOM
 	{	
 		L(){ (DWORD&)SOM::L.ai = 0x4C77C8; }
 
+		static const void *zero; //HACK: som.MPX.cpp
+
 		//.text
 		//REMOVE ME?...
 		//TODO: tie to tap_or_hold_ms_timeout
@@ -889,9 +932,10 @@ namespace SOM
 		//I think SomEx treats this as constant WRT [Number]
 		State<0x4584FC,FLOAT> height; //1.8
 		State<0x458500,FLOAT> shape; //0.25
-		State<0x45851C,FLOAT> bob;   //0.075		
+		State<0x45851C,FLOAT> bob;   //0.075 //pi/42?		
 		State<0x458520,FLOAT[2]> nod;   //-0.785398,0.785398
 		State<0x458528,FLOAT> abyss; //-10
+		State<0x45852C,FLOAT> bob2;   //0.0075 //2024 //pi/420
 		State<0x458554,FLOAT> fence; //0.51	
 
 		//rdata?
@@ -1001,8 +1045,12 @@ namespace SOM
 		// but nothing is appearing onscreen (hmmm, it might be because
 		// dx_d3d9x_drawprims_static is destructively transforming the
 		// vertex data because it can't pass D3DFVF_XYZRHW to a shader)
+		// 
+		// 2024: this visualizes some possibly temporary tile flags
+		// and only seems to be used in development to draw the map
+		// in 3 2d passes. its subroutine might have memory overrun
 		//
-		State<0x4C2351,BYTE> maybe_fairy_map_feature;
+		State<0x4C2351,BYTE> maybe_fairy_map_feature; //bsp debug maybe?
 
 		//00401C8F 88 15 53 23 4C 00    mov         byte ptr ds:[4C2353h],dl
 		State<0x4C2353,BYTE> suspends_message_pump;
@@ -1073,7 +1121,7 @@ namespace SOM
 		//WARNING: & operator IS DANGEROUS
 		//State<0x4C77C8,SOM::Struct<149>*> ai; //128/ai_size
 			som_Enemy *ai;
-		State<0x4DA1C8,SOM::Struct<122>[]> enemy_prm_file;
+		State<0x4DA1C8,SOM::Struct<122>[1024]> enemy_prm_file;
 		//2020: KF2 has 200 enemy upper limit
 		//00405DE0 A1 CC 41 55 00       mov         eax,dword ptr ds:[005541CCh]
 		//00405DEB 3D 80 00 00 00       cmp         eax,80h
@@ -1125,6 +1173,7 @@ namespace SOM
 		//appears to be 64 pointers per item profile to a data structure
 		//that includes call 446010 3D render stuffs
 		State<0x556fd0,som_MDO*[256][64]> items_MDO_table;
+
 		//Reminder: item_pr2_file has 6 more records than item_prm_file
 		State<0x566ff0,SOM::Struct<84>[250]> item_prm_file;
 				//just 8B here
@@ -1178,9 +1227,15 @@ namespace SOM
 		//this pointer does change, even though
 		//its size doesn't
 		State<0x598928,SOM::MPX::Static[1]> mpx; //68416B
-		//
+		//		 68416
+		// 
+		// 
+		// WHAT'S IN THIS HUGE GULF???
+		// WHAT'S IN THIS HUGE GULF???
 		// WHAT'S IN THIS HUGE GULF???
 		//
+		// 
+		// 
 		//WARNING: even though the hard limit is 896 the real size
 		//of this vertex buffer is 4096 just like the MDO vbuffer!
 		State<0x19aa968,DWORD> mpx_vbuffer_size;
@@ -1249,12 +1304,16 @@ namespace SOM
 		State<0x19C1C24,WORD[]> pcstatus;
 		State<0x19C1C40,DWORD> pcmagic;
 		//1) weapon, 2) magic, 3) sword-magic
-		State<0x19C1C48,SOM::Attack[3]> pcattack;
+		State<0x19C1C48,SOM::Attack[3]> pcattack;		
+		State<0x19C1D14,SHORT[8]> pcdefense;
+		State<0x19c1d2a,WORD> pcmagic_refill;
+		State<0x19C1D34,BYTE[8]> pcmagic_shield_ratings;
+		//State<0x19C1D3c,BYTE[8]> pcmagic_shield_timers; //BYTE is too small
+		DWORD pcmagic_shield_timers[8] = {};
+		State<0x19C1D44,INT32> pcdamage_display; //hp
 		State<0x19c1d48,DWORD> damage_flash; //0-10
 		State<0x19c1d50,DWORD[5]> status_timers;
 		State<0x19c1d78,DWORD> damage_taken; //404375->425bc7
-		//State<0x19C1D14,?> //end-of-pcattack
-		//State<0x19c1d2a,WORD> pc_magic_refill;
 		//like xyzuvw above except
 		//y is situated on the ground or base CP
 		//This copy is updated by GetDeviceState
@@ -1266,14 +1325,16 @@ namespace SOM
 		//00426E73 D9 1D CC 1D 9C 01    fstp        dword ptr ds:[19C1DCCh]
 		//00426EFC D9 1D CC 1D 9C 01    fstp        dword ptr ds:[19C1DCCh]
 		State<0x19C1DCC,FLOAT> pcstepladder;		
+		//State<0x19c1dd0,FLOAT> bob_sinewave; 
 		State<0x19c1dd0,FLOAT> bobbing;
+		State<0x19c1dd4,FLOAT> bob_counting_down_from_420; //??? //2024
 		State<0x19C1DD8,DWORD> dashing; //0~750+
-		State<0x19C1DDC,BYTE> swinging;
-		
+		State<0x19C1DDC,BYTE> swinging;		
 		//flags in save data
 		State<0x19C1DDE,BYTE> mode2;
-		State<0x19C1DDF,BYTE> save2;
-		
+		State<0x19C1DDF,BYTE> save2;		
+		State<0x19c1de0,INT32> pcmagic_support_index;
+		State<0x19c1de4,DWORD> pcmagic_support_timer;				
 		//SOM::MDL::data
 		State<0x19c1de8,BYTE*[1024]> NPC_mdl_files;
 
@@ -1324,6 +1385,7 @@ namespace SOM
 		State<0x1c43e48,SOM::Struct<398>[5]> fullscreen_quads; 
 		//fullscreen_quads ends at 1C4460E
 		State<0x1c45d60,void*[4]> fullscreen_SFX_images;
+		void *fullscreen_SFX_images_ext[220-211] = {}; //2024: more textures
 		//EXPLORATORY
 		//
 		// this includes "flames" and explosion images
@@ -1333,7 +1395,7 @@ namespace SOM
 		//
 		State<0x1c45d70,sfx_element[512]> SFX_images; //512?
 		//these are MDL data pointers
-		State<0x1c8dd70,som_MDL*[512]> SFX_models; //512?
+		State<0x1c8dd70,SOM::Struct<622>*[512]> SFX_models; //512?
 		//workshop.cpp has sfx_record
 		State<0x1C91D30,Struct<12>[1024]> SFX_dat_file; //48B apiece (1024)
 		State<0x1c9dd30,DWORD> SFX_images_size;
@@ -1374,7 +1436,7 @@ namespace SOM
 			BYTE type, _pad[3];
 			DWORD ref_count;
 			BYTE *mdl_or_txr;
-			BYTE *mdl_instances[16];
+			SOM::MDL *mdl_instances[16];
 			DWORD _unknown; //UNUSED?
 		};
 		State<0x1CDCD38,SFX_ref[255]> SFX_refs;
@@ -1525,18 +1587,20 @@ namespace SOM
 		//MIDI?
 		//0044c8ce a1 48 9d d6 01        mov        eax,[1d69d48h]
 		State<0x1D69D4C,void*> bgm_HMMIO; 
+		struct WAVEFORMATEX //FIRST 
+		{
+			WORD        wFormatTag;         /* format type */
+			WORD        nChannels;          /* number of channels (i.e. mono, stereo...) */
+			DWORD       nSamplesPerSec;     /* sample rate */
+			DWORD       nAvgBytesPerSec;    /* for buffer estimation */
+			WORD        nBlockAlign;        /* block size of data */
+			WORD        wBitsPerSample;     /* number of bits per sample of mono data */
+			WORD        cbSize; 
+		};
 		struct BGM
 		{
-			struct WAVEFORMATEX //FIRST 
-			{
-				WORD        wFormatTag;         /* format type */
-				WORD        nChannels;          /* number of channels (i.e. mono, stereo...) */
-				DWORD       nSamplesPerSec;     /* sample rate */
-				DWORD       nAvgBytesPerSec;    /* for buffer estimation */
-				WORD        nBlockAlign;        /* block size of data */
-				WORD        wBitsPerSample;     /* number of bits per sample of mono data */
-				WORD        cbSize; 
-			}fmt;
+			WAVEFORMATEX fmt;
+
 			//0044C887 8B 35 60 9D D6 01    mov         esi,dword ptr ds:[1D69D60h]  
 			//0044C88D 8B 0D 64 9D D6 01    mov         ecx,dword ptr ds:[1D69D64h]  
 			//0044C893 A1 68 9D D6 01       mov         eax,dword ptr ds:[01D69D68h]
@@ -1572,17 +1636,17 @@ namespace SOM
 		//I think it's 1+4, meaning BGM+4 SFX buffers (sound is originally
 		//limited to 4 mixed sounds)
 		//
-		// unknown0
-		// unknown1
-		// unknown2
-		// unknown3
-		// unknown4
-		// unknown5
-		// unknown6
-		// IDirectSoundBuffer* (duplicates)
-		// IDirectSound3DBuffer*
-		//
-		State<0X1D69D84,SOM::Struct<9>*> snd_bank;
+		struct WAV
+		{
+			WAVEFORMATEX fmt;
+
+			INT32 unknown5;
+			INT32 unknown6;
+
+			void *sb; //DSOUND::IDirectSoundBuffer
+			void *sb3d; //DSOUND::IDirectSound3DBuffer
+		};
+		State<0X1D69D84,WAV*> snd_bank;
 
 		State<0X1D69D88,void*> dsound_listener;
 
@@ -1656,9 +1720,11 @@ namespace SOM
 		//countdown: 
 		//1000 centisecs
 		xxx_timers = 150,
-		//poison=150,
-		//palsy=152, 
-		//dark=154, etc.		
+		poison_timer=150,
+		palsy_timer=152, 
+		dark_timer=154,
+		curse_timer=156, 
+		slow_timer=158,
 	
 		last_word //below
 		};
@@ -1699,6 +1765,7 @@ namespace SOM
 			instance2 = 120,
 			//3 post-spawn, like stage
 			stage2 = 121,
+			standing_up2 = 122,
 
 			//objects from MPX loader?
 			//121 = 1
@@ -1710,6 +1777,8 @@ namespace SOM
 			obj_move_evt = 123,
 
 			stage3 = 124, //42afb0
+
+			standing_turning2 = 160, //???
 
 			//compared to PRM to delay 
 			//attack and honor cyan CP???
@@ -1759,6 +1828,7 @@ namespace SOM
 			//f24 = 24, //turn speed?
 			turning_rate=24,
 
+			scale2=23, //2023
 			scale3=23, //2021
 			scale=25, //2020
 
@@ -1842,6 +1912,7 @@ namespace SOM
 			//what is obj_MDO_files/obj_MDL_files
 			mdl3 = 24, 
 			mdl2 = 24,
+			kage_mdl2 = 25, //0x64
 			mdo3 = 25, 
 			mdl = 26, //0x68
 			kage_mdl = 27, //0x6c
@@ -1961,22 +2032,22 @@ namespace SOM
 
 	}context; 
 
-	extern const SOM::Struct<22>*(*movesets)[4]; //2021
-	const SOM::Struct<22> *shield_or_glove(int=5);
+	extern DWORD(*movesnds)[4]; //2023
+	extern DWORD shield_or_glove_sound_and_pitch(int=5);	
+	extern const SOM::Struct<22>*(*movesets)[4]; //2021	
+	extern const SOM::Struct<22> *shield_or_glove(int=5);
 
 	extern struct Motions //som.mocap.cpp 
 	{	
 		unsigned tick,diff,frame; float step; //other
 		
-		bool cling; float ceiling; //inputs	 		
-
-		float hz_30,l_hz_30; //2023: refreshrate
+		bool cling; float ceiling; //inputs
 
 		float floor_object,ceiling_object; //for sound effects
 
 		unsigned swung_tick,swung_id; //arm_ms_windup2
 
-		Motions(int=0):hz_30(){ /*reset_config();*/ }
+		Motions(int=0){ /*reset_config();*/ }
 		void reset_config(),ready_config(DWORD ticks, BYTE *keys);
 		float place_camera //returns sky base point along vertical axis
 		(float(&analogcam)[4][4],float(&steadycam)[4][4],float swing[6]=0);				
@@ -2044,6 +2115,10 @@ namespace SOM
 		{
 			new(this)Clipper(pc,h,r,m,up); return clip(out);
 		}
+		inline Clipper &init(const float pc[3], float h, float r, int m, float up=0)
+		{
+			new(this)Clipper(pc,h,r,m,up); return *this;
+		}
 		Clipper(int){}
 		inline Clipper(const float pc[3], float h, float r, int m, float up=0)
 		{
@@ -2097,6 +2172,8 @@ namespace SOM
 	static LONG rng(){ return ((LONG(__cdecl*)())0x44F713)(); }
 
 	extern void rotate(float[3], float x, float y);
+
+	extern void subtitle(const char*);
 }  
 
 struct som_scene_element; //som.scene.cpp
@@ -2222,6 +2299,8 @@ struct som_MDO : SOM::Struct<47-2>
 };
 struct som_MDL //SOM::Struct<250> 
 {
+	static int fps; //som_MDL_fps
+
 	//NOTE: SOM::MDL is preferred. defining inside SOM
 	//causes its global variables to be pulled into any
 	//method definitions that can lead to mistakes
@@ -2229,11 +2308,11 @@ struct som_MDL //SOM::Struct<250>
 
 	int animation(int id);
 	int animation_id(int c);
-	int animation_id(){ return animation_id(cdef[0]); }
+	int animation_id(){ return animation_id(c); }
 	int running_time(int c);
 	bool ending_soon(int f);
 	bool ending_soon2(int f);
-	bool control_point(float avg[3], int c, int f, int cp=-1);
+	bool control_point(float avg[3], int c, int f, int cp=-1, bool s2=false);
 	//2021: update_animation_post separates
 	//the copy to the vbuffer so the arm.mdl
 	//has a chance to adjust the animation
@@ -2244,6 +2323,17 @@ struct som_MDL //SOM::Struct<250>
 	void update_animation_post();
 	void update_transform();	
 	void draw(void *transparent_elements);
+	//2023: speed
+	bool advance(int dir=1),advance2(int dir=1);
+	void rewind()
+	{
+		f = -1; ext.dir = 1; if(1||e!=c) ext.s = ext.t2 = 0;
+	}
+	void rewind2()
+	{
+		ext.f2 = -1; ext.dir2 = 1; if(1||e!=c) ext.s2 = ext.t2 = 0; 
+	}
+	SOM::Animation *find_first_kage();
 
 	struct part //file_head+16
 	{
@@ -2404,6 +2494,13 @@ struct som_MDL //SOM::Struct<250>
 
 			som_MHM *mhm; //2022
 
+			union
+			{
+				int kage; //deprecated
+
+				SOM::Kage *kage2; //som.kage.cpp	
+			};
+
 		}ext;
 
 		DWORD _instance_mem_estimate();
@@ -2415,20 +2512,14 @@ struct som_MDL //SOM::Struct<250>
 
 	float fade,fade2; //10-11 {1,-1}
 
-	//it's easier to work with as cdef
 	//c: target animation?
 	//d: target frame?
 	//e: current animation?
 	//f: current frame?
-	//DWORD time[4]; //12-15 {0,0,-1,-1}
-	union
-	{
-		INT32 cdef[4]; //0xc, 0xd, 0xe, 0xf
+	INT32 c,d,e,f;
 
-		struct{ INT32 c,d,e,f; };
-	};
-		DWORD _unknown2; //16			
-		WORD *hardanim_read_head; //17
+	DWORD _unknown2; //16			
+	WORD *hardanim_read_head; //17
 
 	struct bone //272B 0x110
 	{
@@ -2576,7 +2667,7 @@ struct som_MDL //SOM::Struct<250>
 
 		int anim_mask;
 
-		int e2,f2;
+		int c2,f2;
 
 		int d2; //for arm.mdl only for now
 
@@ -2632,7 +2723,14 @@ struct som_MDL //SOM::Struct<250>
 			//NOTE: must recompute if [3][3] is 0
 			float(*inverse)[4][4];*/
 
+			float cp_accum[2][3];
+
 		}clip;
+
+		som_MDL *kage; //2023: som.kage.cpp
+
+		float s,t,s2,t2,speed,speed2; //2023
+		int dir,dir2;
 
 	}ext;
 };

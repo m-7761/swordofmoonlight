@@ -335,7 +335,7 @@ extern int &EX::logging_onoff(bool flip)
 	EX::INI::Output(); //REMOVE ME? (log extensions)
 
 	wchar_t log[MAX_PATH] = L""; 
-	swprintf_s(log,L"%ls\\%ls.log",EX::user(0),EX::log());
+	swprintf_s(log,L"%ls\\%ls.log",EX::user(1),EX::log());
 
 	//binary: required by Ex_log_codecvt (Unicode)
 	std::ios_base::openmode mode = std::ios_base::binary; 

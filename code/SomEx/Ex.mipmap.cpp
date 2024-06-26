@@ -271,7 +271,7 @@ static void *Ex_mipmap(const DX::DDSURFACEDESC2 *in, DX::DDSURFACEDESC2 *out)
 
 	case 8: assert(0); return 0; //unimplemented
 
-	default: assert(0);
+	default: assert(0); case 0: break; //lumenmap?
 	}	
 
 	return 0;

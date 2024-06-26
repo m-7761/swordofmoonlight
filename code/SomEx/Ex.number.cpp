@@ -1280,7 +1280,13 @@ namespace Ex_number_cpp
 
 				while(ti!=glossary.rend()&&pare(*ti,e)) ti++; //greedy
 
-				if(ti==glossary.rend()) return(0); //todo: raise bad symbol
+				if(ti==glossary.rend()||**ti!=*e) 
+				{
+					if(EX::ok_generic_failure(L"Ex.ini Number (%s) is undefined",e))
+					{
+						EX::is_needed_to_shutdown_immediately();					
+					}			
+				}
 				 
 				if(e==p||prime(*ti).mono()){ p = e; e = *ti; break; } 
 			}

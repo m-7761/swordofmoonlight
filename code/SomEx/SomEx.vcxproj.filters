@@ -36,6 +36,9 @@
     <Filter Include="inline includes">
       <UniqueIdentifier>{61feb3ad-aedf-4f5d-988e-39bc35b30ba3}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Help">
+      <UniqueIdentifier>{e51f3a76-bff6-4d48-9956-e4dd7594de7f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Ex.cursor.cpp">
@@ -95,9 +98,6 @@
     <ClCompile Include="directx.cpp">
       <Filter>Direct X</Filter>
     </ClCompile>
-    <ClCompile Include="dx.d3d9c.cpp">
-      <Filter>Direct X</Filter>
-    </ClCompile>
     <ClCompile Include="dx.ddraw.cpp">
       <Filter>Direct X</Filter>
     </ClCompile>
@@ -117,9 +117,6 @@
       <Filter>Som sources</Filter>
     </ClCompile>
     <ClCompile Include="som.game.cpp">
-      <Filter>Som sources</Filter>
-    </ClCompile>
-    <ClCompile Include="som.hacks.cpp">
       <Filter>Som sources</Filter>
     </ClCompile>
     <ClCompile Include="som.keys.cpp">
@@ -188,9 +185,6 @@
     <ClCompile Include="som.LYT.cpp">
       <Filter>Som sources</Filter>
     </ClCompile>
-    <ClCompile Include="som.MDL.cpp">
-      <Filter>Som sources</Filter>
-    </ClCompile>
     <ClCompile Include="SoftMSM.cpp">
       <Filter>Som sources</Filter>
     </ClCompile>
@@ -216,8 +210,23 @@
     <ClCompile Include="som.clipc.cpp">
       <Filter>Som sources</Filter>
     </ClCompile>
+    <ClCompile Include="som.kage.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="dx.d3d9c.cpp">
+      <Filter>Direct X</Filter>
+    </ClCompile>
     <ClCompile Include="som.bsp.cpp">
       <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.MDL.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="som.hacks.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Ex.toast.cpp">
+      <Filter>Ex sources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -452,6 +461,27 @@
     <None Include="..\lib\pack.inl">
       <Filter>lib</Filter>
     </None>
+    <None Include="..\..\Moonlight Help\style.css">
+      <Filter>Help</Filter>
+    </None>
+    <None Include="..\..\Moonlight Help\frame.htm">
+      <Filter>Help</Filter>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\0.htm">
+      <Filter>Help</Filter>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\1.htm">
+      <Filter>Help</Filter>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\3.htm">
+      <Filter>Help</Filter>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\5.htm">
+      <Filter>Help</Filter>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\7.htm">
+      <Filter>Help</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SomEx.rc">
@@ -465,5 +495,10 @@
     <CustomBuildStep Include="dx9libs\d3dx9d.lib">
       <Filter>libraries\debug</Filter>
     </CustomBuildStep>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\Moonlight Help\ja_JP\7.txt">
+      <Filter>Help</Filter>
+    </Text>
   </ItemGroup>
 </Project>

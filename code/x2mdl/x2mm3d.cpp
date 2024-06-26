@@ -634,7 +634,7 @@ extern std::vector<std::pair<int,int>> x2mm3d_mats;
 
 void x2mm3d_sample2(aiVector3D &cmp, aiNode *p)
 {
-	for(int i=3;i-->0;) cmp[i] = p->mTransformation[3][i];
+	for(int i=3;i-->0;) cmp[i] = p->mTransformation[i][3];
 }
 void x2mm3d_sample2(aiQuaternion &cmp, aiNode *p)
 {

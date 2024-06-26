@@ -162,6 +162,7 @@ X(glBindVertexArray)\
 X(glBindVertexBuffer)\
 X(glBlitFramebuffer)\
 X(glBlendFunc)\
+X(glBlendFuncSeparate)\
 X(glBufferData)\
 /*X(glBufferStorage)//needs 4.4, no ES support*/\
 X(glBufferSubData)\
@@ -365,14 +366,14 @@ namespace D3D9X //dx.d3d9X.h
 	{
 		//TODO: I don't know that these ever should've been class members. they could 
 		//be useful if external code wanted them but, but through dx.ddraw.h instead?
-		public: //friend dx_d3d9x_backblt;
+		public: //friend dx_d3d9X_backblt;
 		static HRESULT drawprims(DX::D3DPRIMITIVETYPE,DWORD,LPVOID,DWORD,LPWORD=0,DWORD=0);
 		static HRESULT drawprims2(DX::D3DPRIMITIVETYPE,DWORD,LPVOID,DWORD,LPWORD=0,DWORD=0);
 
 	DDRAW_INTRAFACE(IDirect3DDevice7) //public
 
 		//unimplemented methods here are fixed-function that interfaces with shaders
-		//through dx_d3d9x_p/vsconstant or are trivial for dx.d3d9c.cpp to implement 
+		//through dx_d3d9X_p/vsconstant or are trivial for dx.d3d9c.cpp to implement 
 		HRESULT __stdcall Clear(DWORD,DX::LPD3DRECT,DWORD,DX::D3DCOLOR,DX::D3DVALUE,DWORD);
 	//	HRESULT __stdcall SetTransform(DX::D3DTRANSFORMSTATETYPE,DX::LPD3DMATRIX);
 	//	HRESULT __stdcall GetTransform(DX::D3DTRANSFORMSTATETYPE,DX::LPD3DMATRIX);
@@ -424,17 +425,17 @@ extern UINT dx_d3d9c_ibuffers_s[D3D9C::ibuffersN];
 extern UINT dx_d3d9c_vbuffers_s[D3D9C::ibuffersN]; 
 extern IDirect3DIndexBuffer9 *dx_d3d9c_ibuffers[D3D9C::ibuffersN]; 
 extern IDirect3DVertexBuffer9 *dx_d3d9c_vbuffers[D3D9C::ibuffersN]; 
-static auto &dx_d3d9x_ibuffers = (GLuint(&)[D3D9C::ibuffersN])dx_d3d9c_ibuffers;
-static auto &dx_d3d9x_vbuffers = (GLuint(&)[D3D9C::ibuffersN])dx_d3d9c_vbuffers;
+static auto &dx_d3d9X_ibuffers = (GLuint(&)[D3D9C::ibuffersN])dx_d3d9c_ibuffers;
+static auto &dx_d3d9X_vbuffers = (GLuint(&)[D3D9C::ibuffersN])dx_d3d9c_vbuffers;
 extern IDirect3DVertexShader9 *dx_d3d9c_vshaders[16+4];
 extern IDirect3DPixelShader9 *dx_d3d9c_pshaders[16+4];
 extern IDirect3DPixelShader9 *dx_d3d9c_pshaders2[16+4];
 extern IDirect3DPixelShader9**dx_d3d9c_pshaders_noclip;
-enum{ dx_d3d9x_shaders_are_programs=0 };
-static auto &dx_d3d9x_vshaders = (GLuint(&)[16+4])dx_d3d9c_vshaders;
-static auto &dx_d3d9x_pshaders = (GLuint(&)[16+4])dx_d3d9c_pshaders;
-static auto &dx_d3d9x_pshaders2 = (GLuint(&)[16+4])dx_d3d9c_pshaders2;
-static auto &dx_d3d9x_pshaders_noclip = (GLuint*&)dx_d3d9c_pshaders_noclip;
+enum{ dx_d3d9X_shaders_are_programs=0 };
+static auto &dx_d3d9X_vshaders = (GLuint(&)[16+4])dx_d3d9c_vshaders;
+static auto &dx_d3d9X_pshaders = (GLuint(&)[16+4])dx_d3d9c_pshaders;
+static auto &dx_d3d9X_pshaders2 = (GLuint(&)[16+4])dx_d3d9c_pshaders2;
+static auto &dx_d3d9X_pshaders_noclip = (GLuint*&)dx_d3d9c_pshaders_noclip;
 extern IDirect3DSurface9 *dx_d3d9c_alphasurface;
 extern IDirect3DTexture9 *dx_d3d9c_alphatexture;
 extern DWORD dx_d3d9c_anisotropy_max; 
@@ -442,21 +443,21 @@ extern DWORD dx_d3d9c_beginscene, dx_d3d9c_endscene;
 
 extern bool dx_d3d9c_effectsshader_enable;
 extern bool dx_d3d9c_effectsshader_toggle;
-extern void dx_d3d9x_enableeffectsshader(bool enable);
+extern void dx_d3d9X_enableeffectsshader(bool enable);
 extern void dx_d3d9c_discardeffects();
 
 extern void dx_d3d9c_vstransform(int dirty=0);
 extern void dx_d3d9c_vslight(bool clean=true);
 extern void dx_d3d9c_vstransformandlight();
 extern void dx_d3d9c_update_vsPresentState(D3DVIEWPORT9 &vp);
-extern void dx_d3d9x_vsconstant(int reg, const D3DCOLORVALUE &set, int mode=1);
-extern void dx_d3d9x_vsconstant(int reg, const D3DMATRIX &set, int mode=4);
-extern void dx_d3d9x_vsconstant(int reg, const DWORD &set, int mode);
-extern void dx_d3d9x_vsconstant(int reg, const float &set, int mode);
-extern void dx_d3d9x_vsconstant(int reg, const float *set, int mode=1);
-extern void dx_d3d9x_psconstant(int reg, const DWORD &set, int mode);
-extern void dx_d3d9x_psconstant(int reg, const float &set, int mode);
-extern void dx_d3d9x_psconstant(int reg, const float *set, int mode=1);
+extern void dx_d3d9X_vsconstant(int reg, const D3DCOLORVALUE &set, int mode=1);
+extern void dx_d3d9X_vsconstant(int reg, const D3DMATRIX &set, int mode=4);
+extern void dx_d3d9X_vsconstant(int reg, const DWORD &set, int mode);
+extern void dx_d3d9X_vsconstant(int reg, const float &set, int mode);
+extern void dx_d3d9X_vsconstant(int reg, const float *set, int mode=1);
+extern void dx_d3d9X_psconstant(int reg, const DWORD &set, int mode);
+extern void dx_d3d9X_psconstant(int reg, const float &set, int mode);
+extern void dx_d3d9X_psconstant(int reg, const float *set, int mode=1);
 extern void dx_d3d9c_level(IDirect3DPixelShader9 *ps, bool reset=false);
 
 extern const int dx_d3d9c_formats_enumN;
@@ -465,7 +466,7 @@ extern const DX::DDPIXELFORMAT &dx_d3d9c_format(D3DFORMAT f);
 extern D3DFORMAT dx_d3d9c_format(DX::DDPIXELFORMAT &f);
 extern UINT dx_d3d9c_sizeofFVF(DWORD in);
 
-//dx_d3d9x_d3ddrivercaps: does not set dwDeviceZBufferBitDepth
+//dx_d3d9X_d3ddrivercaps: does not set dwDeviceZBufferBitDepth
 extern DX::D3DDEVICEDESC7 &dx_d3d9c_d3ddrivercaps(D3DCAPS9 &in, DX::D3DDEVICEDESC7 &out);
 
 extern int dx_d3d9c_ibuffer_i;
@@ -482,7 +483,7 @@ extern IDirect3DSurface9 *dx_d3d9c_alpha(IDirect3DSurface9*);
 extern IDirect3DTexture9 *dx_d3d9c_alpha(IDirect3DTexture9*);
 
 extern IDirect3DStateBlock9 *dx_d3d9c_bltstate;
-static auto &dx_d3d9x_bltstate = (DWORD&)dx_d3d9c_bltstate;
+static auto &dx_d3d9X_bltstate = (DWORD&)dx_d3d9c_bltstate;
 extern HRESULT dx_d3d9c_backblt(IDirect3DTexture9 *texture, RECT &src, RECT &dst, IDirect3DPixelShader9 *ps, int vs=-1, DWORD white=0xFFFFFF);
 
 extern LONG dx_d3d9c_pitch(IDirect3DSurface9 *p);
@@ -514,10 +515,10 @@ struct DDRAW::IDirect3DDevice::QueryGL::UniformBlock
 	void flush(int);
 };
 
-static bool dx_d3d9x_xpaused = false; //xcenter
+static bool dx_d3d9X_xpaused = false; //xcenter
 
 extern HRESULT dx_d3d9c_present(IDirect3DDevice9Ex *p);
-static HRESULT dx_d3d9x_present()
+static HRESULT dx_d3d9X_present()
 {
 	int cmp = DDRAW::Direct3DDevice7->target;
 	if(cmp=='dx9c') 
@@ -534,11 +535,28 @@ static HRESULT dx_d3d9x_present()
 		//to get a meaningful value for DDRAW::flipTicks.
 		cmp = q->xr->xwait();
 		
-		if(dx_d3d9x_xpaused&&!DDRAW::isPaused)
+		if(dx_d3d9X_xpaused&&!DDRAW::isPaused)
 		{
-			dx_d3d9x_xpaused = false;			
+			dx_d3d9X_xpaused = false;			
 
 			q->xr->xcenter();
+		}
+
+		if(DDRAW::noTicks)
+		{
+			if(cmp) //2024
+			{
+				float ms = cmp/1000000.0f;
+				DDRAW::refreshrate = (int)(1000/ms+0.5f);
+			}
+			else
+			{
+				assert(cmp); //2024
+
+				//2023: can't poll refresh rate
+				DDRAW::refreshrate = (1.0f/DDRAW::noTicks)*1000+0.5f;				
+			}
+			DDRAW::refreshrate = min(240,max(60,DDRAW::refreshrate));
 		}
 	}
 	else
@@ -553,15 +571,15 @@ static HRESULT dx_d3d9x_present()
 }
 
 extern void dx_d3d9c_reset();
-extern void dx_d3d9x_resetdevice();
+extern void dx_d3d9X_resetdevice();
 
-extern int dx_d3d9x_gl_viewport[4] = {};
-static HRESULT dx_d3d9x_viewport(bool X, 
+extern int dx_d3d9X_gl_viewport[4] = {};
+static HRESULT dx_d3d9X_viewport(bool X, 
 D3DVIEWPORT9 &vp, DDRAW::IDirect3DDevice7 *p=DDRAW::Direct3DDevice7)
 {
 	//2022: OpenXR doesn't maintain SetViewport
 	//if(X) glGetIntegerv(GL_VIEWPORT,(int*)&vp);
-	if(X) memcpy(&vp,dx_d3d9x_gl_viewport,4*sizeof(int));
+	if(X) memcpy(&vp,dx_d3d9X_gl_viewport,4*sizeof(int));
 	if(X) glGetFloatv(GL_DEPTH_RANGE,&vp.MinZ);
 	if(!X) return p->proxy9->GetViewport(&vp);
 	return D3D_OK; //ERROR?
@@ -569,13 +587,13 @@ D3DVIEWPORT9 &vp, DDRAW::IDirect3DDevice7 *p=DDRAW::Direct3DDevice7)
 extern void DDRAW::dejagrate_update_vsPresentState()
 {
 	if(DDRAW::compat!='dx9c'){ assert(0); return; }
-	D3DVIEWPORT9 vp; dx_d3d9x_viewport(DDRAW::gl,vp); 
+	D3DVIEWPORT9 vp; dx_d3d9X_viewport(DDRAW::gl,vp); 
 	dx_d3d9c_update_vsPresentState(vp);	
 }
 
 //this was part of a failed experiment (doD3D12)
 //but still briefer than GetBackBuffer I suppose
-static IDirect3DSurface9 *dx_d3d9x_backbuffer9()
+static IDirect3DSurface9 *dx_d3d9X_backbuffer9()
 {
 	assert(!DDRAW::D3D12Device);
 //	auto bbuffer = 
@@ -588,7 +606,7 @@ static IDirect3DSurface9 *dx_d3d9x_backbuffer9()
 	return bbuffer;
 }
 
-static void __stdcall dx_d3d9x_glMsg_db(GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei len, const char *msg, const void *up)
+static void __stdcall dx_d3d9X_glMsg_db(GLenum src, GLenum type, GLuint id, GLenum severity, GLsizei len, const char *msg, const void *up)
 {
 	assert(src==0x8246||src==0x8248); //GL_DEBUG_SOURCE_API||GL_DEBUG_SOURCE_SHADER_COMPILER
 
@@ -699,7 +717,7 @@ HRESULT D3D9X::IDirectDraw7::CreateSurface(DX::LPDDSURFACEDESC2 x, DX::LPDIRECTD
 	{
 		//HACK: assuming the device is thought to be lost / being reset
 
-		dx_d3d9x_resetdevice();	dx_d3d9c_reset(); goto reset;			
+		dx_d3d9X_resetdevice();	dx_d3d9c_reset(); goto reset;			
 	}
 
 	//DDRAW_IF_NOT_TARGET_RETURN(!DD_OK)   
@@ -774,7 +792,7 @@ HRESULT D3D9X::IDirectDraw7::CreateSurface(DX::LPDDSURFACEDESC2 x, DX::LPDIRECTD
 	// maybe EGL pixmaps?
 	//
 	D3DFORMAT client = dx_d3d9c_format(x->ddpfPixelFormat);
-	D3DFORMAT format = D3DFMT_A8R8G8B8;
+	D3DFORMAT format = client==D3DFMT_A8?client:D3DFMT_A8R8G8B8;
 
 	LPDIRECT3DSURFACE9 s = 0;
 	LPDIRECT3DTEXTURE9 t = 0; GLuint teX = 0; //2021
@@ -889,7 +907,7 @@ HRESULT D3D9X::IDirectDraw7::CreateSurface(DX::LPDDSURFACEDESC2 x, DX::LPDIRECTD
 		{
 			p->query9->pitch = dx_d3d9c_pitch(s);
 
-			assert(4*width==p->query9->pitch);
+			assert(4*width==p->query9->pitch||x->ddpfPixelFormat.dwRGBBitCount==8);
 
 			//note: group9 only set for textures		
 			if(x->ddsCaps.dwCaps&DDSCAPS_TEXTURE) //plain surfaces are textures now
@@ -942,17 +960,17 @@ HRESULT D3D9X::IDirectDraw7::CreateSurface(DX::LPDDSURFACEDESC2 x, DX::LPDIRECTD
 }
 
 typedef unsigned __int64 QWORD;
-static GLuint dx_d3d9x_pipeline;
-static std::vector<QWORD> dx_d3d9x_pipelines;
-static void dx_d3d9x_flushaders(int vs=DDRAW::vs, int ps=DDRAW::ps)
+static GLuint dx_d3d9X_pipeline;
+static std::vector<QWORD> dx_d3d9X_pipelines;
+static void dx_d3d9X_flushaders(int vs=DDRAW::vs, int ps=DDRAW::ps)
 {
 	//TODO? maybe defer queryGL->state until here
 
 	//REMINDER: flush below depends this going first
 	if(ps!=DDRAW::fx) dx_d3d9c_vstransformandlight();
 
-	assert(vs>=0&&dx_d3d9x_vshaders[vs]);
-	assert(ps>=0&&dx_d3d9x_pshaders_noclip[ps]);
+	assert(vs>=0&&dx_d3d9X_vshaders[vs]);
+	assert(ps>=0&&dx_d3d9X_pshaders_noclip[ps]);
 		
 	if(DDRAW::target=='dx9c')
 	{
@@ -973,21 +991,21 @@ static void dx_d3d9x_flushaders(int vs=DDRAW::vs, int ps=DDRAW::ps)
 
 		unsigned hash = ps|vs<<16; assert(hash);
 
-		if(dx_d3d9x_pshaders2==dx_d3d9x_pshaders_noclip)
+		if(dx_d3d9X_pshaders2==dx_d3d9X_pshaders_noclip)
 		{
 			hash|=0x8000;
 		}
 
-		if(dx_d3d9x_pipeline!=hash)
+		if(dx_d3d9X_pipeline!=hash)
 		{
-			dx_d3d9x_pipeline = hash;
+			dx_d3d9X_pipeline = hash;
 
 			//ANGLE doesn't actually support pipelines
-			enum{ sap=dx_d3d9x_shaders_are_programs };
+			enum{ sap=dx_d3d9X_shaders_are_programs };
 
 			GLuint prog;
-			QWORD *v = dx_d3d9x_pipelines.data();
-			int i = (int)dx_d3d9x_pipelines.size();
+			QWORD *v = dx_d3d9X_pipelines.data();
+			int i = (int)dx_d3d9X_pipelines.size();
 			while(i-->0)
 			{
 				if((v[i]&~0u)==hash)
@@ -1001,20 +1019,20 @@ static void dx_d3d9x_flushaders(int vs=DDRAW::vs, int ps=DDRAW::ps)
 				if(sap) glGenProgramPipelines(1,&prog);
 				else prog = glCreateProgram();
 								
-				if(sap) glUseProgramStages(prog,GL_VERTEX_SHADER_BIT,dx_d3d9x_vshaders[vs]);
-				else glAttachShader(prog,dx_d3d9x_vshaders[vs]);
-				if(sap) glUseProgramStages(prog,GL_FRAGMENT_SHADER_BIT,dx_d3d9x_pshaders_noclip[ps]);			
-				else glAttachShader(prog,dx_d3d9x_pshaders_noclip[ps]);
+				if(sap) glUseProgramStages(prog,GL_VERTEX_SHADER_BIT,dx_d3d9X_vshaders[vs]);
+				else glAttachShader(prog,dx_d3d9X_vshaders[vs]);
+				if(sap) glUseProgramStages(prog,GL_FRAGMENT_SHADER_BIT,dx_d3d9X_pshaders_noclip[ps]);			
+				else glAttachShader(prog,dx_d3d9X_pshaders_noclip[ps]);
 				if(!sap) glLinkProgram(prog);
 
-				dx_d3d9x_pipelines.push_back((QWORD)prog<<32|(QWORD)hash);
+				dx_d3d9X_pipelines.push_back((QWORD)prog<<32|(QWORD)hash);
 			}
 
 			(sap?glBindProgramPipeline:glUseProgram)(prog);
 		}
 	}
 }
-static bool dx_d3d9x_prepareblt(bool X, int abe=0)
+static bool dx_d3d9X_prepareblt(bool X, int abe=0)
 {
 	if(!X) //fewer states than dx.d3d9c.cpp
 	{
@@ -1046,7 +1064,7 @@ static bool dx_d3d9x_prepareblt(bool X, int abe=0)
 	{
 		auto &st = DDRAW::Direct3DDevice7->queryGL->state;
 
-		dx_d3d9x_bltstate = st.dword;
+		dx_d3d9X_bltstate = st.dword;
 				
 		st.zenable = 0;
 		//st.zwriteenable = 0; //rendundant?
@@ -1060,11 +1078,11 @@ static bool dx_d3d9x_prepareblt(bool X, int abe=0)
 		st.cullmode = D3DCULL_NONE;	
 		st.addressu = st.addressv = D3DTADDRESS_CLAMP; 
 		
-		st.apply(dx_d3d9x_bltstate);		
+		st.apply(dx_d3d9X_bltstate);		
 	}
 	return true;
 }
-static bool dx_d3d9x_cleanupblt(bool X)
+static bool dx_d3d9X_cleanupblt(bool X)
 {
 	bool out = true; if(X)
 	{	
@@ -1072,7 +1090,7 @@ static bool dx_d3d9x_cleanupblt(bool X)
 
 		//TODO: and shader constants?
 		auto cmp = q->state;
-		q->state = dx_d3d9x_bltstate;
+		q->state = dx_d3d9X_bltstate;
 		q->state.apply(cmp);
 	}
 	else if(!dx_d3d9c_bltstate||dx_d3d9c_bltstate->Apply())
@@ -1083,7 +1101,7 @@ static bool dx_d3d9x_cleanupblt(bool X)
 	//DDRAW::refresh_state_dependent_shader_constants();
 	return out;
 }
-extern HRESULT dx_d3d9x_backblt(bool X, void *texture, RECT &src, RECT &dst, int ps, int vs, DWORD white=0xFFFFFF)
+extern HRESULT dx_d3d9X_backblt(bool X, void *texture, RECT &src, RECT &dst, int ps, int vs, DWORD white=0xFFFFFF)
 {
 	if(!X) //TEMPORARY? TEMPLATE?
 	return dx_d3d9c_backblt((IDirect3DTexture9*)texture,src,dst,dx_d3d9c_pshaders_noclip[ps],vs,white);
@@ -1274,7 +1292,7 @@ extern HRESULT dx_d3d9x_backblt(bool X, void *texture, RECT &src, RECT &dst, int
 		}			
 	}	
 
-	dx_d3d9x_flushaders(vs,ps);
+	dx_d3d9X_flushaders(vs,ps);
 	dx_d3d9c_level(dx_d3d9c_pshaders_noclip[ps]); //???
 
 	HRESULT out = D3D_OK; 
@@ -1298,7 +1316,7 @@ extern HRESULT dx_d3d9x_backblt(bool X, void *texture, RECT &src, RECT &dst, int
 	{
 		auto sam = d->queryGL->samplers;
 
-		//REMINDER: dx_d3d9x_cleanupblt can't easily account for this
+		//REMINDER: dx_d3d9X_cleanupblt can't easily account for this
 		glSamplerParameteri(sam[1],GL_TEXTURE_MIN_FILTER,GL_NEAREST_MIPMAP_NEAREST);
 		glSamplerParameteri(sam[1],GL_TEXTURE_MAG_FILTER,GL_NEAREST);
 	}
@@ -1401,7 +1419,7 @@ HRESULT D3D9X::IDirectDrawSurface7::Blt(LPRECT x, DX::LPDIRECTDRAWSURFACE7 y, LP
 		{
 			out = DDRAW_UNIMPLEMENTED;
 		}
-		else if(dx_d3d9x_prepareblt(X,abe)) //colorkey
+		else if(dx_d3d9X_prepareblt(X,abe)) //colorkey
 		{
 			D3D9X::updating_texture(p,false);
 			auto texture = p->queryX->update;
@@ -1414,7 +1432,7 @@ HRESULT D3D9X::IDirectDrawSurface7::Blt(LPRECT x, DX::LPDIRECTDRAWSURFACE7 y, LP
 			{
 				/*discontinuing this in favor of TEXTURE0_NOCLIP
 				if(DDRAW::psColorkey)
-				dx_d3d9x_psconstant(DDRAW::psColorkey,p->query9->knockouts?1ul:0ul,'w'); //colorkey
+				dx_d3d9X_psconstant(DDRAW::psColorkey,p->query9->knockouts?1ul:0ul,'w'); //colorkey
 				*/
 							
 				if(abe) //DDRAW_PUSH_HACK extension
@@ -1423,12 +1441,12 @@ HRESULT D3D9X::IDirectDrawSurface7::Blt(LPRECT x, DX::LPDIRECTDRAWSURFACE7 y, LP
 					abe = q->dwAlphaSrcConst<<24|0xFFFFFF;
 				}
 				else abe = 0xFFFFFFFF;
-				out = dx_d3d9x_backblt(X,texture,*z,*x,DDRAW::ps,DDRAW::vs,abe); //???
+				out = dx_d3d9X_backblt(X,texture,*z,*x,DDRAW::ps,DDRAW::vs,abe); //???
 
 				//dx_d3d9c_texture_pool==D3DPOOL_DEFAULT???
 				//if(!p->query9->update9) p->query9->update9->Release();
 
-				if(!dx_d3d9x_cleanupblt(X)) assert(0); //warning: potentially disastrous
+				if(!dx_d3d9X_cleanupblt(X)) assert(0); //warning: potentially disastrous
 			}
 		}
 		else out = !D3D_OK; //2021
@@ -1442,7 +1460,7 @@ HRESULT D3D9X::IDirectDrawSurface7::Blt(LPRECT x, DX::LPDIRECTDRAWSURFACE7 y, LP
 	
 	DDRAW_RETURN(out)
 }
-static int dx_d3d9x_xr_discard = 0;
+static int dx_d3d9X_xr_discard = 0;
 template<int X>
 HRESULT D3D9X::IDirectDrawSurface7::flip()
 {
@@ -1462,13 +1480,13 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 	//REMINDER: som.hacks.cpp has DDRAW::onEffects enable OpenXR
 	bool XR = DDRAW::xr; if(XR)
 	{
-		if(dx_d3d9x_xr_discard)
+		if(dx_d3d9X_xr_discard)
 		{
-			dx_d3d9x_xr_discard--;
+			dx_d3d9X_xr_discard--;
 		}
 		else if(0&&DX::debug||d->queryGL->xr->xdiscarded())
 		{
-			if(!dx_d3d9x_xr_discard)
+			if(!dx_d3d9X_xr_discard)
 			{
 				xdiscarded = true;
 
@@ -1480,7 +1498,7 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 	//WARNING: THIS IS GLuint IF X==true (OpenGL)
 	auto* &pp = d->query9->effects[0], *p = pp;
 
-	if(DDRAW::isPaused) dx_d3d9x_xpaused = XR!=0; //xcenter
+	if(DDRAW::isPaused) dx_d3d9X_xpaused = XR!=0; //xcenter
 
 	if(DDRAW::isPaused&&!DDRAW::onPause()||p!=cmp) //2021
 	{
@@ -1496,14 +1514,14 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 	
 	if(!p||!dx_d3d9c_effectsshader_enable)
 	{
-		out = DDRAW::onFlip()?dx_d3d9x_present():S_OK;
+		out = DDRAW::onFlip()?dx_d3d9X_present():S_OK;
 	}
 	else 
 	{
 		//2018: THIS IS VERY CONFUSING, BUT WHEN THE VIEWPORT IS SMALLER 
 		//THAN THE RENDER-TARGET THE vs/psPresentState NEED TO BE EITHER
 		//IN VIEWPORT OR RENDER-TARGET SPACE RESPECTIVELY
-		D3DVIEWPORT9 vp; dx_d3d9x_viewport(X,vp,d);
+		D3DVIEWPORT9 vp; dx_d3d9X_viewport(X,vp,d);
 
 		/*REMOVE ME
 		float r = 0, t = 0; if(X)
@@ -1534,7 +1552,7 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 		if(X) rtX = d->queryGL->effects[rtX];
 		else d->query9->effects[rtX]->GetSurfaceLevel(0,&rt);
 		
-		auto *bbuffer = X?0:dx_d3d9x_backbuffer9();
+		auto *bbuffer = X?0:dx_d3d9X_backbuffer9();
 		if(X||bbuffer)
 		{	
 			const int w = DDRAW::PrimarySurface7->queryX->width;
@@ -1548,7 +1566,7 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 			//(it would just have to be redone afterward)//
 
 			bool matte = false;
-			if(d3d11||dx_d3d9x_prepareblt(X)) //XR
+			if(d3d11||dx_d3d9X_prepareblt(X)) //XR
 			{
 				for(int i=0;i<(int)DDRAW::doMipSceneBuffers;i++)
 				{
@@ -1633,6 +1651,8 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 					//frame buffer state
 					glViewport(0,0,w,h);
 				}
+
+				int l = DDRAW::fx2ndSceneBuffer;
 				
 				//DDRAW::do2ndSceneBuffer?
 				if(d->query9->effects[1])
@@ -1674,13 +1694,13 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 							if(float*cc=(float*)d->queryGL->effects_cbuf)
 							memcpy(cc,c,sizeof(c));
 						}
-						else dx_d3d9x_psconstant(DDRAW::ps2ndSceneMipmapping2,c,'xyzw');						
+						else dx_d3d9X_psconstant(DDRAW::ps2ndSceneMipmapping2,c,'xyzw');						
 					}
 					DDRAW::fx2ndSceneBuffer = 1;
 				}
 	
 				if(DDRAW::psColorize) 					
-				dx_d3d9x_psconstant(DDRAW::psColorize,DDRAW::fxColorize,'rgba'); 
+				dx_d3d9X_psconstant(DDRAW::psColorize,DDRAW::fxColorize,'rgba'); 
 
 				if(XR) //OpenXR?
 				{
@@ -1728,7 +1748,7 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 							int lock = xs->lock_framebuf();
 							glBindFramebuffer(GL_DRAW_FRAMEBUFFER,lock);
 							glViewport(x,y,w,h);						
-							dx_d3d9x_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
+							dx_d3d9X_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
 							xs->unlock_framebuf(lock);
 						}
 						else*/
@@ -1744,7 +1764,7 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 							if(DDRAW::doSmooth) src[1]+=0.5f;
 
 							//D3D9 likes this... this is going to
-							//D3D11 (see dx_d3d9x_backblt) 
+							//D3D11 (see dx_d3d9X_backblt) 
 						//	dst[0]-=0.5f; dst[1]-=0.5f;
 
 							xs->blit_framebuf(&fx,dst,src);
@@ -1847,7 +1867,7 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 						}
 
 						//D3D9 likes this... this is going to
-						//D3D11 (see dx_d3d9x_backblt) 
+						//D3D11 (see dx_d3d9X_backblt) 
 					//	fdst[0]-=0.5f; fdst[1]-=0.5f;
 
 						auto *xs = q->xr->first_surface();
@@ -1881,14 +1901,14 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 							//dy2 = dy2*0.75f+0.5f; 
 							dst.top+=dy2; dst.bottom-=dy2;
 						}*/
-						dx_d3d9x_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
+						dx_d3d9X_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
 						src.right+=sx; src.left+=sx;
 						dst.right+=dx; dst.left+=dx;
-						dx_d3d9x_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
+						dx_d3d9X_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
 					}
-					else dx_d3d9x_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
+					else dx_d3d9X_backblt(X,p,src,dst,DDRAW::fx,DDRAW::fx);
 					
-					if(!d3d11) dx_d3d9x_cleanupblt(X);
+					if(!d3d11) dx_d3d9X_cleanupblt(X);
 				}
 
 				if(d->query9->effects[1])
@@ -1941,11 +1961,11 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 					{
 						DDRAW::inStereo = false;
 						{
-							out = dx_d3d9x_present();
+							out = dx_d3d9X_present();
 						}
 						DDRAW::inStereo = true;
 					}
-					else out = dx_d3d9x_present();
+					else out = dx_d3d9X_present();
 				}
 			}
 
@@ -2000,7 +2020,7 @@ HRESULT D3D9X::IDirectDrawSurface7::flip()
 
 	if(dx_d3d9c_effectsshader_toggle!=dx_d3d9c_effectsshader_enable)
 	{
-		dx_d3d9x_enableeffectsshader(dx_d3d9c_effectsshader_toggle);
+		dx_d3d9X_enableeffectsshader(dx_d3d9c_effectsshader_toggle);
 	}
 	
 	xdiscarded: if(xdiscarded)
@@ -2189,7 +2209,7 @@ HRESULT D3D9X::IDirectDrawSurface7::GetSurfaceDesc(DX::LPDDSURFACEDESC2 x)
 /*EXPERIMENTAL
 this all works except D3D9 isn't accepting the HANDLE handles 
 the DXGI startup code may be useful for D3D10 or OpenXR later
-static void dx_d3d9x_d3d12(DDRAW::IDirect3D7 *p, UINT w, UINT h, D3DFORMAT fxbpp)
+static void dx_d3d9X_d3d12(DDRAW::IDirect3D7 *p, UINT w, UINT h, D3DFORMAT fxbpp)
 {
 	//I had trouble with "D3D9On12" so I'm trying here to make a shared
 	//surface out of the D3D12 backbuffer(s) to replace the D3D9 buffer
@@ -2292,7 +2312,7 @@ static void dx_d3d9x_d3d12(DDRAW::IDirect3D7 *p, UINT w, UINT h, D3DFORMAT fxbpp
 	DDRAW::D3D12Device = d12;
 	DDRAW::target_backbuffer = d12?'dx12':DDRAW::target; //Ex.movie.cpp
 }*/
-extern bool dx_d3d9x_feature_level_11(LUID luid)
+extern bool dx_d3d9X_feature_level_11(LUID luid)
 {
 	auto CreateDXGIFactory1 = (HRESULT(WINAPI*)(REFIID,void**))
 	GetProcAddress(LoadLibraryA("dxgi.dll"),"CreateDXGIFactory1");
@@ -2334,7 +2354,7 @@ extern bool dx_d3d9x_feature_level_11(LUID luid)
 	}
 	return false;
 }
-extern int dx_d3d9x_supported(HMONITOR h) //UNIMPLEMENTED
+extern int dx_d3d9X_supported(HMONITOR h) //UNIMPLEMENTED
 {
 	assert(DDRAW::target!='dx9c');
 	/*THIS assert WON'T FIRE LIKE THIS
@@ -2349,7 +2369,7 @@ extern int dx_d3d9x_supported(HMONITOR h) //UNIMPLEMENTED
 	}
 	return 0;
 }
-static void *dx_d3d9x_dxGL_load(HMODULE dll, const char *fn)
+static void *dx_d3d9X_dxGL_load(HMODULE dll, const char *fn)
 {
 	void *f = wglGetProcAddress(fn);
 	if(!f) f = GetProcAddress(dll,fn);
@@ -2358,21 +2378,21 @@ static void *dx_d3d9x_dxGL_load(HMODULE dll, const char *fn)
 	
 	return f;
 }
-static void dx_d3d9x_dxGL_load()
+static void dx_d3d9X_dxGL_load()
 {
 	//NOTE: I had a bad time here because the debugger
 	//was showing 0 for about half (interleaved) of the
 	//global function pointers even though they weren't 0
 	HMODULE dll = GetModuleHandleA("opengl32.dll");
 	#undef X
-	#define X(f) (void*&)f = dx_d3d9x_dxGL_load(dll,#f);
+	#define X(f) (void*&)f = dx_d3d9X_dxGL_load(dll,#f);
 	DX_D3D9X_X
 	X(glPolygonMode)
 	X(glShadeModel) //UNUSED
 	X(glBindShadingRateImageNV)
 	X(glShadingRateImagePaletteNV)
 }
-static void* &dx_d3d9x_dxGL_arb(int adapter)
+static void* &dx_d3d9X_dxGL_arb(int adapter)
 {
 	static void *arb = 0; //REMOVE ME?
 	static int cmp = -1; if(cmp!=adapter)
@@ -2384,10 +2404,10 @@ static void* &dx_d3d9x_dxGL_arb(int adapter)
 	}
 	return arb;
 }
-static HGLRC dx_d3d9x_dxGL_init(int adapter)
+static HGLRC dx_d3d9X_dxGL_init(int adapter)
 {
 	//2020: I've pulled this out for xr_NOGLE_OpenGL_WIN32
-	void* &arb = dx_d3d9x_dxGL_arb(adapter);
+	void* &arb = dx_d3d9X_dxGL_arb(adapter);
 	if(arb==(void*)1) arb = 0; //PARANOIA
 
 	HDC dc = GetDC(DDRAW::window);
@@ -2448,7 +2468,7 @@ static HGLRC dx_d3d9x_dxGL_init(int adapter)
 	wglMakeCurrent(dc,c);
 
 	//2020: I've pulled this out for xr_NOGLE_OpenGL_WIN32
-	if(once) dx_d3d9x_dxGL_load();
+	if(once) dx_d3d9X_dxGL_load();
 	
 	return c;
 }
@@ -2458,7 +2478,7 @@ extern int DDRAW::stereo_status_OpenXR()
 
 	return DDRAW::xr?d->queryGL->xr->xstatus():0;
 }
-static void dx_d3d9x_vao_enable_xr(bool);
+static void dx_d3d9X_vao_enable_xr(bool);
 extern bool DDRAW::stereo_toggle_OpenXR(bool toggle)
 {
 	auto d = DDRAW::Direct3DDevice7;
@@ -2495,7 +2515,7 @@ extern bool DDRAW::stereo_toggle_OpenXR(bool toggle)
 			{
 				DDRAW::inStereo = DDRAW::xr = false;
 
-				dx_d3d9x_vao_enable_xr(false);
+				dx_d3d9X_vao_enable_xr(false);
 
 				memset(q->stereo_views,0x00,sizeof(q->stereo_views));
 			}
@@ -2516,7 +2536,7 @@ extern bool DDRAW::stereo_toggle_OpenXR(bool toggle)
 	
 	if(res){ x->xquit(); return false; } //I guess?
 
-	//subsequent calls are made by dx_d3d9x_present
+	//subsequent calls are made by dx_d3d9X_present
 	x->xwait();
 
 	resize_only: //just changing super sample size?
@@ -2563,9 +2583,9 @@ extern bool DDRAW::stereo_toggle_OpenXR(bool toggle)
 	//the effects buffers and shaders
 	//i.e. fx9_effects_buffers_require_reevaluation
 
-	dx_d3d9x_xr_discard = 30; //TESTING
+	dx_d3d9X_xr_discard = 30; //TESTING
 
-	dx_d3d9x_vao_enable_xr(true);
+	dx_d3d9X_vao_enable_xr(true);
 
 	return DDRAW::inStereo = true;
 }
@@ -2950,7 +2970,7 @@ HRESULT D3D9X::IDirect3D7<X>::CreateDevice(REFCLSID xIn, DX::LPDIRECTDRAWSURFACE
 	//me since the monitor was 8:8:8!
 	D3DFORMAT highcolor = DDRAW::do565?D3DFMT_R5G6B5:D3DFMT_X1R5G5B5;
 	D3DFORMAT fxbpp = DDRAW::bitsperpixel==16?highcolor:dx_d3d9_fxformat;*/
-	D3DFORMAT fxbpp = D3DFMT_X8R8G8B8;
+	D3DFORMAT fxbpp = D3DFMT_A8R8G8B8;
 	//I can't really see any difference... better or worse. it might be good for the
 	//brightness adjustment, to be less destructive? since it's not known what's the
 	//back-buffer format, in theory this should ensure the effects buffer isn't less
@@ -2974,7 +2994,7 @@ HRESULT D3D9X::IDirect3D7<X>::CreateDevice(REFCLSID xIn, DX::LPDIRECTDRAWSURFACE
 	//EXPERIMENTAL (FAILED)
 	//try to get a D3D backbuffer for OpenXR interop
 	//NOTE: there's more to this at the very bottom
-	//if(!X) dx_d3d9x_d3d12(this,w,h,fxbpp);
+	//if(!X) dx_d3d9X_d3d12(this,w,h,fxbpp);
 	auto d12 = DDRAW::D3D12Device;
 		
 	D3DDISPLAYMODE dm;	  
@@ -3174,7 +3194,13 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 
 	}while(out!=D3D_OK&&--pps.BackBufferCount);
 
-	if(out==D3D_OK) d->SetDialogBoxMode(TRUE);
+	if(d)
+	{
+		d->SetDialogBoxMode(TRUE);
+
+		//dx_d3d9X_SEPARATEALPHABLENDENABLE_knockout(bool e);
+		d->SetRenderState(D3DRS_COLORWRITEENABLE,7);
+	}
 					 
 	bpp = pps.BackBufferFormat;
 
@@ -3212,7 +3238,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 		int xe = 1; //2022
 		int dm = 3; //glutext::GLUT_GLES|glute::GLUT_DOUBLE
 
-		if(target=='dx95') nogle: //ANGLE?
+		if(target=='dx95') nogle: //ANGLE? //'dxGL'?
 		{
 			//try to use WGL_NV_DX_interop2?
 			//NOTE: if this fails users must use D3D9 instead
@@ -3232,10 +3258,10 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 
 			if(xr&&xe==xr_NOGLE_OpenGL_WIN32) //2022
 			{
-				//HACK: still need to do dx_d3d9x_dxGL_init but
+				//HACK: still need to do dx_d3d9X_dxGL_init but
 				//without its context creation
-				void* &arb = dx_d3d9x_dxGL_arb(queryX->adapter);
-				if(!arb) dx_d3d9x_dxGL_load();
+				void* &arb = dx_d3d9X_dxGL_arb(queryX->adapter);
+				if(!arb) dx_d3d9X_dxGL_load();
 				arb = (void*)1; //HACK
 			}
 		}
@@ -3255,7 +3281,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 
 			if(!xr) //OBSOLETE?
 			{
-				wgl = dx_d3d9x_dxGL_init(queryX->adapter);
+				wgl = dx_d3d9X_dxGL_init(queryX->adapter);
 				out = !wgl;
 			}
 					
@@ -3275,7 +3301,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 		else assert(0);
 
 		#ifdef _DEBUG
-		if(!out) glDebugMessageCallback(dx_d3d9x_glMsg_db,0);
+		if(!out) glDebugMessageCallback(dx_d3d9X_glMsg_db,0);
 		#endif
 	}
 
@@ -3323,7 +3349,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 			//don't need this if y is set to -y in the shader
 			//glFrontFace(0x0900); //GL_CW
 
-			dx_d3d9x_pipelines.reserve(16);
+			dx_d3d9X_pipelines.reserve(16);
 			
 			glGenSamplers(3,q->samplers);
 			for(int i=3;i-->0;) 
@@ -3374,7 +3400,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 		}
 
 		assert(~pps.Flags&D3DPRESENTFLAG_LOCKABLE_BACKBUFFER);
-		/*REMINDER: dx_d3d9x_backbuffer9 CAN'T WORK AT THIS STAGE
+		/*REMINDER: dx_d3d9X_backbuffer9 CAN'T WORK AT THIS STAGE
 		IDirect3DSurface9 *bbuffer = 0;
 		if(pps.Flags&D3DPRESENTFLAG_LOCKABLE_BACKBUFFER
 		&&d->GetBackBuffer(0,0,D3DBACKBUFFER_TYPE_MONO,&bbuffer)==D3D_OK)
@@ -3398,7 +3424,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 		//dx_d3d9c_rendertarget_pitch = //defaults
 		//DDRAW::BackBufferSurface7->queryX->pitch; 
 		//dx_d3d9c_rendertarget_format = bpp;
-		assert(fxbpp==bpp);
+	//	assert(fxbpp==bpp); //X8->A8
 		//dx_d3d9c_rendertarget_format = fxbpp;
 		DDRAW::mrtargets9[0] = fxbpp;
 		//2021: this now does Z+FX+MRT
@@ -3588,7 +3614,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 	if(p) DDRAW::refresh_state_dependent_shader_constants();
 
 	//setup scene or MSAA render target
-	dx_d3d9x_enableeffectsshader(DDRAW::doEffects); 
+	dx_d3d9X_enableeffectsshader(DDRAW::doEffects); 
 	
 	if(!X)
 	{
@@ -3627,23 +3653,23 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 
 	DDRAW_RETURN(out) 
 }
-static void dx_d3d9x_release_shaders(bool X)
+static void dx_d3d9X_release_shaders(bool X)
 {
 	//NOTE: I don't know if these depend on the shaders
-	if(X) for(size_t i=dx_d3d9x_pipelines.size();i-->0;)
+	if(X) for(size_t i=dx_d3d9X_pipelines.size();i-->0;)
 	{
-		GLuint x = (GLuint)(dx_d3d9x_pipelines[i]>>32);
+		GLuint x = (GLuint)(dx_d3d9X_pipelines[i]>>32);
 		glDeleteProgramPipelines(1,&x);
 	}
-	dx_d3d9x_pipelines.clear(); dx_d3d9x_pipeline = 0;
+	dx_d3d9X_pipelines.clear(); dx_d3d9X_pipeline = 0;
 
 	for(int i=0;i<DDRAW::fx;i++) //NOCLIP?
 	{
-		if(auto&ea=dx_d3d9c_pshaders2[i]) //dx_d3d9x_pshaders
+		if(auto&ea=dx_d3d9c_pshaders2[i]) //dx_d3d9X_pshaders
 		{
 			if(ea!=dx_d3d9c_pshaders[i])
 			if(X)
-			if(dx_d3d9x_shaders_are_programs)
+			if(dx_d3d9X_shaders_are_programs)
 			glDeleteProgram((GLuint)ea);
 			else glDeleteShader((GLuint)ea);
 			else ea->Release(); ea = 0;
@@ -3651,18 +3677,18 @@ static void dx_d3d9x_release_shaders(bool X)
 	}
 	for(int i=DX_ARRAYSIZEOF(dx_d3d9c_vshaders);i-->0;)
 	{
-		if(auto&ea=dx_d3d9c_vshaders[i]) //dx_d3d9x_vshaders
+		if(auto&ea=dx_d3d9c_vshaders[i]) //dx_d3d9X_vshaders
 		{
 			if(X) 
-			if(dx_d3d9x_shaders_are_programs)
+			if(dx_d3d9X_shaders_are_programs)
 			glDeleteProgram((GLuint)ea);
 			else glDeleteShader((GLuint)ea);
 			else ea->Release(); ea = 0;
 		}
-		if(auto&ea=dx_d3d9c_pshaders[i]) //dx_d3d9x_pshaders
+		if(auto&ea=dx_d3d9c_pshaders[i]) //dx_d3d9X_pshaders
 		{
 			if(X)
-			if(dx_d3d9x_shaders_are_programs)
+			if(dx_d3d9X_shaders_are_programs)
 			glDeleteProgram((GLuint)ea);
 			else glDeleteShader((GLuint)ea);
 			else ea->Release(); ea = 0;
@@ -3671,7 +3697,7 @@ static void dx_d3d9x_release_shaders(bool X)
 }
 /*REMOVE ME?
 //I think shaders can manually specify this
-static void dx_d3d9x_uniforms(int u, int p)
+static void dx_d3d9X_uniforms(int u, int p)
 {
 	if(1){ assert(0); return; } //REMOVE ME? //WIP
 
@@ -3690,9 +3716,9 @@ static void dx_d3d9x_uniforms(int u, int p)
 		glUniformBlockBinding(p,i[j],binding+j);
 	}
 }*/
-static bool dx_d3d9x_program_db(int s, const char **code)
+static bool dx_d3d9X_program_db(int s, const char **code)
 {
-	enum{ sap=dx_d3d9x_shaders_are_programs };
+	enum{ sap=dx_d3d9X_shaders_are_programs };
 
 	int i = 0; //GL_COMPILE_STATUS/GL_LINK_STATUS
 	(sap?glGetProgramiv:glGetShaderiv)(s,0x8B81+sap,&i); 
@@ -3748,7 +3774,7 @@ extern void DDRAW::vshaders9_pshaders9_require_reevaluation()
 {	
 	const bool X = DDRAW::gl;
 
-	dx_d3d9x_release_shaders(X);
+	dx_d3d9X_release_shaders(X);
 
 	assert(!X||DDRAW::pshadersGL_include);
 
@@ -3777,8 +3803,8 @@ extern void DDRAW::vshaders9_pshaders9_require_reevaluation()
 	{
 		if(X) for(int j=0;j<3;j++) //2
 		{
-			auto *nc = j==2?dx_d3d9x_pshaders2:dx_d3d9x_pshaders;
-			auto &s = (j?nc:dx_d3d9x_vshaders)[i];
+			auto *nc = j==2?dx_d3d9X_pshaders2:dx_d3d9X_pshaders;
+			auto &s = (j?nc:dx_d3d9X_vshaders)[i];
 			auto &sGL = j?psGL:vsGL;
 
 			sGL[3] = (j?DDRAW::pshadersGL:DDRAW::vshadersGL)[i];
@@ -3788,7 +3814,7 @@ extern void DDRAW::vshaders9_pshaders9_require_reevaluation()
 			{
 				if(noclip&&!strstr(sGL[3],"TEXTURE0_NOCLIP"))
 				{
-					s = dx_d3d9x_pshaders[i]; continue; 
+					s = dx_d3d9X_pshaders[i]; continue; 
 				}
 
 				sGL[4] = sGL[3];
@@ -3796,7 +3822,7 @@ extern void DDRAW::vshaders9_pshaders9_require_reevaluation()
 				sGL[2] = "#define TEXTURE0_NOCLIP \n";
 			}
 			
-			if(!dx_d3d9x_shaders_are_programs)
+			if(!dx_d3d9X_shaders_are_programs)
 			{
 				s = glCreateShader(GL_FRAGMENT_SHADER+!j);
 				glShaderSource(s,j==2?5:4,sGL,0);
@@ -3804,9 +3830,9 @@ extern void DDRAW::vshaders9_pshaders9_require_reevaluation()
 			}
 			else s = glCreateShaderProgramv(GL_FRAGMENT_SHADER+!j,j==2?5:4,sGL);
 
-			if(dx_d3d9x_program_db(s,sGL))
+			if(DX::debug&&dx_d3d9X_program_db(s,sGL))
 			{
-				//dx_d3d9x_uniforms(0,s); //REMOVE ME?
+				//dx_d3d9X_uniforms(0,s); //REMOVE ME?
 			}
 
 			if(j==2) for(int i=2;i<=4;i++)
@@ -3902,8 +3928,6 @@ extern void DDRAW::fx9_effects_buffers_require_reevaluation()
 	{
 		ww = DDRAW::PrimarySurface7->queryX->width;
 		hh = DDRAW::PrimarySurface7->queryX->height;
-
-		if(ww%2) ww++; if(hh%2) hh++; //2023: ItemEdit.exe?
 
 		DDRAW::doSuperSamplingMul(ww,hh);
 	}
@@ -4120,7 +4144,7 @@ extern void DDRAW::fx9_effects_buffers_require_reevaluation()
 		}
 	}	
 }
-extern void dx_d3d9x_enableeffectsshader(bool enable) //dx.d3d9c.cpp
+extern void dx_d3d9X_enableeffectsshader(bool enable) //dx.d3d9c.cpp
 {	
 	//FIX ME
 	//I guess this is counted on to turn on effects :(
@@ -4170,7 +4194,7 @@ extern void dx_d3d9x_enableeffectsshader(bool enable) //dx.d3d9c.cpp
 	}
 	else //disable
 	{
-		if(auto*bbuffer=dx_d3d9x_backbuffer9())
+		if(auto*bbuffer=dx_d3d9X_backbuffer9())
 		{
 			if(DDRAW::inScene) d3dd9->EndScene();
 			if(DDRAW::inScene) d3dd9->BeginScene();
@@ -4218,7 +4242,7 @@ HRESULT D3D9X::IDirect3D7<X>::CreateVertexBuffer(DX::LPD3DVERTEXBUFFERDESC x, DX
 		{
 			fvf&=~D3DFVF_XYZRHW; fvf|=D3DFVF_XYZW;
 		}
-		if(vao=dx_d3d9x_vao(fvf,sizeofFVF))
+		if(vao=dx_d3d9X_vao(fvf,sizeofFVF))
 		{
 			glGenBuffers(1,&vbo);
 			glBindBuffer(GL_ARRAY_BUFFER,vbo);
@@ -4329,13 +4353,13 @@ HRESULT D3D9X::IDirect3DDevice7<X>::Clear(DWORD x, DX::LPD3DRECT y, DWORD z, DX:
 		glEnable(GL_SCISSOR_TEST); else assert(!y);
 	}
 
-	D3DRECT buf[4];
-	for(DWORD i=0,iN=max(x,1);i<iN;i+=_countof(buf))
+	D3DRECT buf[4]; auto buf_s = _countof(buf);
+	for(DWORD i=0,iN=max(x,1);i<iN;i+=buf_s)
 	{
 		D3DRECT *src;
 		if(y&&(!DDRAW::doNothing||DDRAW::doSuperSampling))
 		{
-			for(DWORD j=0;i<x&&j<_countof(buf);j++)
+			for(DWORD j=0;i+j<iN&&j<buf_s;j++)
 			{
 				auto &temp = buf[j]; 
 				
@@ -4362,20 +4386,20 @@ HRESULT D3D9X::IDirect3DDevice7<X>::Clear(DWORD x, DX::LPD3DRECT y, DWORD z, DX:
 
 		auto yy = y?src:0;
 
-		DWORD xx = y?min(x-i,_countof(buf)):0;
+		int xx = y?min(iN-i,buf_s):1;
 
-		for(DWORD k=X?max(1,xx):1;k-->0;yy++)
+		for(int k=xx;k-->0;yy+=X?1:buf_s)
 		{
-			if(X) if(y)
+			if(!X) k-=buf_s-1; else if(y)
 			{
 				glScissor(yy->x1,hh-yy->y2,yy->x2-yy->x1,yy->y2-yy->y1);
 			}
 			else if(!DDRAW::xr) //2022: emulate D3D
 			{
-				int x1 = dx_d3d9x_gl_viewport[0];
-				int x2 = dx_d3d9x_gl_viewport[2]+x1;
-				int y1 = dx_d3d9x_gl_viewport[1];
-				int y2 = dx_d3d9x_gl_viewport[3]+y1;
+				int x1 = dx_d3d9X_gl_viewport[0];
+				int x2 = dx_d3d9X_gl_viewport[2]+x1;
+				int y1 = dx_d3d9X_gl_viewport[1];
+				int y2 = dx_d3d9X_gl_viewport[3]+y1;
 				glScissor(x1,hh-y2,x2-x1,y2-y1);
 			}
 
@@ -4385,7 +4409,10 @@ HRESULT D3D9X::IDirect3DDevice7<X>::Clear(DWORD x, DX::LPD3DRECT y, DWORD z, DX:
 				{
 					glClear(zGL); out = D3D_OK; //ERROR?
 				}
-				else out = proxy9->Clear(xx,yy,z,w,q,r);
+				else
+				{
+					out = proxy9->Clear(xx,yy,z,w,q,r);
+				}
 			}
 			else if(X) //if(2==DDRAW::doClearMRT) //2021
 			{
@@ -4458,7 +4485,7 @@ HRESULT D3D9X::IDirect3DDevice7<X>::Clear(DWORD x, DX::LPD3DRECT y, DWORD z, DX:
 
 				proxy9->SetViewport(&vp);
 			}
-			/*else //draw fullscreen quad //dx_d3d9x_clearshader?
+			/*else //draw fullscreen quad //dx_d3d9X_clearshader?
 			{		
 				//// see dx.d3d9c.cpp for removed algoritm ////
 			}*/	
@@ -4467,9 +4494,8 @@ HRESULT D3D9X::IDirect3DDevice7<X>::Clear(DWORD x, DX::LPD3DRECT y, DWORD z, DX:
 
 	//Direct3D7 doesn't have a scissor (D3D9 does)
 	//glScissor(sc[0],sc[1],sc[2],sc[3]);
-	if(X)
+	if(X&&!DDRAW::xr) //HACK
 	{
-		if(!DDRAW::xr) //HACK
 		glDisable(GL_SCISSOR_TEST);
 	}
 
@@ -4487,7 +4513,7 @@ HRESULT D3D9X::IDirect3DDevice7<X>::GetViewport(DX::LPD3DVIEWPORT7 x)
 	
 	if(!x) DDRAW_RETURN(!D3D_OK)
 
-	HRESULT out = dx_d3d9x_viewport(X,*(D3DVIEWPORT9*)x,this);
+	HRESULT out = dx_d3d9X_viewport(X,*(D3DVIEWPORT9*)x,this);
 	
 	if(x&&DDRAW::doSuperSampling) //EXPERIMENTAL
 	{
@@ -4564,7 +4590,7 @@ HRESULT D3D9X::IDirect3DDevice7<X>::SetViewport(DX::LPD3DVIEWPORT7 x)
 	if(X)
 	{
 		//2022: OpenXR doesn't maintain SetViewport
-		memcpy(dx_d3d9x_gl_viewport,&x->dwX,sizeof(int)*4);
+		memcpy(dx_d3d9X_gl_viewport,&x->dwX,sizeof(int)*4);
 
 		glViewport(x->dwX,x->dwY,x->dwWidth,x->dwHeight);
 		glDepthRangef(x->dvMinZ,x->dvMaxZ);
@@ -4713,9 +4739,9 @@ HRESULT D3D9X::IDirect3DDevice7<X>::GetRenderState(DX::D3DRENDERSTATETYPE x, LPD
 
 	#undef CASE_
 }
-static DWORD dx_d3d9x_drawprims_static(bool X, DWORD y, LPVOID z, DWORD w)
+static DWORD dx_d3d9X_drawprims_static(bool X, DWORD y, LPVOID z, DWORD w)
 {	
-	dx_d3d9x_flushaders();
+	dx_d3d9X_flushaders();
 	dx_d3d9c_level(dx_d3d9c_pshaders_noclip[DDRAW::ps]); //???
 
 	//WARNING! overwriting input buffer
@@ -4736,7 +4762,7 @@ static DWORD dx_d3d9x_drawprims_static(bool X, DWORD y, LPVOID z, DWORD w)
 		// aren't quads and they don't appear onscreen (possibly because this
 		// destroys its vertices)
 		//
-		assert(w<=4);
+	//	assert(w<=4);
 
 		y&=~D3DFVF_XYZRHW; y|=D3DFVF_XYZW;
 
@@ -4782,24 +4808,24 @@ template<int X>
 HRESULT D3D9X::IDirect3DDevice7<X>::drawprims(DX::D3DPRIMITIVETYPE x, DWORD y, LPVOID z, DWORD w, LPWORD zi, DWORD wi)
 {
 	//TODO: modify both y/z by reference
-	y = dx_d3d9x_drawprims_static(X,y,z,w);
-	//body is moved out so dx_d3d9x_backblt can make use of it
+	y = dx_d3d9X_drawprims_static(X,y,z,w);
+	//body is moved out so dx_d3d9X_backblt can make use of it
 	return D3D9X::IDirect3DDevice7<X>::drawprims2(x,y,z,w,zi,wi);
 }
-static HRESULT dx_d3d9x_ibuffer(GLuint &ib, DWORD r, LPWORD q)
+static HRESULT dx_d3d9X_ibuffer(GLuint &ib, DWORD r, LPWORD q)
 {
 	int &i = dx_d3d9c_ibuffer_i; assert(!dx_d3d9c_immediate_mode);
 
 	i = ++i%D3D9C::ibuffersN;
-	UINT &s = dx_d3d9c_ibuffers_s[i]; if(s<r||!dx_d3d9x_ibuffers[i])
+	UINT &s = dx_d3d9c_ibuffers_s[i]; if(s<r||!dx_d3d9X_ibuffers[i])
 	{						
-		if(!dx_d3d9x_ibuffers[i]) 
-		glGenBuffers(1,dx_d3d9x_ibuffers+i);		
+		if(!dx_d3d9X_ibuffers[i]) 
+		glGenBuffers(1,dx_d3d9X_ibuffers+i);		
 		s = max(s*3/2,max(r,4096));
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,dx_d3d9x_ibuffers[i]);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,dx_d3d9X_ibuffers[i]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER,s*2,0,GL_STREAM_DRAW);
 	}	
-	ib = dx_d3d9x_ibuffers[i]; 	
+	ib = dx_d3d9X_ibuffers[i]; 	
 	/*WORD buf[4]; if(!q) //glMapBufferRange?
 	{
 		if(r<=4)
@@ -4813,37 +4839,37 @@ static HRESULT dx_d3d9x_ibuffer(GLuint &ib, DWORD r, LPWORD q)
 	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER,0,r*2,q);
 	return D3D_OK; //ERROR
 }
-static HRESULT dx_d3d9x_vbuffer(GLuint &vb, DWORD qN, LPVOID q)
+static HRESULT dx_d3d9X_vbuffer(GLuint &vb, DWORD qN, LPVOID q)
 {
 	int &i = dx_d3d9c_vbuffer_i; assert(!dx_d3d9c_immediate_mode);
 
 	i = ++i%D3D9C::ibuffersN;
-	UINT &s = dx_d3d9c_vbuffers_s[i]; if(s<qN||!dx_d3d9x_vbuffers[i])
+	UINT &s = dx_d3d9c_vbuffers_s[i]; if(s<qN||!dx_d3d9X_vbuffers[i])
 	{						
-		if(!dx_d3d9x_vbuffers[i]) 		
-		glGenBuffers(1,dx_d3d9x_vbuffers+i);		
+		if(!dx_d3d9X_vbuffers[i]) 		
+		glGenBuffers(1,dx_d3d9X_vbuffers+i);		
 		s = max(s*3/2,max(qN,4096));
-		glBindBuffer(GL_ARRAY_BUFFER,dx_d3d9x_vbuffers[i]);
+		glBindBuffer(GL_ARRAY_BUFFER,dx_d3d9X_vbuffers[i]);
 		glBufferData(GL_ARRAY_BUFFER,s,0,GL_STREAM_DRAW);
 	}	
-	vb = dx_d3d9x_vbuffers[i];
+	vb = dx_d3d9X_vbuffers[i];
 	glBindBuffer(GL_ARRAY_BUFFER,vb);
 	glBufferSubData(GL_ARRAY_BUFFER,0,qN,q);
 	return D3D_OK; //ERROR
 }
-static std::vector<QWORD> dx_d3d9x_varrays;
-static GLuint dx_d3d9x_vao(DWORD fvf, GLsizei s)
+static std::vector<QWORD> dx_d3d9X_varrays;
+static GLuint dx_d3d9X_vao(DWORD fvf, GLsizei s)
 {		
-	for(size_t i=dx_d3d9x_varrays.size();i-->0;)
+	for(size_t i=dx_d3d9X_varrays.size();i-->0;)
 	{
-		auto &ea = dx_d3d9x_varrays[i];
+		auto &ea = dx_d3d9X_varrays[i];
 		if((ea&~0u)==fvf)
 		return (GLuint)(ea>>32); //hit!
 	}
 	GLuint vao = 0;
 	glGenVertexArrays(1,&vao);
 	QWORD hash = fvf|(QWORD)vao<<32;
-	dx_d3d9x_varrays.push_back(hash); //miss
+	dx_d3d9X_varrays.push_back(hash); //miss
 	
 	glBindVertexArray(vao);
 
@@ -4877,7 +4903,7 @@ static GLuint dx_d3d9x_vao(DWORD fvf, GLsizei s)
 	if(fvf&D3DFVF_RESERVED1)
 	{
 		//NOTE: for OpenXR this can plug a hole where
-		//D3DFVF_XYZRHW makes dx_d3d9x_drawprims_static
+		//D3DFVF_XYZRHW makes dx_d3d9X_drawprims_static
 		//map screen coordinates to viewport coordinates
 		//som_hacks_DrawPrimitive is trying this out since
 		//D3DFVF_XYZW is currently taken as D3DFVF_XYZWRHW
@@ -4943,9 +4969,9 @@ static GLuint dx_d3d9x_vao(DWORD fvf, GLsizei s)
 	}
 	return vao;
 }
-static void dx_d3d9x_vao_enable_xr(bool how)
+static void dx_d3d9X_vao_enable_xr(bool how)
 {
-	auto &va = dx_d3d9x_varrays;		
+	auto &va = dx_d3d9X_varrays;		
 	for(auto i=va.size();i-->0;)
 	{
 		GLuint vao = va[i]>>32;
@@ -4985,16 +5011,16 @@ HRESULT D3D9X::IDirect3DDevice7<X>::drawprims2(DX::D3DPRIMITIVETYPE x, DWORD y, 
 		//https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindBuffer.xhtml
 		GLuint ib = 0, vb = 0; if(z)
 		{
-			out = dx_d3d9x_vbuffer(vb,vN*sizeofFVF,z);
-			//dx_d3d9x_ibuffer has to bind the elements
+			out = dx_d3d9X_vbuffer(vb,vN*sizeofFVF,z);
+			//dx_d3d9X_ibuffer has to bind the elements
 			//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,ib);
-			glBindVertexArray(dx_d3d9x_vao(y,sizeofFVF));
+			glBindVertexArray(dx_d3d9X_vao(y,sizeofFVF));
 			glBindVertexBuffer(0,vb,0,sizeofFVF);
 		}
 
 		if(zi)
 		{
-			out = dx_d3d9x_ibuffer(ib,wi,zi); //binds to VAO		
+			out = dx_d3d9X_ibuffer(ib,wi,zi); //binds to VAO		
 			out = D3D_OK; //ERROR?
 		}
 
@@ -5235,7 +5261,7 @@ HRESULT D3D9X::IDirect3DDevice7<X>::DrawIndexedPrimitiveVB(DX::D3DPRIMITIVETYPE 
 			
 	UINT stride = p->queryX->sizeofFVF;
 
-	//2021: dx_d3d9x_drawprims_static needs to modify XYZW
+	//2021: dx_d3d9X_drawprims_static needs to modify XYZW
 	assert(D3DFVF_XYZ==(p->queryX->FVF&D3DFVF_POSITION_MASK));
 
 	//TODO? It's probably better to just use
@@ -5351,7 +5377,7 @@ HRESULT D3D9X::IDirect3DDevice7<X>::SetTexture(DWORD x, DX::LPDIRECTDRAWSURFACE7
 		DDRAW::TextureSurface7[0] = 0;
 
 		/*discontinuing this in favor of TEXTURE0_NOCLIP
-		dx_d3d9x_psconstant(DDRAW::psColorkey,0.0f,'w');
+		dx_d3d9X_psconstant(DDRAW::psColorkey,0.0f,'w');
 		*/
 
 		if(X)
@@ -5385,14 +5411,14 @@ HRESULT D3D9X::IDirect3DDevice7<X>::SetTexture(DWORD x, DX::LPDIRECTDRAWSURFACE7
 
 	/*discontinuing this in favor of TEXTURE0_NOCLIP
 	float ck = out==D3D_OK?(p->queryX->knockouts&&dx_d3d9c_colorkeyenable?1.0f:0.0f):0.0f; //colorkey
-	if(DDRAW::psColorkey) dx_d3d9x_psconstant(DDRAW::psColorkey,ck,'w');
+	if(DDRAW::psColorkey) dx_d3d9X_psconstant(DDRAW::psColorkey,ck,'w');
 	*/
 
 	if(DDRAW::psTextureState) //2022
 	{
 		float ts[4] = {p->queryX->width,p->queryX->height};
 		ts[2] = 1/ts[0]; ts[3] = 1/ts[1];
-		dx_d3d9x_psconstant(DDRAW::psTextureState,ts);
+		dx_d3d9X_psconstant(DDRAW::psTextureState,ts);
 	}
 
 	DDRAW_POP_HACK(DIRECT3DDEVICE7_SETTEXTURE,IDirect3DDevice7*,
@@ -5644,7 +5670,7 @@ HRESULT D3D9X::IDirect3DVertexBuffer7<X>::Unlock()
 //              PROCEDURAL INTERFACE                  //
 ////////////////////////////////////////////////////////
 
-extern void dx_d3d9x_register()
+extern void dx_d3d9X_register()
 {
 	DDRAW::ff = false;
 	DDRAW::gl = false; switch(DDRAW::target)
@@ -5677,7 +5703,8 @@ static void __stdcall dx_d3d9X_glPolygonMode_nop(GLenum,GLenum){}
 static void __stdcall dx_d3d9X_glShadeModel_nop(GLenum){} //UNUSED
 extern int D3D9X::is_needed_to_initialize()
 {
-	static int one_off = 0; if(one_off++) return one_off; //??? 
+	static int one_off = 0; 
+	if(one_off) return one_off; one_off = 1; //??? 
 
 	//this library is intended for x86 only, but anyway the
 	//GLuint handles need to overlap with Direct3D pointers
@@ -5727,7 +5754,7 @@ extern int D3D9X::is_needed_to_initialize()
 		#endif
 	}
 
-	dx_d3d9x_register(); //DirectDrawCreateEx
+	dx_d3d9X_register(); //DirectDrawCreateEx
 	
 	const char *msg = 0; switch(DDRAW::target)
 	{
@@ -5762,6 +5789,8 @@ extern void dx_d3d9X_updating_texture2(DDRAW::IDirectDrawSurface7 *p, int x, int
 
 	if(!teX)
 	{
+		if(D3DFMT_A8==p->queryX->format) sfmt = GL_R8;
+
 		glGenTextures(1,&teX);
 		glBindTexture(GL_TEXTURE_2D,teX); //HOOK
 		glTexStorage2D(GL_TEXTURE_2D,lvs,sfmt,q->width,q->height);
@@ -5780,6 +5809,8 @@ extern void dx_d3d9X_updating_texture2(DDRAW::IDirectDrawSurface7 *p, int x, int
 		{			
 			D3DSURFACE_DESC desc; pp->GetDesc(&desc);
 
+			auto f = desc.Format==D3DFMT_A8?GL_RED:GL_RGBA; //GL_R8
+
 			//GL_ARB_clip_control?
 			//interesting article?
 			//https://developer.nvidia.com/content/depth-precision-visualized
@@ -5788,8 +5819,8 @@ extern void dx_d3d9X_updating_texture2(DDRAW::IDirectDrawSurface7 *p, int x, int
 			// OR? maybe they cancel out?
 			//
 			//kooky OpenGL... ANGLE says texture is immutable (glTexStorage2D)
-			//glTexImage2D(GL_TEXTURE_2D,lv,sfmt,desc.Width,desc.Height,0,GL_RGBA,GL_UNSIGNED_BYTE,lock.pBits);
-			glTexSubImage2D(GL_TEXTURE_2D,lv,x,y,desc.Width,desc.Height,GL_RGBA,GL_UNSIGNED_BYTE,lock.pBits);
+			//glTexImage2D(GL_TEXTURE_2D,lv,sfmt,desc.Width,desc.Height,0,f,GL_UNSIGNED_BYTE,lock.pBits);
+			glTexSubImage2D(GL_TEXTURE_2D,lv,x,y,desc.Width,desc.Height,f,GL_UNSIGNED_BYTE,lock.pBits);
 
 			pp->UnlockRect(); x/=2; y/=2; //BltAtlasTexture
 		}
@@ -5819,7 +5850,7 @@ extern bool D3D9X::updating_texture(DDRAW::IDirectDrawSurface7 *p, int force)
 }
 
 template<typename T>
-static inline void dx_d3d9x_vsconstant_t(int reg, const T &set, int mode)
+static inline void dx_d3d9X_vsconstant_t(int reg, const T &set, int mode)
 {
 	auto p = DDRAW::Direct3DDevice7; if(reg<=0||!p) return;
 	
@@ -5906,29 +5937,29 @@ static inline void dx_d3d9x_vsconstant_t(int reg, const T &set, int mode)
 
 	assert(ok==D3D_OK);
 }
-extern void dx_d3d9x_vsconstant(int reg,const DX::D3DCOLORVALUE &set, int mode) //1
+extern void dx_d3d9X_vsconstant(int reg,const DX::D3DCOLORVALUE &set, int mode) //1
 {
-	return dx_d3d9x_vsconstant_t(reg,set.r,mode);
+	return dx_d3d9X_vsconstant_t(reg,set.r,mode);
 }
-extern void dx_d3d9x_vsconstant(int reg, const D3DMATRIX &set, int mode) //4
+extern void dx_d3d9X_vsconstant(int reg, const D3DMATRIX &set, int mode) //4
 {
-	return dx_d3d9x_vsconstant_t(reg,set._11,mode);
+	return dx_d3d9X_vsconstant_t(reg,set._11,mode);
 }
-extern void dx_d3d9x_vsconstant(int reg, const float &set, int mode)
+extern void dx_d3d9X_vsconstant(int reg, const float &set, int mode)
 {
-	return dx_d3d9x_vsconstant_t(reg,set,mode);
+	return dx_d3d9X_vsconstant_t(reg,set,mode);
 }
-extern void dx_d3d9x_vsconstant(int reg, const DWORD &set, int mode)
+extern void dx_d3d9X_vsconstant(int reg, const DWORD &set, int mode)
 {
-	return dx_d3d9x_vsconstant_t(reg,set,mode);
+	return dx_d3d9X_vsconstant_t(reg,set,mode);
 }
-extern void dx_d3d9x_vsconstant(int reg, const float *set, int mode) //1
+extern void dx_d3d9X_vsconstant(int reg, const float *set, int mode) //1
 {
-	return dx_d3d9x_vsconstant_t(reg,*set,mode);
+	return dx_d3d9X_vsconstant_t(reg,*set,mode);
 }
 extern void DDRAW::vset9(float *f, int registers, int c)
 {	
-	//dx_d3d9x_vsconstant(c,f,registers);
+	//dx_d3d9X_vsconstant(c,f,registers);
 
 	if(auto*p=DDRAW::Direct3DDevice7) switch(p->target)
 	{	
@@ -5969,7 +6000,7 @@ extern void DDRAW::vset9(int *i, int registers, int c)
 	assert(ok==D3D_OK);
 }
 template<typename T>
-static inline void dx_d3d9x_psconstant_t(int reg, const T &set, int mode)
+static inline void dx_d3d9X_psconstant_t(int reg, const T &set, int mode)
 {
 	auto p = DDRAW::Direct3DDevice7; if(!reg||!p) return;
 
@@ -6056,21 +6087,21 @@ static inline void dx_d3d9x_psconstant_t(int reg, const T &set, int mode)
 
 	assert(ok==D3D_OK);
 }
-extern void dx_d3d9x_psconstant(int reg, const float &set, int mode)
+extern void dx_d3d9X_psconstant(int reg, const float &set, int mode)
 {
-	return dx_d3d9x_psconstant_t(reg,set,mode);
+	return dx_d3d9X_psconstant_t(reg,set,mode);
 }
-extern void dx_d3d9x_psconstant(int reg, const DWORD &set, int mode)
+extern void dx_d3d9X_psconstant(int reg, const DWORD &set, int mode)
 {
-	return dx_d3d9x_psconstant_t(reg,set,mode);
+	return dx_d3d9X_psconstant_t(reg,set,mode);
 }
-extern void dx_d3d9x_psconstant(int reg, const float *set, int mode) //1
+extern void dx_d3d9X_psconstant(int reg, const float *set, int mode) //1
 {
-	return dx_d3d9x_psconstant_t(reg,*set,mode);
+	return dx_d3d9X_psconstant_t(reg,*set,mode);
 }
 extern void DDRAW::pset9(float *f, int registers, int c)
 {	
-	//dx_d3d9x_psconstant(c,f,registers);
+	//dx_d3d9X_psconstant(c,f,registers);
 
 	if(auto*p=DDRAW::Direct3DDevice7) switch(p->target)
 	{	
@@ -6210,7 +6241,7 @@ void DDRAW::IDirect3DDevice::QueryGL::UniformBlock::flush(int ubo)
 
 	//NOTE: from what I've read online small updates might be
 	//fine, but I don't trust it for reading from the buffers
-	//when dx_d3d9x_vs/psconstant_t update a single component
+	//when dx_d3d9X_vs/psconstant_t update a single component
 
 	os = l6+chunk+chunk; sz = 0; 
 
@@ -6234,13 +6265,13 @@ void DDRAW::IDirect3DDevice::QueryGL::UniformBlock::flush(int ubo)
 	if(sz) glBufferSubData(GL_UNIFORM_BUFFER,os*4,sz*4,p+os);
 }		
 
-extern void dx_d3d9x_resetdevice() //dx.d3d9c.cpp
+extern void dx_d3d9X_resetdevice() //dx.d3d9c.cpp
 {
 	const bool X = DDRAW::gl;
 
 	dx_d3d9c_vstransform(~0);
 
-	if(dx_d3d9c_bltstate) //dx_d3d9x_bltstate?
+	if(dx_d3d9c_bltstate) //dx_d3d9X_bltstate?
 	{
 		if(!X) dx_d3d9c_bltstate->Release();
 
@@ -6252,20 +6283,20 @@ extern void dx_d3d9x_resetdevice() //dx.d3d9c.cpp
 	{
 		if(auto*x=dx_d3d9c_ibuffers[i]) x->Release(); 
 	}
-	else glDeleteBuffers(D3D9C::ibuffersN,dx_d3d9x_ibuffers);
+	else glDeleteBuffers(D3D9C::ibuffersN,dx_d3d9X_ibuffers);
 	memset(dx_d3d9c_ibuffers,0x00,sizeof(dx_d3d9c_ibuffers));
 	memset(dx_d3d9c_ibuffers_s,0x00,sizeof(dx_d3d9c_ibuffers_s));
 	if(!X) for(int i=D3D9C::ibuffersN;i-->0;)
 	{
 		if(auto*x=dx_d3d9c_vbuffers[i]) x->Release();
 	}
-	else glDeleteBuffers(D3D9C::ibuffersN,dx_d3d9x_vbuffers);
+	else glDeleteBuffers(D3D9C::ibuffersN,dx_d3d9X_vbuffers);
 	memset(dx_d3d9c_vbuffers,0x00,sizeof(dx_d3d9c_vbuffers));
 	memset(dx_d3d9c_vbuffers_s,0x00,sizeof(dx_d3d9c_vbuffers_s));
 	
 	if(X)
 	{
-		auto &va = dx_d3d9x_varrays;		
+		auto &va = dx_d3d9X_varrays;		
 		for(auto i=va.size();i-->0;)
 		{
 			GLuint vao = va[i]>>32;
@@ -6277,7 +6308,7 @@ extern void dx_d3d9x_resetdevice() //dx.d3d9c.cpp
 	
 	dx_d3d9c_effectsshader_enable = false;
 
-	dx_d3d9x_release_shaders(X); //dx_d3d9x_pipelines
+	dx_d3d9X_release_shaders(X); //dx_d3d9X_pipelines
 		
 	if(dx_d3d9c_alphasurface) dx_d3d9c_alphasurface->Release();
 	if(dx_d3d9c_alphatexture) dx_d3d9c_alphatexture->Release();
@@ -6294,7 +6325,7 @@ extern void dx_d3d9x_resetdevice() //dx.d3d9c.cpp
 
 	DDRAW::inScene = false;
 
-	dx_d3d9c_alphablendenable = false; //???
+//	dx_d3d9c_alphablendenable = false; //???
 	dx_d3d9c_colorkeyenable = true;
 
 	for(int i=0;i<8;i++) DDRAW::TextureSurface7[i] = 0;
@@ -6355,7 +6386,7 @@ void DDRAW::IDirect3DDevice::QueryGL::StateBlock::apply_nanovg()
 	//https://github.com/memononen/nanovg#opengl-state-touched-by-the-backend
 	
 	//glUseProgram(prog);
-	dx_d3d9x_pipeline = 0; //dirty cache
+	dx_d3d9X_pipeline = 0; //dirty cache
 
 	//glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 	srcblend = D3DBLEND_SRCALPHA;
@@ -6382,7 +6413,7 @@ void DDRAW::IDirect3DDevice::QueryGL::StateBlock::apply_nanovg()
 	//glBindTexture(GL_TEXTURE_2D,0);
 	if(DDRAW::TextureSurface7[0])
 	{
-		//dx_d3d9x_psconstant(DDRAW::psColorkey,0.0f,'w');
+		//dx_d3d9X_psconstant(DDRAW::psColorkey,0.0f,'w');
 		DDRAW::TextureSurface7[0] = 0;
 	}
 }
@@ -6391,6 +6422,7 @@ extern void DDRAW::xr_depth_clamp(bool e)
 	if(DDRAW::xr) (e?glEnable:glDisable)(GL_DEPTH_CLAMP);
 	else assert(0);
 }
+static bool dx_d3d9X_SEPARATEALPHABLENDENABLE_00 = false;
 void DDRAW::IDirect3DDevice::QueryGL::StateBlock::apply(const StateBlock &cmp)const
 {
 	//NOTE: I'd like some methods to set these directly
@@ -6498,7 +6530,11 @@ void DDRAW::IDirect3DDevice::QueryGL::StateBlock::apply(const StateBlock &cmp)co
 				//no deprecation note? D3DBLEND_INVSRCALPHA/D3DBLEND_SRCALPHA 
 			//case D3DBLEND_BOTHINVSRCALPHA: d = GL_SRC_ALPHA; break; //goto?
 			};	
-			glBlendFunc(s,d);
+			if(dx_d3d9X_SEPARATEALPHABLENDENABLE_00) //2024: som_scene_swing?
+			{			
+				glBlendFuncSeparate(s,d,GL_ZERO,GL_ZERO);
+			}
+			else glBlendFunc(s,d);
 		}
 		cp.blend_mask = cmp.blend_mask; //OPTIMIZING?
 		if(cp.dword==cmp.dword) return;
@@ -6614,5 +6650,29 @@ void DDRAW::IDirect3DDevice::QueryGL::StateBlock::apply(const StateBlock &cmp)co
 			//OpenGL ES doesn't support this
 			glShadeModel(0x1D00+cp.shademode); //GL_FLAT/GL_SMOOTH
 		}
+	}
+}
+
+extern void dx_d3d9X_SEPARATEALPHABLENDENABLE_knockout(bool e) //2024
+{
+	auto *d = DDRAW::Direct3DDevice7;
+
+	dx_d3d9X_SEPARATEALPHABLENDENABLE_00 = e;
+
+	if(DDRAW::gl) //call glBlendFuncSeparate
+	{
+		auto &st = d->queryGL->state, cmp = st;
+
+		cmp.blend_mask = ~st.blend_mask; st.apply(cmp);
+	}
+	else if(DDRAW::compat=='dx9c')
+	{
+		//note: separate still writes to alpha when not blending
+		d->proxy9->SetRenderState(D3DRS_COLORWRITEENABLE,e?0xf:7);
+		//callers must do this through DDRAW::Direct3DDevice7
+		//d->SetRenderState(DX::D3DRENDERSTATE_ALPHABLENDENABLE,e); //YUCK
+		d->proxy9->SetRenderState(D3DRS_SEPARATEALPHABLENDENABLE,e);
+		d->proxy9->SetRenderState(D3DRS_SRCBLENDALPHA,D3DBLEND_ZERO);
+		d->proxy9->SetRenderState(D3DRS_DESTBLENDALPHA,e?D3DBLEND_ZERO:D3DBLEND_DESTALPHA);
 	}
 }

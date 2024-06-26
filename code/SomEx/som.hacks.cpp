@@ -240,6 +240,11 @@ static void *som_hacks_GetDeviceState(HRESULT*,DINPUT::IDirectInputDeviceA*,DWOR
 
 static void *som_hacks_CreateSurface7(HRESULT*,DDRAW::IDirectDraw7*,DX::LPDDSURFACEDESC2&,DX::LPDIRECTDRAWSURFACE7*&,IUnknown*&);
 
+static void *som_hacks_Lock(HRESULT*hr,DDRAW::IDirect3DVertexBuffer7*in,DWORD&x,LPVOID*&y,LPDWORD&z)
+{
+	x&=~DDLOCK_DISCARDCONTENTS; return 0; //better performance
+}
+
 template<typename T> 
 inline void *som_hacks_queryinterface_hack(void *(*f)(HRESULT*,T*,REFIID,LPVOID*&)){ return f; }
 
@@ -387,9 +392,9 @@ extern void SOM::kickoff_somhacks_thread()
 	//some experiments and there is vbuffer-less code in som_db.exe)
 	DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_DRAWINDEXEDPRIMITIVE_HACK,som_hacks_DrawIndexedPrimitive);
 
-	/*disabling som.keys.h
-	if(op->do_mipmaps&&DDRAW::compat=='dx9c') //experimental: texture key registration
-	DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_SETTEXTURE_HACK,som_hacks_SetTexture);*/
+	//disabling som.keys.h
+//	if(op->do_mipmaps&&DDRAW::compat=='dx9c') //experimental: texture key registration
+	DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_SETTEXTURE_HACK,som_hacks_SetTexture);
 
 //	if(op->do_mipmaps&&DDRAW::compat=='dx9c') //experimental: texture key registration
 	DDRAW::hack_interface(DDRAW::DIRECT3DDEVICE7_SETTEXTURESTAGESTATE_HACK,som_hacks_SetTextureStageState);
@@ -399,6 +404,8 @@ extern void SOM::kickoff_somhacks_thread()
 
 	//2021: adjusting maximum batch size (mode 3 only for now)
 	DDRAW::hack_interface(DDRAW::DIRECT3D7_CREATEVERTEXBUFFER_HACK,som_hacks_CreateVertexBuffer);
+
+	DDRAW::hack_interface(DDRAW::DIRECT3DVERTEXBUFFER7_LOCK_HACK,som_hacks_Lock);
 		
 	//DUPLICATE
 	//
@@ -476,7 +483,7 @@ static DWORD WINAPI som_hacks_thread_main(void* attachtid)
 	if(!SetThreadPriority(GetCurrentThread(),GetThreadPriority(ot))) assert(0);
 	CloseHandle(ot);
 
-	DWORD timeout = 250; //quarter of a second
+	DWORD timeout = 250; //qu9arter of a second
 
 	EX::INI::Window wn;
 	EX::INI::Option op; EX::INI::Detail dt;
@@ -715,6 +722,7 @@ static int som_hacks_vs_(int)
 	//	DDRAW::vshadersGL[8] = SOM::VS<>::shader(SOM::Shader::classic_volume);
 		DDRAW::vshadersGL[8] = n?DDRAW::vshadersGL[3]:0;
 		DDRAW::vshadersGL[6] = SOM::VS<>::shader(SOM::Shader::classic_backdrop);		
+		if(!DDRAW::doFlipEx)
 		DDRAW::vshadersGL[16] = SOM::VS<>::shader(SOM::Shader::effects);
 
 		//full screen fill shader (SHADER_INDEX) for VR
@@ -977,7 +985,8 @@ static int som_hacks_ps_(int)
 		DDRAW::pshadersGL[8] = SOM::PS<>::shader(SOM::Shader::classic_volume);
 		DDRAW::pshadersGL[3] = SOM::PS<>::shader(SOM::Shader::classic_blended);		
 		DDRAW::pshadersGL[5] = SOM::PS<>::shader(SOM::Shader::classic_sprite);
-		DDRAW::pshadersGL[6] = SOM::PS<>::shader(SOM::Shader::classic_backdrop);		
+		DDRAW::pshadersGL[6] = SOM::PS<>::shader(SOM::Shader::classic_backdrop);
+		if(!DDRAW::doFlipEx)
 		DDRAW::pshadersGL[16] = SOM::PS<>::shader(SOM::Shader::effects);
 		//if(DDRAW::xr)
 		som_hacks_d3d11::ps = SOM::PS<>::shader(SOM::Shader::effects_d3d11);
@@ -1251,7 +1260,7 @@ static void *som_hacks_CreateSurface4(HRESULT*hr, DDRAW::IDirectDraw4*in, DX::LP
 			x->dwWidth = x->dwHeight = 256*
 			EX::INI::Editor()->texture_subsamples;
 
-			int todolist[SOMEX_VNUMBER<=0x1020504UL];
+			int todolist[SOMEX_VNUMBER<=0x1020602UL];
 			//NOTE: this still covers 0~7 for 32-bit textures, it's
 			//always been that way... can't think why it should be
 			//so. 2021: I've changed the colorkey to 0~0 except for
@@ -1531,6 +1540,9 @@ static void *som_hacks_SetCooperativeLevel(HRESULT*, DDRAW::IDirectDraw7*, HWND 
 		EX::capturing_cursor();
 		EX::clipping_cursor(SOM::cursorX,SOM::cursorY);
 	}
+	
+	if(SOM::game&&!SOM::retail)
+	SOM::PARAM::kickoff_write_monitoring_thread(EX::display());
 
 	return 0;
 }
@@ -1960,7 +1972,7 @@ extern void *som_hacks_SetDisplayMode(HRESULT*hr,DDRAW::IDirectDraw7*,DWORD&x,DW
 		//if(&EX::INI::Bitmap()->bitmap_ambient) 
 		{
 			extern DWORD som_scene_ambient2;
-			if(som_scene_ambient2) som_scene_ambient2 = -1;
+			if(som_scene_ambient2) som_scene_ambient2 = 1;
 		}
 
 	if(fullscreen_2019) fullscreen = true; //YUCK
@@ -2662,9 +2674,9 @@ static void *som_hacks_Flip(HRESULT*hr,DDRAW::IDirectDrawSurface7*in, DX::LPDIRE
 	return som_hacks_Flip;
 }
 
-static void som_hacks_shadowfog(DDRAW::IDirectDrawSurface7*);
+extern void som_hacks_shadowfog(DDRAW::IDirectDrawSurface7*);
 static void *som_hacks_SetColorKey(HRESULT *hr, DDRAW::IDirectDrawSurface7 *p, DWORD &x, DX::LPDDCOLORKEY&y)
-{		
+{
 	assert(DDRAW::compat=='dx9c'); //REMINDER
 
 	if(!hr)
@@ -2685,7 +2697,7 @@ static void *som_hacks_SetColorKey(HRESULT *hr, DDRAW::IDirectDrawSurface7 *p, D
 		}
 		else if(p==*(void**)0x1D3D2F0) //kage.mdl?
 		{
-			if(EX::INI::Option()->do_alphafog)
+			//if(EX::INI::Option()->do_alphafog)
 			{
 				x = 0; som_hacks_shadowfog(p);
 			}			
@@ -3022,7 +3034,7 @@ static void *som_hacks_BeginScene(HRESULT*,DDRAW::IDirect3DDevice7*)
 {	
 	if(!SOM::field) return 0; //2022
 
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	/*2022: this is causing a glitch on the first frame after 
 	//changing maps???
 	//NOTE: som_hacks_onflip had some code to ignore the first
@@ -3322,6 +3334,8 @@ static void *som_hacks_Clear(HRESULT *hr,DDRAW::IDirect3DDevice7*p,DWORD&x,DX::L
 {
 	if(!hr)
 	{
+		if(SOM::L.fill==2) w = 0xff000000; //2024: MHM?
+
 		//for some reason menus pass a RECT and 1
 		//and depth is 1.0 even though z is color
 		if(x==1&&q==1) 
@@ -4048,14 +4062,17 @@ static void *som_hacks_DrawPrimitive(HRESULT*hr,DDRAW::IDirect3DDevice7*in,DX::D
 	//fairy map?
 	//TESTING A DISABLED FEATURE
 	//what is 4144E0 (4C2351) up to? som_game_reprogram enables this
-	#if 0 && defined(_DEBUG)
+	#if 1 && defined(_DEBUG)
 	if(y==(D3DFVF_DIFFUSE|D3DFVF_XYZRHW)) //transparent triangles???
 	{
 		//I can't make these appear on screen no matter what I do... I 
 		//will have to try again someday
 	//	assert(0);
 
-		in->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_NONE);
+	//	in->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_NONE);
+
+		static DWORD w_max = 0;
+		w_max = max(w_max,(DWORD)z+20*w);
 
 		typedef struct fvf
 		{
@@ -4067,8 +4084,7 @@ static void *som_hacks_DrawPrimitive(HRESULT*hr,DDRAW::IDirect3DDevice7*in,DX::D
 
 		for(int i=w;i-->0;)
 		{
-			//peek[i].x/=2; peek[i].y/=2;
-			//peek[i].z = 1; peek[i].w = 1;
+			peek[i].z = 0; peek[i].w = 1;
 		}
 
 		if(som_hacks_shader_model) //testing
@@ -5181,15 +5197,21 @@ static void *som_hacks_DrawPrimitive(HRESULT*hr,DDRAW::IDirect3DDevice7*in,DX::D
 		a = cb[1]; c = EX::INI::Adjust()->green_flash_tint; 
 	}
 	else if(!(c&0xFF00FFFF)) 
-	{
-		a = cb[2]; c = EX::INI::Adjust()->red_flash_tint; 
+	{	
+		extern int som_game_interframe;
+		int n = (int)DDRAW::refreshrate/30;
 
-		//This number tends to vary
-		//It's probably time sensitive
-		static const int flashes = 20; //18
+		if(1<som_MDL::fps) //2024: high fps?
+		{
+			int f = SOM::L.damage_flash;
+			f = n*f+som_game_interframe;
+			cb[2] = f*255/(n*10);
+		}
+
+		a = cb[2]; c = EX::INI::Adjust()->red_flash_tint; 
 			
 		//NOTE: SOM::red wasn't reset until death???
-		if(SOM::red&&SOM::frame-SOM::hpdown<=flashes) 			
+		if(SOM::red&&(int)(SOM::frame-SOM::hpdown)<=n*10) 
 		if(op->do_red) 
 		{
 			//2020: make poison relatively visible?
@@ -5402,13 +5424,13 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		//TODO
 		//instead of 50, raise the item up higher, and pull it forward as necessary
 		//to approximate 50, both WRT SOM::zoom and VR mode
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		//NOTE: 50 is the original value, but using 62 (kf2) just to scale down some
 		//since 1m is a little bit in your face... in VR mode I think the value gets
 		//overriden... 1m is chosen for VR. this branch is in case an extension puts
 		//it in legacy mode		
 		//
-		//Not doing this since distance is made programmable
+		//not doing this since distance is made programmable
 		//int zoom = 2==som_hacks_inventory[3][3]?50:62;
 		int zoom = 62; //max(50,SOM::zoom); 
 		float z = pc->player_character_radius3((float)som_hacks_inventory_item);
@@ -5513,7 +5535,8 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 						in->DrawIndexedPrimitive(_1,_2,_3,_4,_5,_6,_7);
 					}
 					#undef _
-					va_start(va,in);
+					auto *_ = in; //C2338 (MSVC2015)
+					va_start(va,_);
 
 					DDRAW::ps = 8; //volume-texture
 
@@ -5629,7 +5652,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 				if(!hr&&som_hacks_shader_model //legacy
 				 &&!som_hacks_alphablendenable) //skyfloor
 				{
-					int todolist[SOMEX_VNUMBER<=0x1020504UL]; //and fog powers?
+					int todolist[SOMEX_VNUMBER<=0x1020602UL]; //and fog powers?
 					if(EX::INI::Option()->do_alphafog)
 				//	if(EX::INI::Detail()->alphafog_skyflood_constant>0) //blend?
 					som_hacks_fab_alphablendenable();	
@@ -5638,7 +5661,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 			else if(!hr) //assuming unlit swing model (bug)
 			{
 				//assert(0); //2022: should be obsolete
-				int todolist[SOMEX_VNUMBER<=0x1020504UL];
+				int todolist[SOMEX_VNUMBER<=0x1020602UL];
 
 				in->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,1); 
 
@@ -5803,6 +5826,10 @@ static void *som_hacks_SetTexture(HRESULT*,DDRAW::IDirect3DDevice7*in,DWORD&,DX:
 
 	return 0;
 }*/
+static void *som_hacks_SetTexture(HRESULT*,DDRAW::IDirect3DDevice7*in,DWORD&,DX::LPDIRECTDRAWSURFACE7&y)
+{
+	if(SOM::L.fill==2) y = 0; return 0; //2024
+}
 
 static void *som_hacks_SetTextureStageState(HRESULT*,DDRAW::IDirect3DDevice7 *in,DWORD &x,DX::D3DTEXTURESTAGESTATETYPE &y, DWORD &z)
 {
@@ -6033,7 +6060,8 @@ static void *som_hacks_CreateVertexBuffer(HRESULT*hr,DDRAW::IDirect3D7*in,DX::LP
 	{
 		//som.scene.cpp has to remove DDLOCK_DISCARDCONTENTS
 		//from the MSM buffer because it's partially locked
-		if(!mpx) x->dwCaps|=D3DVBCAPS_WRITEONLY;
+		if(1| //2023
+		!mpx) x->dwCaps|=D3DVBCAPS_WRITEONLY;
 		else x->dwCaps = 0; //YUCK: restore
 				
 		//YUCK: restore 4096 for remaining buffers
@@ -6173,7 +6201,7 @@ static void *som_hacks_mipmaps_pixel_art_power_of_two(const DX::DDSURFACEDESC2 *
 
 	//this needs a lot more work, but it should 
 	//be getting moved into x2mdl.dll shortly
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	//
 	// 2022: this is mode 3 below that's designed
 	// to deemphasize diagonal pixels
@@ -6366,14 +6394,25 @@ static void *som_hacks_mipmaps_saturate2(const DX::DDSURFACEDESC2 *in, DX::DDSUR
 	som_hacks_mipmaps_saturate(in,0); 
 	return som_hacks_mipmaps_pixel_art_power_of_two(in,out);
 }
-static void *som_hacks_CreateSurface7(HRESULT *hr,DDRAW::IDirectDraw7*,DX::LPDDSURFACEDESC2&x,DX::LPDIRECTDRAWSURFACE7*&,IUnknown*&)
-{		
+static void *som_hacks_CreateSurface7(HRESULT *hr,DDRAW::IDirectDraw7*,DX::LPDDSURFACEDESC2&x,DX::LPDIRECTDRAWSURFACE7*&y,IUnknown*&)
+{			
+	//avoid map_icon.bmp and upscaling menu elements doesn't matter because of
+	//mipmapping, although it might on higher than 1080 displays, in that case
+	//it's undesirable
+	extern char *som_game_449530_cmp;
+	auto cmp = som_game_449530_cmp;
+	char *ext = PathFindExtensionA(cmp);
+	//NOTE: som_hacks_shadowfog doesn't work here
+	bool kage = cmp&&ext[0]&&'M'==toupper(ext[1]); //2023: mdl?
+
 	if(hr) //2021: mipmap_f remembers mipmap
 	{
 		//NOTE: instead of this could just set mipmap_f directly
 		//at this point
 
-		DDRAW::mipmap = EX::mipmap; return 0;
+		DDRAW::mipmap = EX::mipmap;		
+		
+		return 0;
 	}
 	if(!DDRAW::mipmap) //som_status_automap? //2021
 	{
@@ -6388,9 +6427,6 @@ static void *som_hacks_CreateSurface7(HRESULT *hr,DDRAW::IDirectDraw7*,DX::LPDDS
 		return 0; 
 	}
 	assert(DDRAW::mipmap==EX::mipmap||!DDRAW::mipmap);
-
-	extern char *som_game_449530_cmp;
-	extern char *som_game_trim_a(char*);
 	
 	if(~x->ddsCaps.dwCaps&DDSCAPS_TEXTURE) return 0; //???
 
@@ -6404,11 +6440,6 @@ static void *som_hacks_CreateSurface7(HRESULT *hr,DDRAW::IDirectDraw7*,DX::LPDDS
 	
 	int w = x->dwWidth, h = x->dwHeight; 
 
-	//avoid map_icon.bmp and upscaling menu elements doesn't matter because of
-	//mipmapping, although it might on higher than 1080 displays, in that case
-	//it's undesirable
-	auto cmp = som_game_449530_cmp;
-
 	extern int Ex_mipmap_kaiser_sinc_levels; //WIP
 	
 	if(!cmp)
@@ -6418,14 +6449,12 @@ static void *som_hacks_CreateSurface7(HRESULT *hr,DDRAW::IDirectDraw7*,DX::LPDDS
 		return som_hacks_CreateSurface7; //som_status_automap? (map_icon.bmp?)
 	}
 
-	cmp = som_game_trim_a(cmp);
-
 	//2021: point filtering the mipmaps is slightly less blurry
 	//and is stable unlike doing point-filtering in the sampler
 	//TODO: maybe expose control over this via another extension
 	Ex_mipmap_point_filter = 0!=dt->mipmaps_pixel_art_power_of_two; //EXTENSION?
 
-	if(w>512||h>512 //picture?
+	if(kage||w>512||h>512 //picture?
 	 ||!strnicmp(cmp,"my/texture/",11)
 	 ||!strnicmp(cmp,"data\\menu\\",10))
 	//the art system now locates map textures in here (can't tell them apart)
@@ -7134,7 +7163,13 @@ static void *som_hacks_GetDeviceState(HRESULT*hr,DINPUT::IDirectInputDeviceA*in,
 				}*/
 			}
 		}
-		else kb[0x1D] = kb[0x2A] = 0; //2021
+		else
+		{
+			kb[0x1D] = kb[0x2A] = 0; //2021
+
+			extern void som_mocap_headwind(bool);
+			som_mocap_headwind(false);
+		}
 
 		//REMOVE ME?		
 		float u2[3] = //not pretty...
@@ -7515,12 +7550,21 @@ static bool som_hacks_fix
 	}
 	return true;
 }*/
-static void som_hacks_shadowfog(DDRAW::IDirectDrawSurface7 *in)
+extern void som_hacks_shadowfog(DDRAW::IDirectDrawSurface7 *in)
 {
 	if(DDRAW::compat!='dx9c'||in->queryX->format!=D3DFMT_A8R8G8B8)
 	{
 		assert(0); return; //what was the orignal blending mode???
 	}
+	
+	//2023: can't guarantee power-of-2
+	//and shaders ddx/ddy avoid mipmapping (but maybe not completely)
+	in->queryX->mipmap_f = 0; 
+	in->queryX->colorkey_f = 0; //2023
+	//in->SetColorKey(0,0); //RECURSIVE (HACK)
+	delete[] in->queryX->colorkey;
+	in->queryX->colorkey = 0;
+	in->queryX->colorkey2 = 0;
 
 	DX::DDSURFACEDESC2 lock;
 	if(!in->Lock(0,&lock,0,0))
@@ -7529,7 +7573,7 @@ static void som_hacks_shadowfog(DDRAW::IDirectDrawSurface7 *in)
 		{
 			DWORD *p = (DWORD*)((BYTE*)lock.lpSurface+lock.lPitch*i);
 			for(size_t j=0;j<lock.dwWidth;j++) p[j] = 
-			(255-max(max(p[j]>>16&0xFF,p[j]>>8&0xFF),p[j]&0xFF))<<24;			
+			(255-max(max(p[j]>>16&0xFF,p[j]>>8&0xFF),p[j]&0xFF))<<24;
 		}	
 		//NEW: the original kage.mdl files are mess up
 		//seems they are meant to use a white colorkey
@@ -7580,6 +7624,9 @@ static void som_hacks_device_reset(bool effects_buffers)
 		DDRAW::vshaders9_pshaders9_require_reevaluation();
 	}
 	DeleteObject(SOM::font); SOM::font = 0; //resets SOM::Print
+
+	extern bool som_game_reset_model_speeds; //HACK
+	som_game_reset_model_speeds = true;
 }
 
 extern DWORD SOM::onflip_triple_time
@@ -7648,7 +7695,7 @@ static bool som_hacks_onflip()
 		
 	#ifdef NDEBUG
 	//#error fixed? investigated?
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	#endif
 //2018: ASSUMING matte is not required here
 //2017: something like this was done before, but
@@ -7674,7 +7721,7 @@ if(SOM::newmap>=SOM::frame-2) return false;
 	//matte
 	#ifdef NDEBUG
 	//#error WGL_NV_DX_interop2 can't draw in onFlip
-	int todolist2[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist2[SOMEX_VNUMBER<=0x1020602UL];
 	#endif
 	if(!DDRAW::inStereo&&!DDRAW::WGL_NV_DX_interop2)
 	{
@@ -8061,4 +8108,3 @@ extern void SOM::initialize_som_hacks_cpp()
 	DDRAW::onFlip = som_hacks_onflip;
 	DDRAW::onEffects = som_hacks_oneffects;
 }
-

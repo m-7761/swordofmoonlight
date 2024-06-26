@@ -283,7 +283,7 @@ extern int DDRAW::vsInvWorldView[4]     = {0,0,0,0};
 extern int DDRAW::vsWorld[4]	        = {0,0,0,0};
 extern int DDRAW::vsView[4]		        = {0,0,0,0};
 extern int DDRAW::vsInvView[4]          = {0,0,0,0}; 
-extern int DDRAW::vsTexture0[4]         = {0,0,0,0};
+extern int DDRAW::vsTexMatrix[4]        = {0,0,0,0};
 extern int DDRAW::vsFogFactors          = 0;
 extern int DDRAW::vsColorFactors		= 0;
 extern int DDRAW::vsMaterialAmbient     = 0;
@@ -304,6 +304,8 @@ extern int DDRAW::psColorkey = DDRAW::psColorkey_nz;
 extern int DDRAW::psColorize = 0;
 extern int DDRAW::psFarFrustum = 0;
 //extern int DDRAW::psTextureState = 0; //UNUSED/EXPERIMENTAL
+
+extern int DDRAW::psTexMatrix[4] = {};
 
 extern int DDRAW::ps2ndSceneMipmapping2 = 0;
 
@@ -1214,13 +1216,15 @@ void DDRAW::ApplyStateBlock()
 	DDRAW::ofApplyStateBlock = true; paranoia++;
 
 	HRESULT hr; 
-
+	 
 #define _RENDERSTATE(st)\
 	hr = p->GetRenderState(DX::D3DRENDERSTATE_##st,DDRAW::getDWORD);\
 	if(hr==D3D_OK) p->SetRenderState(DX::D3DRENDERSTATE_##st,*DDRAW::getDWORD);\
 
 	_RENDERSTATE(LIGHTING)
 	_RENDERSTATE(FOGENABLE)
+	_RENDERSTATE(ALPHABLENDENABLE) //2024
+	_RENDERSTATE(COLORKEYENABLE) //2024
 
 #define _TEXTURESTAGESTATE(st)\
 	hr = p->GetTextureStageState(0,DX::D3DTSS_##st,DDRAW::getDWORD);\

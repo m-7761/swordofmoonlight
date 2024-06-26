@@ -226,7 +226,7 @@ static IDirect3DVertexShader9 *dx_d3d9c_clearshader_vs = 0;
 
 extern bool dx_d3d9c_effectsshader_enable = false; //dx.d3d9X.cpp
 extern bool dx_d3d9c_effectsshader_toggle = false;
-extern void dx_d3d9x_enableeffectsshader(bool enable);
+extern void dx_d3d9X_enableeffectsshader(bool enable);
 
 static int dx_d3d9c_ps_model = 2;
 
@@ -458,14 +458,14 @@ static void dx_d3d9c_prepshaders()
 }
 
 //NOTE: D3DMATRIX has a float* conversion operator, DX::D3DMATRIX does not
-extern void dx_d3d9x_vsconstant(int reg, const D3DMATRIX &set, int mode=4);
-extern void dx_d3d9x_vsconstant(int reg, const DX::D3DCOLORVALUE &set, int mode=1);
-extern void dx_d3d9x_vsconstant(int reg, const DWORD &set, int mode);
-extern void dx_d3d9x_vsconstant(int reg, const float &set, int mode);
-extern void dx_d3d9x_vsconstant(int reg, const float *set, int mode=1);
-extern void dx_d3d9x_psconstant(int reg, const DWORD &set, int mode);
-extern void dx_d3d9x_psconstant(int reg, const float &set, int mode);
-extern void dx_d3d9x_psconstant(int reg, const float *set, int mode=1);
+extern void dx_d3d9X_vsconstant(int reg, const D3DMATRIX &set, int mode=4);
+extern void dx_d3d9X_vsconstant(int reg, const DX::D3DCOLORVALUE &set, int mode=1);
+extern void dx_d3d9X_vsconstant(int reg, const DWORD &set, int mode);
+extern void dx_d3d9X_vsconstant(int reg, const float &set, int mode);
+extern void dx_d3d9X_vsconstant(int reg, const float *set, int mode=1);
+extern void dx_d3d9X_psconstant(int reg, const DWORD &set, int mode);
+extern void dx_d3d9X_psconstant(int reg, const float &set, int mode);
+extern void dx_d3d9X_psconstant(int reg, const float *set, int mode=1);
 
 D3DXMATRIX dx_d3d9c_worldviewproj; //extern
 extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
@@ -530,7 +530,7 @@ extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
 				_SANITY_CHECK(DDRAW::vsWorldView)
 			
 				//d3dd9->SetVertexShaderConstantF(DDRAW::vsWorldView[0]-DDRAW::vsF,(float*)&worldview,4); 
-				dx_d3d9x_vsconstant(DDRAW::vsWorldView[0],worldview);
+				dx_d3d9X_vsconstant(DDRAW::vsWorldView[0],worldview);
 			}
 			if(DDRAW::vsInvWorldView[0])
 			{
@@ -542,7 +542,7 @@ extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
 					//todo: warning (without flooding)
 				}
 				//d3dd9->SetVertexShaderConstantF(DDRAW::vsInvWorldView[0]-DDRAW::vsF,(float*)&invworldview,4); 
-				dx_d3d9x_vsconstant(DDRAW::vsInvWorldView[0],invworldview);
+				dx_d3d9X_vsconstant(DDRAW::vsInvWorldView[0],invworldview);
 			}
 		}
 		if(DDRAW::vsWorldViewProj[0])
@@ -581,7 +581,7 @@ extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
 			//D3DXMATRIX worldviewproj = worldview*proj; 
 			dx_d3d9c_worldviewproj = worldview*proj; 
 			//d3dd9->SetVertexShaderConstantF(DDRAW::vsWorldViewProj[0]-DDRAW::vsF,(float*)&dx_d3d9c_worldviewproj,4); 
-			dx_d3d9x_vsconstant(DDRAW::vsWorldViewProj[0],dx_d3d9c_worldviewproj);
+			dx_d3d9X_vsconstant(DDRAW::vsWorldViewProj[0],dx_d3d9c_worldviewproj);
 		}
 	}
 	if(DDRAW::vsWorld[0]&&dirtied&(1<<DX::D3DTRANSFORMSTATE_WORLD))
@@ -596,7 +596,7 @@ extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
 		}
 		
 		//d3dd9->SetVertexShaderConstantF(DDRAW::vsWorld[0]-DDRAW::vsF,(float*)&world,4); 
-		dx_d3d9x_vsconstant(DDRAW::vsWorld[0],world);
+		dx_d3d9X_vsconstant(DDRAW::vsWorld[0],world);
 	}
 	if(dirtied&(1<<DX::D3DTRANSFORMSTATE_VIEW))
 	{
@@ -612,7 +612,7 @@ extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
 			}
 		
 			//d3dd9->SetVertexShaderConstantF(DDRAW::vsView[0]-DDRAW::vsF,(float*)&view,4); 
-			dx_d3d9x_vsconstant(DDRAW::vsView[0],view);
+			dx_d3d9X_vsconstant(DDRAW::vsView[0],view);
 		}
 		if(DDRAW::vsInvView[0]) //Note: could avoid doing after every world change
 		{
@@ -631,7 +631,7 @@ extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
 			}
 
 			//d3dd9->SetVertexShaderConstantF(DDRAW::vsInvView[0]-DDRAW::vsF,(float*)&invview,4); 
-			dx_d3d9x_vsconstant(DDRAW::vsInvView[0],invview);
+			dx_d3d9X_vsconstant(DDRAW::vsInvView[0],invview);
 		}
 	}
 	if(DDRAW::vsProj[0]&&dirtied&(1<<DX::D3DTRANSFORMSTATE_PROJECTION))
@@ -661,7 +661,7 @@ extern void dx_d3d9c_vstransform(int dirty=0) //Ex.output.cpp
 		}
 		
 		//d3dd9->SetVertexShaderConstantF(DDRAW::vsProj[0]-DDRAW::vsF,(float*)&proj,4); 
-		dx_d3d9x_vsconstant(DDRAW::vsProj[0],proj);
+		dx_d3d9X_vsconstant(DDRAW::vsProj[0],proj);
 	}
 
 #undef _SANITY_CHECK1
@@ -717,13 +717,13 @@ extern void dx_d3d9c_vslight(bool clean=true)
 		{
 			lite.dcvAmbient.a = i; 
 			//d3dd9->SetVertexShaderConstantF(DDRAW::vsLightsAmbient[i]-DDRAW::vsF,(float*)&lite.Ambient,1);
-			dx_d3d9x_vsconstant(DDRAW::vsLightsAmbient[i],lite.dcvAmbient);
+			dx_d3d9X_vsconstant(DDRAW::vsLightsAmbient[i],lite.dcvAmbient);
 		}
 		if(DDRAW::vsLightsDiffuse[i])
 		{
 			lite.dcvDiffuse.a = i; //???	
 			//d3dd9->SetVertexShaderConstantF(DDRAW::vsLightsDiffuse[i]-DDRAW::vsF,(float*)&lite.c,1);
-			dx_d3d9x_vsconstant(DDRAW::vsLightsDiffuse[i],lite.dcvDiffuse);
+			dx_d3d9X_vsconstant(DDRAW::vsLightsDiffuse[i],lite.dcvDiffuse);
 		}
 		if(DDRAW::vsLightsVectors[i])
 		{
@@ -733,14 +733,14 @@ extern void dx_d3d9c_vslight(bool clean=true)
 			{
 				float temp[4] = {lite.dvPosition.x,lite.dvPosition.y,lite.dvPosition.z,1.0};					
 				//d3dd9->SetVertexShaderConstantF(DDRAW::vsLightsVectors[i]-DDRAW::vsF,temp,1);
-				dx_d3d9x_vsconstant(DDRAW::vsLightsVectors[i],temp);
+				dx_d3d9X_vsconstant(DDRAW::vsLightsVectors[i],temp);
 				break;
 			}
 			case D3DLIGHT_DIRECTIONAL: 
 			{
 				float temp[4] = {lite.dvDirection.x,lite.dvDirection.y,lite.dvDirection.z,0.0};					
 				//d3dd9->SetVertexShaderConstantF(DDRAW::vsLightsVectors[i]-DDRAW::vsF,temp,1);
-				dx_d3d9x_vsconstant(DDRAW::vsLightsVectors[i],temp);
+				dx_d3d9X_vsconstant(DDRAW::vsLightsVectors[i],temp);
 				break;
 			}
 			default: assert(0);
@@ -754,14 +754,14 @@ extern void dx_d3d9c_vslight(bool clean=true)
 			{
 				float temp[4] = {lite.dvRange,lite.dvAttenuation0,lite.dvAttenuation1,lite.dvAttenuation2};					
 				//d3dd9->SetVertexShaderConstantF(DDRAW::vsLightsFactors[i]-DDRAW::vsF,temp,1);
-				dx_d3d9x_vsconstant(DDRAW::vsLightsFactors[i],temp);
+				dx_d3d9X_vsconstant(DDRAW::vsLightsFactors[i],temp);
 				break;
 			}
 			case D3DLIGHT_DIRECTIONAL: 
 			{
 				float temp[4] = {lite.dvRange,1.0,0.0,0.0};					
 				//d3dd9->SetVertexShaderConstantF(DDRAW::vsLightsFactors[i]-DDRAW::vsF,temp,1);
-				dx_d3d9x_vsconstant(DDRAW::vsLightsFactors[i],temp);
+				dx_d3d9X_vsconstant(DDRAW::vsLightsFactors[i],temp);
 				break;
 			}
 			default: assert(0);
@@ -812,7 +812,7 @@ static int dx_d3d9c_brightsonoff(int on, ::IDirect3DPixelShader9 *ps)
 			IDirect3DTexture9 *p = 0; 
 
 			if(d3dd9->CreateTexture
-			(1,1,1,D3DUSAGE_DYNAMIC,D3DFMT_L8,D3DPOOL_DEFAULT,&p,0)==D3D_OK)
+			(1,1,1,D3DUSAGE_DYNAMIC,D3DFMT_A8,D3DPOOL_DEFAULT,&p,0)==D3D_OK)
 			{
 				D3DLOCKED_RECT lock; 
 				
@@ -935,7 +935,7 @@ extern void dx_d3d9c_level(IDirect3DPixelShader9 *ps, bool reset=false)
 		if(dx_d3d9c_level2(c,ps,reset))
 		{
 			c[2] = c[3] = 0.0f;
-			dx_d3d9x_psconstant(DDRAW::psCorrections,c);
+			dx_d3d9X_psconstant(DDRAW::psCorrections,c);
 		}
 		return;
 	}
@@ -993,12 +993,12 @@ extern void dx_d3d9c_level(IDirect3DPixelShader9 *ps, bool reset=false)
 	}
 }
 
-extern const int dx_d3d9c_formats_enumN = 7;
+extern const int dx_d3d9c_formats_enumN = 8;
 extern const D3DFORMAT dx_d3d9c_formats_enum[dx_d3d9c_formats_enumN] = 
 {
 	//REMINDER: texture_format_mask EXPECTS THIS ORDER (dx.d3d9X.cpp)
 	D3DFMT_A8R8G8B8, D3DFMT_X8R8G8B8, D3DFMT_A1R5G5B5, D3DFMT_X1R5G5B5, D3DFMT_R5G6B5, D3DFMT_P8,
-	D3DFMT_A2R10G10B10,
+	D3DFMT_A2R10G10B10, D3DFMT_A8
 };
 static const D3DFORMAT dx_d3d9c_bogus_format = D3DFMT_X8R8G8B8;
 
@@ -1006,47 +1006,50 @@ const DX::DDPIXELFORMAT &dx_d3d9c_format(D3DFORMAT f) //dx.d3d9X.cpp
 {
 	static DX::DDPIXELFORMAT ddpfs[dx_d3d9c_formats_enumN] = 
 	{
-		{	0, //A8R8G8B8
+		{	sizeof(DX::DDPIXELFORMAT), //A8R8G8B8
 			DDPF_ALPHAPIXELS|DDPF_RGB,0,32,
 			0x00ff0000,0x0000ff00,0x000000ff,
 			0xFF000000
 		},
-		{	0, //X8R8G8B8
+		{	sizeof(DX::DDPIXELFORMAT), //X8R8G8B8
 			DDPF_RGB,0,32,
 			0x00ff0000,0x0000ff00,0x000000ff,
 			0x00000000
 		},
-		{	0, //A1R5G5B5
+		{	sizeof(DX::DDPIXELFORMAT), //A1R5G5B5
 			DDPF_ALPHAPIXELS|DDPF_RGB,0,16,
 			0x07c00,0x03e0,0x001f,
 			0x8000
 		},
-		{	0, //X1R5G5B5
+		{	sizeof(DX::DDPIXELFORMAT), //X1R5G5B5
 			DDPF_RGB,0,16,
 			0x7c00,0x03e0,0x001f,
 			0x0000
 		},
-		{	0, //R5G6B5
+		{	sizeof(DX::DDPIXELFORMAT), //R5G6B5
 			DDPF_RGB,0,16,
 			0xf800,0x07e0,0x001f, 
 			0x0000
 		},
-		{	0, //P8
+		{	sizeof(DX::DDPIXELFORMAT), //P8
 			DDPF_PALETTEINDEXED8|DDPF_RGB,0,8,
 			0x00,0x00,0x00,
 			0x00
 		},
-		{	0, //D3DFMT_A2R10G10B10
+		{	sizeof(DX::DDPIXELFORMAT), //D3DFMT_A2R10G10B10
 			DDPF_ALPHAPIXELS|DDPF_RGB,0,32,
 			0x3FF00000,0x000FFC00,0x000003FF,
 			0xC0000000
+		},
+		{	sizeof(DX::DDPIXELFORMAT), //D3DFMT_A8 (GL_R8)
+			DDPF_ALPHA,0,8,
+			0x00,0x00,0x00,
+			0xff
 		},
 	};
 
 	for(int i=0;i<dx_d3d9c_formats_enumN;i++) if(f==dx_d3d9c_formats_enum[i]) 
 	{
-		ddpfs[i].dwSize = sizeof(DX::DDPIXELFORMAT);
-
 		return ddpfs[i];
 	}
 
@@ -1056,9 +1059,11 @@ const DX::DDPIXELFORMAT &dx_d3d9c_format(D3DFORMAT f) //dx.d3d9X.cpp
 }
 D3DFORMAT dx_d3d9c_format(DX::DDPIXELFORMAT &f) //dx.d3d9X.cpp
 {
-	if(f.dwFlags&DDPF_PALETTEINDEXED8) return D3DFMT_P8;
-
-	if(f.dwFlags&DDPF_ALPHAPIXELS)
+	if(f.dwRGBBitCount==8)
+	{
+		return f.dwFlags&DDPF_PALETTEINDEXED8?D3DFMT_P8:D3DFMT_A8;
+	}
+	else if(f.dwFlags&DDPF_ALPHAPIXELS)
 	{
 		return f.dwRGBBitCount==16?D3DFMT_A1R5G5B5:D3DFMT_A8R8G8B8; 
 	}
@@ -1845,7 +1850,7 @@ extern bool dx_d3d9c_dither(IDirect3DTexture9 *p, int n, bool dither = true)
 	{
 	case 65: 
 
-		if(desc.Width!=8||desc.Height!=8||desc.Format!=D3DFMT_L8) 
+		if(desc.Width!=8||desc.Height!=8||desc.Format!=D3DFMT_A8) 
 		{
 		default: dither = false;
 		}
@@ -2391,8 +2396,8 @@ extern void dx_d3d9c_reset()
 static void dx_d3d9c_resetdevice()
 {
 	//2021: dx.d3d9X.cpp does everything shared in common
-	extern void dx_d3d9x_resetdevice();
-	dx_d3d9x_resetdevice();
+	extern void dx_d3d9X_resetdevice();
+	dx_d3d9X_resetdevice();
 	if(!DDRAW::shader) return; //2021
 
 	for(int i=0;i<9;i++) if(dx_d3d9c_brights[i])
@@ -2542,7 +2547,7 @@ extern void dx_d3d9c_update_vsPresentState(D3DVIEWPORT9 &vp)
 	//ever worked before
 	//float c[4] = {rcpw*2,rcph*2,rcpw+rcpw*staircase,rcph+rcph*staircase};
 	float c[4] = {rcpw,rcph,rcpw+rcpw*staircase,rcph+rcph*staircase};
-	dx_d3d9x_vsconstant(DDRAW::vsPresentState,c); 
+	dx_d3d9X_vsconstant(DDRAW::vsPresentState,c); 
 }
 extern void DDRAW::dejagrate_update_psPresentState()
 {
@@ -2588,8 +2593,8 @@ extern void DDRAW::dejagrate_update_psPresentState()
 		//int checker = //!: zero divide
 		/*!DDRAW::fxStrobe||*/DDRAW::noFlips 
 		%(2*DDRAW::fxStrobe)>=DDRAW::fxStrobe?0:1;
-		//dx_d3d9x_psconstant(DDRAW::psPresentState,checker,'z'); 
-		//dx_d3d9x_psconstant(DDRAW::psPresentState,checker,'w'); 	   					
+		//dx_d3d9X_psconstant(DDRAW::psPresentState,checker,'z'); 
+		//dx_d3d9X_psconstant(DDRAW::psPresentState,checker,'w'); 	   					
 	}
 	else if(0) //best (no bias) but side effects
 	{
@@ -2692,7 +2697,7 @@ extern void DDRAW::dejagrate_update_psPresentState()
 		}
 	}
 
-	dx_d3d9x_psconstant(DDRAW::psPresentState,psc,'xyzw');
+	dx_d3d9X_psconstant(DDRAW::psPresentState,psc,'xyzw');
 }
 
 
@@ -2935,6 +2940,8 @@ HRESULT D3D9C::IDirectDraw7::CreateClipper(DWORD x, DX::LPDIRECTDRAWCLIPPER *y, 
 }
 HRESULT D3D9C::IDirectDraw7::CreatePalette(DWORD x, LPPALETTEENTRY y, DX::LPDIRECTDRAWPALETTE FAR *z, IUnknown FAR *w)
 {
+	assert(0); //SOM::Texture::palette? //2023: not expecting palettes
+
 	DDRAW_LEVEL(7) << "D3D9C::IDirectDraw7::CreatePalette()\n";
 
 	DDRAW_IF_NOT_TARGET_RETURN(!DD_OK)
@@ -3146,7 +3153,7 @@ reset:	int i;
 				{				
 					DDRAW::bitsperpixel = x->ddpfPixelFormat.dwRGBBitCount;
 				
-					//dx_d3d9x_enableeffectsshader(DDRAW::bitsperpixel==16);				
+					//dx_d3d9X_enableeffectsshader(DDRAW::bitsperpixel==16);				
 				}
 			}
 
@@ -3375,7 +3382,7 @@ static unsigned short dx_d3d9c_rez[] =
 	0,640,480,
 
 	//UHD modes (incomplete)
-	0,2048.1080,1152,1280,
+	0,2048,1080,1152,1280,
 	0,1792,1344,
 	0,1800,1440,
 	0,1856,1392,
@@ -3514,8 +3521,8 @@ HRESULT D3D9C::IDirectDraw7::EnumDisplayModes(DWORD x, DX::LPDDSURFACEDESC2 y, L
 	auto *p = dx_d3d9c_rez;	
 	for(int i=DX_ARRAYSIZEOF(dx_d3d9c_rez);i-->0;p++) 
 	{
-		if(!p[0]){ cw = *++p; continue; } 
-		if(cw<=mw&&p[-1]<=mh) v.push_back(std::make_pair(cw,p[-1]));
+		if(!*p){ p++; cw = *p; continue; } 
+		if(cw<=mw&&*p<=mh) v.push_back(std::make_pair(cw,*p));
 	}
 
 	auto it = v.begin(), itt = v.end();
@@ -4438,7 +4445,7 @@ HRESULT D3D9C::IDirectDrawSurface7::Blt(LPRECT x, DX::LPDIRECTDRAWSURFACE7 y, LP
 
 						//can use dx_d3d9c_pshaders_noclip?
 						//if(DDRAW::psColorkey)
-						//dx_d3d9x_psconstant(DDRAW::psColorkey,p->query9->knockouts?1ul:0ul,'w'); //colorkey
+						//dx_d3d9X_psconstant(DDRAW::psColorkey,p->query9->knockouts?1ul:0ul,'w'); //colorkey
 							
 						if(abe) //DDRAW_PUSH_HACK extension
 						{
@@ -4624,7 +4631,7 @@ HRESULT D3D9C::IDirectDrawSurface7::flip()
 						{
 							c[0] = c[1] = 0;
 						}
-						dx_d3d9x_psconstant(DDRAW::ps2ndSceneMipmapping2,c,'xyzw');						
+						dx_d3d9X_psconstant(DDRAW::ps2ndSceneMipmapping2,c,'xyzw');						
 					}
 
 					DDRAW::fx2ndSceneBuffer = 1;
@@ -4639,7 +4646,7 @@ HRESULT D3D9C::IDirectDrawSurface7::flip()
 				if(!fx) fx = dx_d3d9c_effectsshader;
 
 				if(DDRAW::psColorize) 					
-				dx_d3d9x_psconstant(DDRAW::psColorize,DDRAW::fxColorize,'rgba'); 
+				dx_d3d9X_psconstant(DDRAW::psColorize,DDRAW::fxColorize,'rgba'); 
 
 				#if 0 //old way
 				RECT src = {0,0,r,t}; RECT dst = {0,0,w,h}; 
@@ -4772,7 +4779,7 @@ HRESULT D3D9C::IDirectDrawSurface7::flip()
 
 	if(dx_d3d9c_effectsshader_toggle!=dx_d3d9c_effectsshader_enable)
 	{
-		dx_d3d9x_enableeffectsshader(dx_d3d9c_effectsshader_toggle);
+		dx_d3d9X_enableeffectsshader(dx_d3d9c_effectsshader_toggle);
 	}
 
 out: DDRAW::midFlip = false;
@@ -5032,7 +5039,7 @@ HRESULT D3D9C::IDirectDrawSurface7::GetDC(HDC FAR *x)
 				}
 				else assert(0);
 
-				//REMINDER: dx_d3d9x_backbuffer WOULD BE REQUIRED
+				//REMINDER: dx_d3d9X_backbuffer WOULD BE REQUIRED
 				//BELOW IF THIS CODE WAS NOT UNREACHABLE
 
 				IDirect3DSurface9 *p = 0; 
@@ -5265,7 +5272,7 @@ HRESULT D3D9C::IDirectDrawSurface7::ReleaseDC(HDC x)
 				}
 				else assert(0);
 
-				//REMINDER: dx_d3d9x_backbuffer WOULD BE REQUIRED
+				//REMINDER: dx_d3d9X_backbuffer WOULD BE REQUIRED
 				//BELOW IF THIS CODE WAS NOT UNREACHABLE
 
 				IDirect3DSurface9 *p = 0; 
@@ -5350,94 +5357,95 @@ static void dx_d3d9c_colorkey(DDRAW::IDirectDrawSurface7 *pp) //2021
 
 		//2021: disable colorkey? this way the second branch
 		//will fill in all opaque
-		if(!q->colorkey) switch(desc.Format)
+		if(!q->colorkey2) switch(desc.Format)
 		{
 		case D3DFMT_A8R8G8B8: desc.Format = D3DFMT_X8R8G8B8; break;  
 		case D3DFMT_A1R5G5B5: desc.Format = D3DFMT_X1R5G5B5; break;
 		}
 
 		D3DLOCKED_RECT lock;
-		if(q->colorkey&&!q->isLocked) //uh oh
+		if(q->colorkey2&&!q->isLocked) //uh oh
 		if(p->LockRect(&lock,0,0)==D3D_OK)
-		if(q->colorkey&&q->colorkey_f)
 		{
-			DX::DDSURFACEDESC2 desc2 = {sizeof(DX::DDSURFACEDESC2)};
+			if(q->colorkey_f)
+			{
+				DX::DDSURFACEDESC2 desc2 = {sizeof(DX::DDSURFACEDESC2)};
 
-			desc2.dwFlags = q->colorkey2&ddsd_ckunion|
-			DDSD_HEIGHT|DDSD_WIDTH|DDSD_PITCH|DDSD_LPSURFACE|DDSD_PIXELFORMAT;
+				desc2.dwFlags = q->colorkey2&ddsd_ckunion|
+				DDSD_HEIGHT|DDSD_WIDTH|DDSD_PITCH|DDSD_LPSURFACE|DDSD_PIXELFORMAT;
 
-			desc2.dwHeight = desc.Height;
-			desc2.dwWidth = desc.Width;
+				desc2.dwHeight = desc.Height;
+				desc2.dwWidth = desc.Width;
 
-			desc2.lPitch = lock.Pitch;
+				desc2.lPitch = lock.Pitch;
 
-			desc2.lpSurface = lock.pBits;
+				desc2.lpSurface = lock.pBits;
 
-			desc2.ddckCKSrcBlt = q->colorkey[0];
-			desc2.ddckCKDestBlt = q->colorkey[1];
-			desc2.ddckCKSrcOverlay = q->colorkey[2];
-			desc2.ddckCKDestOverlay = q->colorkey[3];
+				desc2.ddckCKSrcBlt = q->colorkey[0];
+				desc2.ddckCKDestBlt = q->colorkey[1];
+				desc2.ddckCKSrcOverlay = q->colorkey[2];
+				desc2.ddckCKDestOverlay = q->colorkey[3];
 
-			desc2.ddpfPixelFormat = dx_d3d9c_format(desc.Format);
+				desc2.ddpfPixelFormat = dx_d3d9c_format(desc.Format);
 
-			//knockouts = DDRAW::colorkey(&desc2,q->nativeformat); //alpha?
-			knockouts = q->colorkey_f(&desc2,q->nativeformat); //alpha?
+				//knockouts = DDRAW::colorkey(&desc2,q->nativeformat); //alpha?
+				knockouts = q->colorkey_f(&desc2,q->nativeformat); //alpha?
+			}
+			else //the old way
+			{
+				/*debugging?
+				DWORD colorize = 0;
+				if(colorize) switch(lv%3) 
+				{
+				case 0: colorize = desc.Format==D3DFMT_A8R8G8B8?0xFF0000:0x7c00; break;
+				case 1: colorize = desc.Format==D3DFMT_A8R8G8B8?0x00FF00:0x03e0; break;
+				case 2: colorize = desc.Format==D3DFMT_A8R8G8B8?0x0000FF:0x001f; break;
+				}*/
+
+				//setup alpha channel for pitch black pixels
+				for(size_t i=0;i<desc.Height;i++)
+				{
+					if(desc.Format==D3DFMT_A8R8G8B8
+					||desc.Format==D3DFMT_X8R8G8B8)
+					{
+						DWORD *p = (DWORD*)((BYTE*)lock.pBits+lock.Pitch*i);
+
+						for(size_t j=0;j<desc.Width;j++)
+						if((p[j]&0xFF000000)==0
+						||desc.Format==D3DFMT_X8R8G8B8)
+						{
+							if((p[j]&~0xFF070707)==0)
+							{
+								knockouts++; 
+								
+								p[j] = 0x00000000; //p[j]&=0x00FFFFFF; 
+							}
+							else p[j]|=0xFF000000;
+						}
+					}
+					else //16bit
+					{
+						WORD *p = (WORD*)((BYTE*)lock.pBits+lock.Pitch*i);
+
+						for(size_t j=0;j<desc.Width;j++)
+						if((p[j]&0x8000)==0
+						||desc.Format==D3DFMT_X1R5G5B5) 
+						{
+							if((p[j]&~0x8000)==0) 
+							{
+								knockouts++; 
+								
+								p[j] = 0x0000; //p[j]&=~0x8000;
+							}
+							else p[j]|=0x8000;
+						}
+					}				
+				}
+			}
 
 			p->UnlockRect();
 		}
-		else //the old way
-		{
-			/*debugging?
-			DWORD colorize = 0;
-			if(colorize) switch(lv%3) 
-			{
-			case 0: colorize = desc.Format==D3DFMT_A8R8G8B8?0xFF0000:0x7c00; break;
-			case 1: colorize = desc.Format==D3DFMT_A8R8G8B8?0x00FF00:0x03e0; break;
-			case 2: colorize = desc.Format==D3DFMT_A8R8G8B8?0x0000FF:0x001f; break;
-			}*/
 
-			//setup alpha channel for pitch black pixels
-			for(size_t i=0;i<desc.Height;i++)
-			{
-				if(desc.Format==D3DFMT_A8R8G8B8
-				||desc.Format==D3DFMT_X8R8G8B8)
-				{
-					DWORD *p = (DWORD*)((BYTE*)lock.pBits+lock.Pitch*i);
-
-					for(size_t j=0;j<desc.Width;j++)
-					if((p[j]&0xFF000000)==0
-					||desc.Format==D3DFMT_X8R8G8B8)
-					{
-						if((p[j]&~0xFF070707)==0)
-						{
-							knockouts++; 
-								
-							p[j] = 0x00000000; //p[j]&=0x00FFFFFF; 
-						}
-						else p[j]|=0xFF000000;
-					}
-				}
-				else //16bit
-				{
-					WORD *p = (WORD*)((BYTE*)lock.pBits+lock.Pitch*i);
-
-					for(size_t j=0;j<desc.Width;j++)
-					if((p[j]&0x8000)==0
-					||desc.Format==D3DFMT_X1R5G5B5) 
-					{
-						if((p[j]&~0x8000)==0) 
-						{
-							knockouts++; 
-								
-							p[j] = 0x0000; //p[j]&=~0x8000;
-						}
-						else p[j]|=0x8000;
-					}
-				}				
-			}
-
-			p->UnlockRect();			
-		}		
 		if(q->group9) p->Release();				
 	}
 	else assert(0);
@@ -5536,9 +5544,11 @@ HRESULT D3D9C::IDirectDrawSurface7::SetColorKey(DWORD x, DX::LPDDCOLORKEY y)
 }
 HRESULT D3D9C::IDirectDrawSurface7::SetPalette(DX::LPDIRECTDRAWPALETTE x)
 {
+	assert(!x); //SOM::Texture::palette? //2023: not expecting palettes
+
 	DDRAW_LEVEL(7) << "D3D9C::IDirectDrawSurface7::SetPalette()\n";
 
-	DDRAW_IF_NOT_DX9C_RETURN(!DD_OK)
+	if(x) DDRAW_IF_NOT_DX9C_RETURN(!DD_OK)
 
 	//TODO: find out if this effects palette's ref count
 	
@@ -5816,7 +5826,7 @@ HRESULT D3D9C::IDirect3D7::CreateDevice(REFCLSID xIn, DX::LPDIRECTDRAWSURFACE7 y
 	//me since the monitor was 8:8:8!
 	D3DFORMAT highcolor = DDRAW::do565?D3DFMT_R5G6B5:D3DFMT_X1R5G5B5;
 	D3DFORMAT fxbpp = DDRAW::bitsperpixel==16?highcolor:dx_d3d9_fxformat;*/
-	D3DFORMAT fxbpp = D3DFMT_X8R8G8B8;
+	D3DFORMAT fxbpp = D3DFMT_A8R8G8B8;
 	//I can't really see any difference... better or worse. it might be good for the
 	//brightness adjustment, to be less destructive? since it's not known what's the
 	//back-buffer format, in theory this should ensure the effects buffer isn't less
@@ -6198,7 +6208,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 		{
 			auto &bw = i?p->query9->white:p->query9->black;
 
-			if(!d->CreateTexture(1,1,1,D3DUSAGE_DYNAMIC,D3DFMT_L8,D3DPOOL_DEFAULT,&bw,0))
+			if(!d->CreateTexture(1,1,1,D3DUSAGE_DYNAMIC,D3DFMT_A8,D3DPOOL_DEFAULT,&bw,0))
 			{
 				D3DLOCKED_RECT lock; 			
 				if(bw->LockRect(0,&lock,0,0)==D3D_OK)
@@ -6214,7 +6224,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 		}
 
 		if(DDRAW::doDither)
-		if(d->CreateTexture(8,8,1,D3DUSAGE_DYNAMIC,D3DFMT_L8,D3DPOOL_DEFAULT,&p->query9->dither,0)==D3D_OK)
+		if(d->CreateTexture(8,8,1,D3DUSAGE_DYNAMIC,D3DFMT_A8,D3DPOOL_DEFAULT,&p->query9->dither,0)==D3D_OK)
 		{	
 			if(!dx_d3d9c_dither(p->query9->dither,65))
 			{
@@ -6330,7 +6340,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 	}
 
 	//setup scene or MSAA render target
-	dx_d3d9x_enableeffectsshader(DDRAW::doEffects); 
+	dx_d3d9X_enableeffectsshader(DDRAW::doEffects); 
 	
 	//2018: PlayStation VR
 	if(DDRAW::inStereo) DDRAW::stereo_update_SetStreamSource();
@@ -6859,7 +6869,7 @@ HRESULT D3D9C::IDirect3DDevice7::SetTransform(DX::D3DTRANSFORMSTATETYPE x, DX::L
 		{
 			float z = y->_43/(1.0f-y->_33);
 			float c[4] = {z/y->_11,z/y->_22,z,1.0f/z};
-			dx_d3d9x_psconstant(DDRAW::psFarFrustum,c);
+			dx_d3d9X_psconstant(DDRAW::psFarFrustum,c);
 		}							   
 		break;
 	}
@@ -7022,9 +7032,9 @@ HRESULT D3D9C::IDirect3DDevice7::SetMaterial(DX::LPD3DMATERIAL7 x)
 
 	assert(x->specular.r+x->specular.b+x->specular.g==0);
 
-	dx_d3d9x_vsconstant(DDRAW::vsMaterialDiffuse,x->diffuse);
-	dx_d3d9x_vsconstant(DDRAW::vsMaterialAmbient,x->ambient);
-	dx_d3d9x_vsconstant(DDRAW::vsMaterialEmitted,x->emissive);
+	dx_d3d9X_vsconstant(DDRAW::vsMaterialDiffuse,x->diffuse);
+	dx_d3d9X_vsconstant(DDRAW::vsMaterialAmbient,x->ambient);
+	dx_d3d9X_vsconstant(DDRAW::vsMaterialEmitted,x->emissive);
 
 	out = proxy9->SetMaterial((D3DMATERIAL9*)x); //looks safe
 	
@@ -7105,7 +7115,7 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 	CASE_(SRCBLEND)	 //DDRAW_LEVEL(-1) << "src: " << y << '\n';
     CASE_(DESTBLEND) //DDRAW_LEVEL(-1) << "dst: " << y << '\n';
 
-		//dx_d3d9x_vsconstant(DDRAW::vsDebugColor,DDRAW::DebugPalette[y%12],'rgba');
+		//dx_d3d9X_vsconstant(DDRAW::vsDebugColor,DDRAW::DebugPalette[y%12],'rgba');
 
     CASE_(CULLMODE)	
     CASE_(ZFUNC)		
@@ -7129,8 +7139,8 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 		//to think about when messing with this stuff
 		//if(DDRAW::gl) queryGL->state.fog = DDRAW::inFog; //YUCK
 
-		dx_d3d9x_vsconstant(DDRAW::vsFogFactors,y?1ul:0ul,'w');
-		dx_d3d9x_psconstant(DDRAW::psFogFactors,y?1ul:0ul,'w');
+		dx_d3d9X_vsconstant(DDRAW::vsFogFactors,y?1ul:0ul,'w');
+		dx_d3d9X_psconstant(DDRAW::psFogFactors,y?1ul:0ul,'w');
 
 		if(!DDRAW::doFog) y = 0; //ultimately disable
 
@@ -7142,21 +7152,21 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 
 		goto finish; 
 	
-	CASE_(FOGCOLOR)		  dx_d3d9x_psconstant(DDRAW::psFogColor,y,'rgba');
+	CASE_(FOGCOLOR)		  dx_d3d9X_psconstant(DDRAW::psFogColor,y,'rgba');
     CASE_(FOGTABLEMODE)
 	case DX::D3DRENDERSTATE_FOGSTART: case DX::D3DRENDERSTATE_FOGEND:
 	{
 		FLOAT start = (FLOAT&)y, end = start;
 		proxy9->GetRenderState((D3DRENDERSTATETYPE)(x^1),(DWORD*)&(x&1?start:end));
 		start = end-start?1.0f/(end-start):FLT_MAX; //!!
-		dx_d3d9x_vsconstant(DDRAW::vsFogFactors,start,'x');
-		dx_d3d9x_psconstant(DDRAW::psFogFactors,start,'x');
-		dx_d3d9x_vsconstant(DDRAW::vsFogFactors,end,'y');
-		dx_d3d9x_psconstant(DDRAW::psFogFactors,end,'y');
+		dx_d3d9X_vsconstant(DDRAW::vsFogFactors,start,'x');
+		dx_d3d9X_psconstant(DDRAW::psFogFactors,start,'x');
+		dx_d3d9X_vsconstant(DDRAW::vsFogFactors,end,'y');
+		dx_d3d9X_psconstant(DDRAW::psFogFactors,end,'y');
 	}
 	break;
-    CASE_(FOGDENSITY)	  dx_d3d9x_vsconstant(DDRAW::vsFogFactors,*(float*)&y,'z');
-						  dx_d3d9x_psconstant(DDRAW::psFogFactors,*(float*)&y,'z');
+    CASE_(FOGDENSITY)	  dx_d3d9X_vsconstant(DDRAW::vsFogFactors,*(float*)&y,'z');
+						  dx_d3d9X_psconstant(DDRAW::psFogFactors,*(float*)&y,'z');
 	CASE_(EDGEANTIALIAS) //note: seen (setting to 0)
 
 		//DDRAW_ALERT(0) << " ALERT! EDGEANTIALIAS state set under DirectX9\n";
@@ -7170,9 +7180,9 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 		if(DDRAW::TextureSurface7[0]
 		 &&DDRAW::TextureSurface7[0]->query9->knockouts) //colorkey
 		{
-			dx_d3d9x_psconstant(DDRAW::psColorkey,y?1.0f:0.0f,'w');
+			dx_d3d9X_psconstant(DDRAW::psColorkey,y?1.0f:0.0f,'w');
 		}
-		else if(!y) dx_d3d9x_psconstant(DDRAW::psColorkey,0.0f,'w');
+		else if(!y) dx_d3d9X_psconstant(DDRAW::psColorkey,0.0f,'w');
 		*/
 
 		dx_d3d9c_colorkeyenable = y?true:false; //not part of d3d9
@@ -7181,7 +7191,7 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 
 	CASE_(ZBIAS) 
 	{
-		float bias = 0.000001f*(int)y; //ARBITRARY (0-16)
+		float bias = 0.0000001f*(int)y; //ARBITRARY (0-16)
 		y = *(DWORD*)&bias;
 		x = (DX::D3DRENDERSTATETYPE)D3DRS_DEPTHBIAS;
 		//bias*=5000;
@@ -7211,7 +7221,7 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 
     CASE_(LIGHTING)	DDRAW::isLit = y?true:false;
 
-		dx_d3d9x_vsconstant(DDRAW::vsGlobalAmbient,y?1.0f:0.0f,'w');
+		dx_d3d9X_vsconstant(DDRAW::vsGlobalAmbient,y?1.0f:0.0f,'w');
 
 	CASE_(EXTENTS) //note: seen	(setting to 0)
 
@@ -7223,7 +7233,7 @@ HRESULT D3D9C::IDirect3DDevice7::SetRenderState(DX::D3DRENDERSTATETYPE x, DWORD 
 	
 		y = y&0x00FFFFFF; y|=DDRAW::isLit?0xFF000000:0;
 
-		dx_d3d9x_vsconstant(DDRAW::vsGlobalAmbient,y,'rgba');
+		dx_d3d9X_vsconstant(DDRAW::vsGlobalAmbient,y,'rgba');
 
     CASE_(FOGVERTEXMODE)
 
@@ -7296,7 +7306,11 @@ HRESULT D3D9C::IDirect3DDevice7::GetRenderState(DX::D3DRENDERSTATETYPE x, LPDWOR
 
 	#define CASE_(x) break; case DX::D3DRENDERSTATE_##x:
 
-	out = D3D_OK; if(y!=DDRAW::getDWORD) switch(x)					 
+	out = D3D_OK; if(y==DDRAW::getDWORD)
+	{
+		if(x==DX::D3DRENDERSTATE_COLORKEYENABLE) goto colorkey; //not in d3d9
+	}
+	else switch(x)					 
 	{
 	default: assert(0); //break;
 		
@@ -7359,7 +7373,7 @@ HRESULT D3D9C::IDirect3DDevice7::GetRenderState(DX::D3DRENDERSTATETYPE x, LPDWOR
 
 		goto finish; //todo: enable multisampling
 
-	CASE_(COLORKEYENABLE) 
+	CASE_(COLORKEYENABLE) colorkey: 
 
 		if(y) *y = dx_d3d9c_colorkeyenable?1:0; //not part of d3d9
 
@@ -7922,7 +7936,7 @@ HRESULT D3D9C::IDirect3DDevice7::SetTexture(DWORD x, DX::LPDIRECTDRAWSURFACE7 y)
 		DDRAW::TextureSurface7[0] = 0;
 
 		/*discontinuing this in favor of TEXTURE0_NOCLIP
-		if(DDRAW::psColorkey) dx_d3d9x_psconstant(DDRAW::psColorkey,0.0f,'w');
+		if(DDRAW::psColorkey) dx_d3d9X_psconstant(DDRAW::psColorkey,0.0f,'w');
 		*/
 
 		out = proxy9->SetTexture(x,query9->white);
@@ -7954,14 +7968,14 @@ HRESULT D3D9C::IDirect3DDevice7::SetTexture(DWORD x, DX::LPDIRECTDRAWSURFACE7 y)
 
 	/*discontinuing this in favor of TEXTURE0_NOCLIP
 	float ck = out==D3D_OK?(p->query9->knockouts&&dx_d3d9c_colorkeyenable?1.0f:0.0f):0.0f; //colorkey
-	if(DDRAW::psColorkey) dx_d3d9x_psconstant(DDRAW::psColorkey,ck,'w');
+	if(DDRAW::psColorkey) dx_d3d9X_psconstant(DDRAW::psColorkey,ck,'w');
 	*/
 
 	if(DDRAW::psTextureState) //2022
 	{
 		float ts[4] = {p->queryX->width,p->queryX->height};
 		ts[2] = 1/ts[0]; ts[3] = 1/ts[1];
-		dx_d3d9x_psconstant(DDRAW::psTextureState,ts);
+		dx_d3d9X_psconstant(DDRAW::psTextureState,ts);
 	}
 
 	DDRAW_POP_HACK(DIRECT3DDEVICE7_SETTEXTURE,IDirect3DDevice7*,
@@ -8132,20 +8146,20 @@ HRESULT D3D9C::IDirect3DDevice7::SetTextureStageState(DWORD x, DX::D3DTEXTURESTA
 			
 		case D3DTOP_SELECTARG1: //select texture (Sword of Moonlight?)
 		
-			dx_d3d9x_vsconstant(DDRAW::vsColorFactors,val[1],'xyz');			
-			dx_d3d9x_psconstant(DDRAW::psColorFactors,val[0],'xyz');
+			dx_d3d9X_vsconstant(DDRAW::vsColorFactors,val[1],'xyz');			
+			dx_d3d9X_psconstant(DDRAW::psColorFactors,val[0],'xyz');
 			break;
 		
 		case D3DTOP_ADD: case D3DTOP_MODULATE:
 		
-			dx_d3d9x_vsconstant(DDRAW::vsColorFactors,val[0],'xyz');
-			dx_d3d9x_psconstant(DDRAW::psColorFunction,val[z==D3DTOP_ADD],'xyz');
+			dx_d3d9X_vsconstant(DDRAW::vsColorFactors,val[0],'xyz');
+			dx_d3d9X_psconstant(DDRAW::psColorFunction,val[z==D3DTOP_ADD],'xyz');
 			break;
 		
 		case D3DTOP_SELECTARG2: //select color (Sword of Moonlight?)
 		
-			dx_d3d9x_vsconstant(DDRAW::vsColorFactors,val[0],'xyz');
-			dx_d3d9x_psconstant(DDRAW::psColorFactors,val[z==D3DTOP_SELECTARG2],'xyz');
+			dx_d3d9X_vsconstant(DDRAW::vsColorFactors,val[0],'xyz');
+			dx_d3d9X_psconstant(DDRAW::psColorFactors,val[z==D3DTOP_SELECTARG2],'xyz');
 			break;
 				
 		default: assert(0);
@@ -8162,26 +8176,26 @@ HRESULT D3D9C::IDirect3DDevice7::SetTextureStageState(DWORD x, DX::D3DTEXTURESTA
 			//Note: may be equivalent to disabling the entire TextureStage framework
 
 			//setting alpha to normal (Sword of Moonlight?)
-			dx_d3d9x_vsconstant(DDRAW::vsColorFactors,0.0f,'w'); 
-			dx_d3d9x_psconstant(DDRAW::psColorFactors,0.0f,'w'); 
+			dx_d3d9X_vsconstant(DDRAW::vsColorFactors,0.0f,'w'); 
+			dx_d3d9X_psconstant(DDRAW::psColorFactors,0.0f,'w'); 
 			break;
 
 		case D3DTOP_SELECTARG1: //select texture (Sword of Moonlight?)
 
-			dx_d3d9x_vsconstant(DDRAW::vsColorFactors,1.0f,'w'); 
-			dx_d3d9x_psconstant(DDRAW::psColorFactors,0.0f,'w'); 			
+			dx_d3d9X_vsconstant(DDRAW::vsColorFactors,1.0f,'w'); 
+			dx_d3d9X_psconstant(DDRAW::psColorFactors,0.0f,'w'); 			
 			break;
 	
 		case D3DTOP_ADD: case D3DTOP_MODULATE:
 		
-			dx_d3d9x_vsconstant(DDRAW::vsColorFactors,0.0f,'w');
-			dx_d3d9x_psconstant(DDRAW::psColorFunction,z==D3DTOP_ADD?1ul:0ul,'w'); 		
+			dx_d3d9X_vsconstant(DDRAW::vsColorFactors,0.0f,'w');
+			dx_d3d9X_psconstant(DDRAW::psColorFunction,z==D3DTOP_ADD?1ul:0ul,'w'); 		
 			break;
 		
 		case D3DTOP_SELECTARG2: //select color (Sword of Moonlight?)
 
-			dx_d3d9x_vsconstant(DDRAW::vsColorFactors,0.0f,'w');
-			dx_d3d9x_psconstant(DDRAW::psColorFactors,z==D3DTOP_SELECTARG2?1ul:0ul,'w');
+			dx_d3d9X_vsconstant(DDRAW::vsColorFactors,0.0f,'w');
+			dx_d3d9X_psconstant(DDRAW::psColorFactors,z==D3DTOP_SELECTARG2?1ul:0ul,'w');
 			break;
 
 		default: assert(0);
@@ -8487,8 +8501,8 @@ HRESULT D3D9C::IDirect3DVertexBuffer7::Unlock()
 //              PROCEDURAL INTERFACE                  //
 ////////////////////////////////////////////////////////
 
-extern int dx_d3d9x_supported(HMONITOR);
-extern void dx_d3d9x_register();
+extern int dx_d3d9X_supported(HMONITOR);
+extern void dx_d3d9X_register();
 static void dx_d3d9c_register()
 {
 	DDRAW::ff = true;
@@ -8787,7 +8801,7 @@ public:
 	STDMETHOD(ReturnUnderlyingResource)
 	(IDirect3DResource9*, UINT NumSync, UINT64 *pSignalValues, ID3D12Fence **ppFences)PURE;
 };
-extern bool dx_d3d9x_feature_level_11(LUID);
+extern bool dx_d3d9X_feature_level_11(LUID);
 HRESULT WINAPI D3D9C::DirectDrawCreateEx(GUID *lpGuid, LPVOID *lplpDD, REFIID iid, IUnknown FAR *pUnkouter)
 {	
 	HRESULT out = !DD_OK; 
@@ -8936,7 +8950,7 @@ HRESULT WINAPI D3D9C::DirectDrawCreateEx(GUID *lpGuid, LPVOID *lplpDD, REFIID ii
 		{
 			LUID luid;
 			d3d9Ex->GetAdapterLUID(adapter,&luid);
-			if(!dx_d3d9x_feature_level_11(luid))
+			if(!dx_d3d9X_feature_level_11(luid))
 			{
 				DDRAW::target = 'dx9c';
 
@@ -8946,7 +8960,7 @@ HRESULT WINAPI D3D9C::DirectDrawCreateEx(GUID *lpGuid, LPVOID *lplpDD, REFIID ii
 			dx95 = DDRAW::target; //moving target?
 
 			//always calling this is just easier
-			dx_d3d9x_register();
+			dx_d3d9X_register();
 
 		assert(!DDRAW::DirectDraw7);
 
@@ -8974,20 +8988,20 @@ HRESULT WINAPI D3D9C::DirectDrawCreateEx(GUID *lpGuid, LPVOID *lplpDD, REFIID ii
 		static DWORD support = 0; //OPTIMIZING?
 		if(DDRAW::target!='dx9c')		
 		if(~support&(1<<adapter))
-		if(!dx_d3d9x_supported(DDRAW::monitor)) //UNIMPLEMENTED
+		if(!dx_d3d9X_supported(DDRAW::monitor)) //UNIMPLEMENTED
 		{
 			DDRAW::target = dx95 = 'dx9c'; assert(0);
 
 			DDRAW_ALERT(0) << "Video adapter doesn't meet minimum OpenGL version (4.5 or 3.1 ES)\n"
 			<< " It's necessary to fallback to D3D9 with Shader Model 3 just to not quit out now\n";
 
-			dx_d3d9x_register();
+			dx_d3d9X_register();
 		}		
 		else support|=1<<adapter;
 		//2021: anticipating being unable to support sRGB modes
 		if(sm<2||DDRAW::shader) DDRAW::sRGB = 0;
 
-		//HACK! Ex.movie.cpp (dx_d3d9x_d3d12?)
+		//HACK! Ex.movie.cpp (dx_d3d9X_d3d12?)
 		DDRAW::target_backbuffer = DDRAW::target;
 
 		DDRAW::IDirectDraw7 *p = new DDRAW::IDirectDraw7(dx95);

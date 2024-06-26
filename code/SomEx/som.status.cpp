@@ -1081,7 +1081,7 @@ extern void som_status_automap(int i, int j, int x, int y)
 		som_status_mapmap->texture->updating_texture(4);
 
 		som_status_autolock = som_status_mapmap->texture;
-		som_status_autolock->Lock(0,&icons,DDLOCK_READONLY,0);
+		som_status_autolock->Lock(0,&icons,DDLOCK_WAIT|DDLOCK_READONLY,0);
 		assert(icons.lpSurface);
 
 		//Reminder: Moratheia has a 256x256 BMP but it's unclear

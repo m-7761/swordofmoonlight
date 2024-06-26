@@ -35,7 +35,7 @@
 #define float4x4 mat4
 //these support DGAMMA_Y
 #define GLSL_HLSL_CONV \
-#define float1 vec1\n\
+#define float1 float\n\
 #define float2 vec2\n\
 #define float3 vec3\n\
 #define float4 vec4\n\
@@ -142,28 +142,29 @@ static const char *classic[2] = //GLSL
 	Out_uv1 = x.uv1; gl_Position = Out.pos;\n
 	#else	
 	void set_gl_Position(float4); //predeclaring
+	#if SHADER_INDEX!=7 //SHADOW
 	struct CLASSIC_INPUT
 	{
 		/*LIT_INPUT
 		float4 pos : POSITION; 
 		float3 lit : NORMAL;   
 		classic_stereo_DEPTH 
-		float4 uv0 : TEXCOORD; //4 is for shadow?
+		float2 uv0 : TEXCOORD;
 		*/
 		/*UNLIT_INPUT
 		float4 pos : POSITION; 
 		float4 col : COLOR;
-		float4 uv0 : TEXCOORD; //4 is for shadow?
+		float2 uv0 : TEXCOORD;
 		classic_stereo_DEPTH
 		*/
-		float4 pos; float3 lit; float4 col; float4 uv0;
+		float4 pos; float3 lit; float4 col; float2 uv0;
 	};
 	//in struct CLASSIC_INPUT
 	//{
 		layout(location=0) in float4 In_pos; 
 		layout(location=1) in float3 In_lit; //LIT_INPUT
 		layout(location=3) in float4 In_col; //UNLIT_INPUT
-		layout(location=10) in float4 In_uv0;
+		layout(location=10) in float2 In_uv0;
 
 		//EXPERIMENTAL
 		//these come in via a glVertexBindingDivisor side channel
@@ -178,23 +179,22 @@ static const char *classic[2] = //GLSL
 	#define FOG_INPUT CLASSIC_INPUT(In_pos,vec3(0.0),vec4(0.0),In_uv0)\n
 	#define LIT_INPUT CLASSIC_INPUT(In_pos,In_lit,vec4(0.0),In_uv0)\n
 	#define UNLIT_INPUT CLASSIC_INPUT(In_pos,vec3(0.0),In_col.bgra,In_uv0)\n
-	#if SHADER_INDEX!=7 //SHADOW
 	struct CLASSIC_OUTPUT
 	{
 		/*
 		float4 pos : POSITION;  
 		float4 col : COLOR;     
-		float2 uv0 : TEXCOORD0;
+		float4 uv0 : TEXCOORD0;
 		classic_stereo_DEPTH 
 		float4 fog : TEXCOORD1; 
 		*/
-		float4 col; float2 uv0; float4 fog; float4 pos; //gl_Position
+		float4 col; float4 uv0; float4 fog; float4 pos; //gl_Position
 	};
 	//D3D11 rejects GL_EXT_shader_io_blocks
 	//layout(location=0) out CLASSIC_OUTPUT
 	//{
 		layout(location=0) out float4 Out_col;
-		layout(location=1) out float2 Out_uv0;
+		layout(location=1) out float4 Out_uv0;
 		layout(location=2) out float4 Out_fog; //model-view pos
 		layout(location=3) out float4 Out_pos; //projection pos
 		#ifdef DSTEREO
@@ -203,17 +203,51 @@ static const char *classic[2] = //GLSL
 	//}Out;
 	#define OUTPUT(x) Out_col = x.col;\
 	Out_uv0 = x.uv0; Out_fog = x.fog; set_gl_Position(x.pos);\n
-	#else		
+	#else
+	struct SHADOW_INPUT
+	{
+		/*LIT_INPUT
+		float4 pos : POSITION; 
+		float4 col : COLOR;
+		float4 center : TEXCOORD0; 
+		float3 xforms : TEXCOORD1;
+		classic_stereo_DEPTH
+		*/
+		float4 pos; float4 col; 
+		
+		float4 center; float4 xforms;
+	};
+	//in struct SHADOW_INPUT
+	//{
+		layout(location=0) in float4 In_pos; 
+		layout(location=3) in float4 In_col;
+		layout(location=10) in float4 In_center; 
+		layout(location=11) in float4 In_xforms; 
+
+		//EXPERIMENTAL
+		//these come in via a glVertexBindingDivisor side channel
+		#ifdef DSTEREO
+		layout(location=5) in float4 Xr_fov; //asymmetric projection
+		layout(location=6) in float4 Xr_mvP; //model-view position
+		layout(location=7) in float4 Xr_mvQ; //model-view quaternion
+		layout(location=8) in float4 Xr_vpR; //viewport and frustum
+		#endif
+
+	//}In;
+	#define INPUT SHADOW_INPUT(In_pos,In_col,In_center,In_xforms)\n
 	struct CLASSIC_SHADOW
 	{
 		/*
 		float4 pos : POSITION;  
 		float4 col : COLOR0;     
-		float4 fog : COLOR1;     
+		float4 fog : COLOR1;
+		float4 xforms : COLOR2;
 		float4x4 mat : TEXCOORD0; 
 		classic_stereo_DEPTH
 		*/
 		float4 col; float4x4 mat; float4 pos; //gl_Position
+
+		float4 xforms; //2023
 
 		float4 fog; //classic_stereo_pos?
 	};
@@ -222,14 +256,15 @@ static const char *classic[2] = //GLSL
 	//{
 		layout(location=0) out float4 Out_col; //flat?
 		layout(location=1) out float4 Out_pos; //Out_fog
-		layout(location=2) out float4x4 Out_mat; //flat?
-		//REMINDER: location=3,4,5 is float4x4...
+		layout(location=2) out float4 Out_xforms;
+		layout(location=3) out float4x4 Out_mat; //flat?
+		//REMINDER: location=4,5,6 is float4x4...
 		#ifdef DSTEREO
-		layout(location=6) out float4 Xr_dpos;
+		layout(location=7) out float4 Xr_dpos;
 		#endif
 	//}Out;
 	#define OUTPUT(x) Out_col = x.col;\
-	Out_mat = x.mat; set_gl_Position(x.pos);\n
+	Out_xforms = x.xforms; Out_mat = x.mat; set_gl_Position(x.pos);\n
 	#endif //SHADER_INDEX!=7 
 	)
 	
@@ -396,6 +431,7 @@ static const char *classic[2] = //GLSL
 	layout(binding=0) uniform sampler2D sam0;
 	layout(binding=1) uniform sampler2D sam1;
 	layout(binding=2) uniform sampler2D sam2;
+	layout(binding=3) uniform sampler2D sam3;
 	//EXPERIMENTAL
 	//layout(origin_upper_left) in vec2 gl_FragCoord; //vec4
 	)
@@ -561,7 +597,7 @@ static const char *classic[2] = //GLSL
 	{
 		/*
 		float4 col : COLOR0;    
-		float2 uv0 : TEXCOORD0; 
+		float4 uv0 : TEXCOORD0; 
 		float4 fog : TEXCOORD1; //4 is for shadow? 
 		#ifdef DSTEREO
 		float stereo : DEPTH;
@@ -570,13 +606,13 @@ static const char *classic[2] = //GLSL
 		float2 vpos : VPOS; //volume
 		#endif
 		*/
-		float4 col; float2 uv0; float4 fog; float4 pos; float2 vpos;
+		float4 col; float4 uv0; float4 fog; float4 pos; float2 vpos;
 	};
 	//D3D11 rejects GL_EXT_shader_io_blocks
 	//layout(location=0) in CLASSIC_INPUT
 	//{
 		layout(location=0) in float4 In_col;
-		layout(location=1) in float2 In_uv0;
+		layout(location=1) in float4 In_uv0;
 		layout(location=2) in float4 In_fog;
 		layout(location=3) in float4 In_pos;
 		#ifdef DSTEREO
@@ -591,6 +627,7 @@ static const char *classic[2] = //GLSL
 		/*
 		float4 col : COLOR0;     		
 		float4 fog : COLOR1; 
+		float3 xforms : COLOR2;
 		float4x4 mat : TEXCOORD0; 
 		#ifdef DSTEREO		
 		float stereo : DEPTH; //needs vpos
@@ -599,7 +636,7 @@ static const char *classic[2] = //GLSL
 		float2 vpos : VPOS; //Shader Model 3
 		#endif	
 		*/
-		float4 col; float4x4 mat; float4 pos; float2 vpos;
+		float4 col; float4 xforms; float4x4 mat; float4 pos; float2 vpos;
 	};
 	//D3D11 rejects GL_EXT_shader_io_blocks
 	//layout(location=0) in CLASSIC_SHADOW
@@ -610,13 +647,14 @@ static const char *classic[2] = //GLSL
 
 		layout(location=0) in float4 In_col; //flat?
 		layout(location=1) in float4 In_pos; //In_fog
-		layout(location=2) in float4x4 In_mat; //flat?
-		//REMINDER: location=3,4,5 is float4x4...
+		layout(location=2) in float4 In_xforms; //In_xforms
+		layout(location=3) in float4x4 In_mat; //flat?
+		//REMINDER: location=4,5,6 is float4x4...
 		#ifdef DSTEREO
-		layout(location=6) in float4 Xr_dpos;
+		layout(location=7) in float4 Xr_dpos;
 		#endif
 	//}In;	
-	#define INPUT CLASSIC_SHADOW(In_col,In_mat,In_pos,gl_FragCoord.xy)\n
+	#define INPUT CLASSIC_SHADOW(In_col,In_xforms,In_mat,In_pos,gl_FragCoord.xy)\n
 	#endif
 	struct CLASSIC_OUTPUT
 	{
@@ -712,6 +750,17 @@ static const char *effects[2] = //GLSL
 			#else
 			float4 sum = min(vec4(1),pow(abs(cmp0-cmp1),vec4(1.5))*3.0);
 			#endif
+
+			//4/10/24 error C7011: implicit cast from "int" to "bool"
+			//if(1) //2024: swing model afterimage?
+			{
+				float ai = 2-sum0.a;
+				float ia = (2.0-ai)+0.4*(1.0-sum1.a); //over 1!
+				ai-=0.2*(1.0-sum1.a);
+				cmp0*=ai; cmp1*=ia; 
+				sum0*=ai; sum1*=ia;
+			}
+
 			sum = lerp(sum0+sum1,cmp0+cmp1,sum);
 			
 		#elif defined(DSS)
@@ -790,7 +839,7 @@ static const char *effects[2] = //GLSL
 	
 		#ifdef DDITHER	
 		//0.0001f: helps Intel Iris Pro graphics
-		Out.col.rgb+=tex2D(sam2,In.pos/(8.0*DDITHER)+0.0001).r/8.0; 
+		Out.col.rgb+=tex2D(sam3,In.pos/(8.0*DDITHER)+0.0001).r/8.0; 
 		#endif
 		
 		#ifdef DGREEN
@@ -838,7 +887,7 @@ static const char *classic_blit[2] = //GLSL
 		#endif
 
 		Out.col = In.col; 
-		Out.uv0 = In.uv0.xy; 		
+		Out.uv0 = float4(In.uv0.xy,0,0); 		
 
 		Out.col+=colFactors; //select texture
 
@@ -887,7 +936,7 @@ static const char *classic_fog[2] = //GLSL
 		//Out.pos = mul(x4mWVP,In.pos);
 		classic_stereo_pos(In.pos)
 	//	Out.col = vec4(0.0);
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 //	classic_z  		
 	classic_stereo(true)
@@ -931,7 +980,7 @@ static const char *classic_unlit[2] = //GLSL
 		//Out.pos = mul(x4mWVP,In.pos);
 		classic_stereo_pos(In.pos)
 		Out.col = In.col;  
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 //	classic_z  		
 	classic_stereo(true)
@@ -1005,8 +1054,8 @@ static const char *classic_volume[2] = //GLSL
 
 		float3 pos = stereo_dpos(In.pos.xy/In.pos.w);
 
-		//pos*=abs(tex2D(sam1,vp+0.0001f).x);
-		pos*=abs(tex2D(sam1,vp).x);
+		//pos*=abs(tex2D(sam2,vp+0.0001f).x);
+		pos*=abs(tex2D(sam2,vp).x);
 		float depth = volRegister.z; //skyRegister
 		float power = volRegister.w; //skyRegister
 		float alpha = pow(length(pos-In.fog.xyz)*depth,power);
@@ -1018,6 +1067,12 @@ static const char *classic_volume[2] = //GLSL
 		//#endif
 
 		Out.col.a = alpha; 
+
+		//2023: fade monsters to white on death
+		float1 gray = dot(Out.col.rgb,float3(0.222,0.707,0.071));		
+		Out.col.rgb = lerp(Out.col.rgb,gray.rrr,In.uv0.a)+In.uv0.a*0.5;
+		//HACK: sqrt(fade)->fade*fade
+		Out.col.a*=pow(1-In.uv0.a,3);
 
 	//	Out.col.rgb = pos; //DEBUGGING
 		
@@ -1036,7 +1091,7 @@ static const char *classic_sprite[2] = //GLSL
 		//Out.pos = mul(x4mWVP,In.pos);
 		classic_stereo_pos(In.pos)
 		Out.col = In.col; 
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 	
 //	classic_z //Out.fog = 0.0f;	   	
 	classic_stereo(true)
@@ -1081,37 +1136,38 @@ static const char *classic_shadow[2] = //GLSL
 {	
 	GLSL(void main() //shadow() VERTEX SHADER
 	{
-		CLASSIC_INPUT In = UNLIT_INPUT; //const
+		SHADOW_INPUT In = INPUT; //const
 
 		CLASSIC_SHADOW Out;
 
-		Out.col = In.col; 		
+		Out.col = In.col;
+		Out.xforms = In.xforms;
 
 		float4 center,corner;				  
-		center.xyz = In.uv0.xyz;		
+		center.xyz = In.center.xyz;		
 		center.w = corner.w = 1.0;
-		corner.xyz = In.pos.xyz*In.uv0.w+center.xyz;		
+		corner.xyz = In.pos.xyz;
+	//	corner.xz*=Out.xforms.zw;
+
+		//2023: rotate shadow?
+		float cx = corner.x, cz = corner.z;
+		corner.x = cx*In.xforms.x+cz*In.xforms.y;
+		corner.z = cx*-In.xforms.y+cz*In.xforms.x;
+
+		corner.xyz+=center.xyz;
 		//Out.pos = mul(x4mWVP,corner);
 		classic_stereo_pos(corner)
 
 	//IMPORTANT AA IS DONE BEFORE Out.fog = Out.pos BELOW	
 	classic_stereo(true) classic_aa
 
-		//REMINDER: this code was based on a technique which
-		//projects geometry onto planes to make flat shadows
 		#ifdef DSTEREO
 		Out.mat = openxr_x4mV();
 		center = mul(Out.mat,center);
 		Out.mat = transpose(Out.mat);
 		#else
-
-			//NOTICE (AMD)
-			//THIS OR SOMETHING ISN'T WORKING WITH MY
-			//AMD SYSTEM... THE SHADOW COLLAPSES WHEN
-			//NEARBY AND LOOKING IN CERTAIN DIRECTONS
-
 		center = mul(x4mV,center);
-		Out.mat = transpose(x4mV);
+		Out.mat = transpose(x4mV);		
 		#endif
 		for(int i=0;i<3;i++)
 		Out.mat[i].w = -dot(center.xyz,Out.mat[i].xyz);
@@ -1121,8 +1177,9 @@ static const char *classic_shadow[2] = //GLSL
 		//2022: rename fog->pos and repurpose fog/pos.z
 		//after set_gl_Position
 		//Out.fog = Out.pos;		
-		float bias = EX_INI_SHADOWUVBIAS;
-		Out_pos.z = 0.5/(In.uv0.w*EX_INI_SHADOWRADIUS/bias);
+		//float bias = EX_INI_SHADOWUVBIAS;
+		//Out_pos.z = 0.5/(Out.xforms.z*EX_INI_SHADOWRADIUS/bias);
+		Out_pos.z = 0.5/(Out.xforms.z/EX_INI_SHADOWUVBIAS); //not Out.pos!
 	}),
 	GLSL(void main() //shadow() FRAGMENT SHADER
 	{
@@ -1137,16 +1194,24 @@ static const char *classic_shadow[2] = //GLSL
 		float4 pos = float4(stereo_dpos(In.pos.xy/In.pos.w),1.0); 
 		
 		//SHADER_MODEL>=3
-		//pos.xyz*=tex2D(sam1,In.vpos*rcpViewport.xy+0.0001f).x;
-		pos.xyz*=tex2D(sam1,In.vpos*rcpViewport.xy).x;
+		//pos.xyz*=tex2D(sam2,In.vpos*rcpViewport.xy+0.0001).x;
+		pos.xyz*=tex2D(sam2,In.vpos*rcpViewport.xy).x;
 		
-		float3 st = mul(In.mat,pos).xzy; //!!			  		
-		st.xy = vec2(0.5f)-st.xy*In.pos.z;				
+		float3 st = mul(In.mat,pos).xzy; //!!
+		float sx = st.x; float sy = st.y;
+		st.x = sx*In.xforms.x+sy*-In.xforms.y;
+		st.y = sx*In.xforms.y+sy*In.xforms.x;
+		st.y/=In.xforms.w/In.xforms.z; //UV space
+		st.xy = vec2(0.5f)-st.xy*In.pos.z;
 		//1.9: should (probably) be 2 (squeezing every last drop)
-		st.z*=In.pos.z*(EX_INI_SHADOWRADIUS/EX_INI_SHADOWVOLUME*1.9f); 		
+		st.z*=In.pos.z*(EX_INI_SHADOWRADIUS/EX_INI_SHADOWVOLUME*1.9);
 		st.z*=st.z; //pow(st.z,2.0); 
-		float4 dd = clamp(float4(ddx(st.xy),ddy(st.xy)),-0.5f,0.5f);
-		Out.col.a*=textureGrad(sam0,st.xy,dd.xy,dd.zw).a; //tex2D
+
+		float4 dd = clamp(float4(ddx(st.xy),ddy(st.xy)),-0.5,0.5);
+		float4 s1 = textureGrad(sam0,st.xy+0.0,dd.xy,dd.zw);
+		float4 s2 = textureGrad(sam0,1.15*(st.xy-0.5)+0.5,dd.xy,dd.zw);
+		Out.col.a*=(s1.r+s2.r)*0.5;
+
 		Out.col.a-=st.z;
 					
 	//classic_rangefog	
@@ -1192,7 +1257,7 @@ static const char *classic_blended[2] = //GLSL
 
 		//Out.pos = mul(x4mWVP,In.pos);
 		classic_stereo_pos(In.pos)
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 		#ifdef DIN_EDITOR_WINDOW
 		Out.fog = float4(0,0,0,0);
@@ -1203,7 +1268,7 @@ static const char *classic_blended[2] = //GLSL
 
 		//HACK: letting DGAMMA_N modify this to adjust
 		//ambient value to demo King's Field II
-		Out.col = matEmitted;
+		Out.col = float4(matEmitted.rgb,0);
 		float4 ambient = float4(0,0,0,0);
 		float4 diffuse = float4(0,0,0,1);  
 
@@ -1267,11 +1332,13 @@ static const char *classic_blended[2] = //GLSL
 
 			//EXPERIMENTAL
 			#ifdef DMPX_BALANCE
-			Out.col.rgb*=DMPX_BALANCE; 
+		//	Out.col.rgb*=DMPX_BALANCE; 
 			#endif
 			#ifdef DAMBIENT2
 			Out.col.rgb = lerp(vec3(0.5),Out.col.rgb,bmpAmbient.rgb)-(vec3(1.0)-bmpAmbient.rgb)*0.25;
 			#endif
+
+		Out.uv0.a = matEmitted.a; //white ghost?
 
 		OUTPUT(Out); //return Out; 
 	}),
@@ -1302,6 +1369,10 @@ static const char *classic_blended[2] = //GLSL
 //Out.col = tex2D(sam0,In.uv0.xy);
 //Out.col.rg = In.uv0.xy;
 
+		//2023: fade monsters to white on death
+		float1 gray = dot(Out.col.rgb,float3(0.222,0.707,0.071));		
+		Out.col.rgb = lerp(Out.col.rgb,gray.rrr,In.uv0.a)+In.uv0.a*0.5;
+
 		OUTPUT(Out); //return Out;
 	})
 };
@@ -1330,7 +1401,7 @@ static const char *classic_backdrop[2] = //GLSL
 		Out.pos = mul(x4mWV,In.pos); //In.pos
 		Out.pos = mul(x4mP,Out.pos);*/
 		classic_stereo_pos(Out.pos) //OpenXR?
-		Out.uv0 = In.uv0.xy;
+		Out.uv0 = float4(In.uv0.xy,0,0);
 
 	//IMPORTANT AA IS DONE BEFORE Out.fog = Out.pos BELOW
 	classic_stereo(false)
@@ -1363,8 +1434,8 @@ static const char *classic_backdrop[2] = //GLSL
 		float3 pos = stereo_dpos(In.pos.xy/In.pos.w);
 		
 		//SHADER_MODEL>=3
-		//pos*=tex2D(sam1,In.vpos*rcpViewport.xy+0.0001f).x;
-		pos*=tex2D(sam1,In.vpos*rcpViewport.xy).x;
+		//pos*=tex2D(sam2,In.vpos*rcpViewport.xy+0.0001f).x;
+		pos*=tex2D(sam2,In.vpos*rcpViewport.xy).x;
 
 		Out.col.a*=1.0-saturate((skyRegister.y-length(pos))*skyRegister.x);
 		Out.col.a*=min(1.0,In.fog.z);  

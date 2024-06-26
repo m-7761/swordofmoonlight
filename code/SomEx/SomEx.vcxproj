@@ -18,26 +18,26 @@
     <ProjectGuid>{4D50E220-C402-4FC6-AE8C-F9C743BF6B1D}</ProjectGuid>
     <RootNamespace>Ddbug</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.22000.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <PlatformToolset>v100</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>v100</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -93,9 +93,8 @@
     <ClCompile>
       <AdditionalOptions>/I .\dx8.1 /I .\dx7a /I .\dx9extras
 /I "$(SOM_SDK)" %(AdditionalOptions)</AdditionalOptions>
-      <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>$(WIDGETS95)/include;$(SOM_SDK);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS;_ITERATOR_DEBUG_LEVEL=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <MinimalRebuild>true</MinimalRebuild>
       <ExceptionHandling>Sync</ExceptionHandling>
@@ -110,9 +109,12 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <EnablePREfast>false</EnablePREfast>
       <FloatingPointModel>Fast</FloatingPointModel>
+      <Optimization>Disabled</Optimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <AdditionalOptions>/NODEFAULTLIB:LIBCMT
@@ -128,6 +130,7 @@
       <TargetMachine>MachineX86</TargetMachine>
       <Profile>false</Profile>
       <AdditionalLibraryDirectories>$(SOM_SDK)\imp;$(SOM_SDK)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
     <PostBuildEvent>
       <Command>copy /y "$(OutDir)SomEx.dll" "$(SOM_SVN)\tool\SomEx.dll"
@@ -140,14 +143,14 @@ rem $(SomEx_PostBuild)
       <AdditionalOptions>/I .\dx8.1 /I .\dx7a /I .\dx9extras
 /I "$(SOM_SDK)" %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>false</OmitFramePointers>
       <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
       <AdditionalIncludeDirectories>$(WIDGETS95)/include;$(SOM_SDK);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;NASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;NASSERT;_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -181,6 +184,7 @@ rem $(SomEx_PostBuild)
       <FixedBaseAddress>false</FixedBaseAddress>
       <AdditionalLibraryDirectories>$(SOM_SDK)\imp;$(SOM_SDK)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <DelayLoadDLLs>Exselector.dll;ws2_32.dll;opengl32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
     <PostBuildEvent>
       <Command>copy /y "$(OutDir)SomEx.dll" "$(SOM_SVN)\tool\SomEx.dll"
@@ -195,14 +199,14 @@ $(SomEx_PostBuild)
       <AdditionalOptions>/I .\dx8.1 /I .\dx7a /I .\dx9extras
 /I "$(SOM_SDK)" %(AdditionalOptions)</AdditionalOptions>
       <Optimization>Disabled</Optimization>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>false</OmitFramePointers>
       <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <WholeProgramOptimization>true</WholeProgramOptimization>
       <AdditionalIncludeDirectories>$(WIDGETS95)/include;$(SOM_SDK);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;RELWITHDEBINFO;_WINDOWS;_USRDLL;NASSERT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;RELWITHDEBINFO;_WINDOWS;_USRDLL;NASSERT;_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <ExceptionHandling>Sync</ExceptionHandling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -237,6 +241,7 @@ $(SomEx_PostBuild)
       <FixedBaseAddress>false</FixedBaseAddress>
       <AdditionalLibraryDirectories>$(SOM_SDK)\imp;$(SOM_SDK)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <DelayLoadDLLs>Exselector.dll;ws2_32.dll;opengl32.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
     </Link>
     <PostBuildEvent>
       <Command>copy /y "$(OutDir)SomEx.dll" "$(SOM_SVN)\tool\SomEx.dll"
@@ -251,6 +256,7 @@ $(SomEx_PostBuild)
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Ex.toast.cpp" />
     <ClCompile Include="MapComp.cpp" />
     <ClCompile Include="som.art.cpp" />
     <ClCompile Include="dx.d3d9X.cpp">
@@ -373,8 +379,12 @@ $(SomEx_PostBuild)
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|Win32'">NotUsing</PrecompiledHeader>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="som.bsp.cpp" />
+    <ClCompile Include="som.kage.cpp" />
     <ClCompile Include="som.logic.cpp" />
     <ClCompile Include="som.MDL.cpp" />
     <ClCompile Include="som.MPX.cpp" />
@@ -539,6 +549,25 @@ $(SomEx_PostBuild)
     <Library Include="dx9libs\dsound.lib" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\..\Moonlight Help\frame.htm">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\0.htm">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\1.htm">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\3.htm">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\5.htm">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\..\Moonlight Help\ja_JP\7.htm">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\..\Moonlight Help\style.css" />
     <None Include="..\lib\pack.inl" />
     <None Include="reference\FixedFuncShader.fx" />
     <None Include="dx.ddcaps.inl" />
@@ -556,6 +585,9 @@ $(SomEx_PostBuild)
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SomEx.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\Moonlight Help\ja_JP\7.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

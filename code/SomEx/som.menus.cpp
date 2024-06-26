@@ -198,37 +198,33 @@ static void som_menus_onsaving_callback(int ns, int code)
 
 namespace som_menus_x
 {
-static char out[64];
-namespace x = som_menus_x;
-static const char *ko(const char*,int)
-{
-	return ""; 
-}
-static const char *et(const char*,int)
-{
-	strcpy(x::out,"\n\n"); //som_menus_x::time
-	const char *f = SOM::transl8(SOM::MAIN::_Time.id,SOM::MAIN::_Time.en);
-	_sprintf_s_l(out+2,sizeof(out)-2,f,EX::Locale::C,SOM::et/3600,SOM::et%3600/60,SOM::et%3600%60);
-	return out;
-}
-static const char *time(const char*, int)
-{	
-	if((SOM::L.pcstatus[SOM::PC::xxx]&0x1F)==0x1F)	
-	return ""; //hack: make way for 5th status ailment
-	strcpy(x::out,"\n\n"); //som_menus_x::et
-	const char *x = SOM::transl8(SOM::MAIN::Time.id,SOM::MAIN::Time.en);
-	strcpy_s(out+2,sizeof(out)-2,x); return out;
-}		
-static const char 
-*pads(const char*,int),*padcfg(const char*,int),
-*buttons(const char*,int),*strftime(const char*,int),
-*colors(const char*,int),*colormodes(const char*,int),
-*anisotropy(const char*,int),*texfilters(const char*,int),
-*classnames(const char*,int),
-*nonequipment(const char*,int),*shadow_tower(const char*,int),
-*mode(int),*sellout(const char*,int);
-const char *mode0(const char*,int){ return mode(0); }
-const char *mode1(const char*,int){ return mode(1); }
+	static char out[64];
+	namespace x = som_menus_x;
+	static const char *ko(const char*,int)
+	{
+		return ""; 
+	}
+	static const char *et(const char*,int)
+	{
+		strcpy(x::out,"\n\n"); //som_menus_x::time
+		const char *f = SOM::transl8(SOM::MAIN::_Time.id,SOM::MAIN::_Time.en);
+		_sprintf_s_l(out+2,sizeof(out)-2,f,EX::Locale::C,SOM::et/3600,SOM::et%3600/60,SOM::et%3600%60);
+		return out;
+	}
+	static const char *time(const char*, int)
+	{	
+		if((SOM::L.pcstatus[SOM::PC::xxx]&0x1F)==0x1F)	
+		return ""; //hack: make way for 5th status ailment
+		strcpy(x::out,"\n\n"); //som_menus_x::et
+		const char *x = SOM::transl8(SOM::MAIN::Time.id,SOM::MAIN::Time.en);
+		strcpy_s(out+2,sizeof(out)-2,x); return out;
+	}		
+	typedef const char *cb_f(const char*,int);
+	static cb_f res,colors,colormodes,anisotropy,texfilters;
+	static cb_f pads,padcfg,buttons,strftime;
+	static cb_f classnames,nonequipment,shadow_tower,mode,sellout;
+	const char *mode0(const char*_,int){ return mode(_,0); }
+	const char *mode1(const char*_,int){ return mode(_,1); }
 }
 
 static const char *som_menus_white(const char*,const char*,int);
@@ -372,6 +368,8 @@ void SOM::initialize_som_menus_cpp() //initialization
 		SOM::STATS::Time.cb = x::time;
 		SOM::SYS::Time.cb = x::time;
 	}	
+
+	SOM::OPTION::_Res.cb = x::res; //2024
 
 	SOM::CONFIG::Config->cb = x::padcfg;
 
@@ -1050,6 +1048,10 @@ static const char *som_menus_x::strftime(const char *in, int in_s)
 	if(EX::Decode(wout,&out,&out_x)!=65001) return 0;
 	return out;   
 }
+static const char *som_menus_x::res(const char *in, int in_s)
+{
+	return in;
+}
 static const char *som_menus_x::colors(const char *in, int in_s)
 {
 	EX::INI::Option op;
@@ -1136,7 +1138,7 @@ static const char *som_menus_x::texfilters(const char *in, int in_s)
 	return SOM::transl8(som_932_AnisoModes[mode],aniso[mode]);
 	return SOM::transl8(ids[mode],en[mode]);
 }
-static const char *som_menus_x::mode(int right)
+static const char *som_menus_x::mode(const char*, int right)
 {
 	x::out[0] = '\0';
 	

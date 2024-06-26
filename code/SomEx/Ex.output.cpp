@@ -250,7 +250,7 @@ static int Ex_output_print(const wchar_t *X)
 	if(Ex_output_margin.top 
 	+drawn>Ex_output_margin.bottom) //clipping
 	{
-		Ex_output_margin.top+=drawn; return 0;
+		Ex_output_margin.top+=drawn; return drawn = 0;
 	}
 	else if(!X||!*X) return 0;	
 
@@ -288,7 +288,7 @@ static int Ex_output_print(const wchar_t *X)
 
 		if(format&DT_RIGHT) Ex_output_margin.right++; else Ex_output_margin.left++;
 				
-		if(gl) //2021
+		if(gl) //2021 
 		drawn = Exselector->svg_draw(gl,(X),len,rect,format,Ex_output_shadow);
 		else
 		drawn = f->DrawTextW(_,(X),len,rect,format,Ex_output_shadow);
@@ -438,7 +438,7 @@ extern const EX::Font **EX::reserving_output_font(LOGFONTW &in, const wchar_t *d
 	return &Ex_output_fonts[first_available];
 }
 
-extern int dx_d3d9x_gl_viewport[4];
+extern int dx_d3d9X_gl_viewport[4];
 static int(*Ex_output_Exselector_xr_callback)(int) = 0;
 extern void EX::beginning_output_font(bool upsidedown, int(*xr_f)(int))
 {
@@ -446,8 +446,8 @@ extern void EX::beginning_output_font(bool upsidedown, int(*xr_f)(int))
 
 	if(DDRAW::gl&&!DDRAW::xr)
 	{
-		int &w = dx_d3d9x_gl_viewport[2];
-		int &h = dx_d3d9x_gl_viewport[3];
+		int &w = dx_d3d9X_gl_viewport[2];
+		int &h = dx_d3d9X_gl_viewport[3];
 		float m[4*4] = 
 		{
 			2.0f/w,0,0,0,
@@ -517,6 +517,8 @@ DWORD how, const wchar_t *txt, D3DCOLOR col, RECT &line, RECT &box, int clipx, H
 			{
 				//2022: caller must have called EX::beginning_output_font
 				//Exselector->svg_view();
+
+				DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_FILLMODE,3); //2024
 
 				Exselector->svg_begin();
 
@@ -665,6 +667,8 @@ DWORD how, const wchar_t *txt, D3DCOLOR col, RECT &line, RECT &box, int clipx, H
 		else if(~how&DT_CALCRECT) 
 		{
 			Exselector->svg_end(Ex_output_Exselector_xr_callback);
+
+			DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_FILLMODE,SOM::L.fill); //2024
 		}
 
 		return drawn;
@@ -1645,8 +1649,8 @@ static void Ex_output_f5_system_information()
 //#endif			
 
 	if(EX::is_captive())	
-	EX_OUTPUT_PRINT_F(L"%.0fx%.0fy"_z,EX::mouse[0],EX::mouse[1],SOM::cursorZ)
-	else EX_OUTPUT_PRINT_F(L"%dx%dy"_z L"%c",EX::x,EX::y,SOM::cursorZ,EX::debug&&EX::cursor?'!':0)
+	EX_OUTPUT_PRINT_F(L"%.0fx%.0fy" _z,EX::mouse[0],EX::mouse[1],SOM::cursorZ)
+	else EX_OUTPUT_PRINT_F(L"%dx%dy" _z L"%c",EX::x,EX::y,SOM::cursorZ,EX::debug&&EX::cursor?'!':0)
 
 #undef _z
 
@@ -1776,18 +1780,18 @@ static void Ex_output_f6_player_information()
 	}
 	//else pow = 20; 
 
-	//2017: The "Nothing" extensions will twart this
-	//most of the time.
+	//2017: the "Nothing" extensions will twart this
+	//most of the time
 	bool spell = SOM::L.pcequip[7]<32;
 	if(spell) //if(magmax!=mag&&spell)
-	//2017: I think this is a special state for SOM. It's 
+	//2017: I think this is a special state for SOM. it's 
 	//only wrong until a magic is used, but still displays
-	//as empty. 
-	if(0!=SOM::L.pcstatus[SOM::PC::mp])
+	//as empty 
+	if(SOM::L.pcstatus[SOM::PC::mp])
 	{
 		magmax = mag;
 		float wtf = min(magmax?mag:5000,5000);
-		assert(wtf<=5000); //WTH: The outer assert (below) is failing?!?!?!?!?!
+		assert(wtf<=5000); //WTH: the outer assert (below) is failing?!?!?!?!?!
 		mag = wtf/5000*20;	
 	}
 	else mag = 20;
@@ -1797,13 +1801,15 @@ static void Ex_output_f6_player_information()
 
 	//WTH???? mag is 5000? THAT'S IMPOSSIBLE!
 	assert(pow>=0&&pow<=20&&mag>=0&&mag<=20);
-	//>=: Sometimes it's going over??? On Load? 2017.
+	//>=: sometimes it's going over??? on load? 2017
 	if(pow>=20) powgauge[0] = '\0';
 	else for(int i=0;i<pow;i++) powgauge[i+1] = ' ';
 	if(mag>=20) maggauge[0] = '\0';
 	else for(int i=0;i<mag;i++) maggauge[i+1] = ' ';
-				
-	EX_OUTPUT_PRINT_F(L"%s %d HP |",powgauge,SOM::L.pcstatus[SOM::PC::hp])
+	
+	int hp = -SOM::L.pcdamage_display;
+	if(!hp) hp = SOM::L.pcstatus[SOM::PC::hp];
+	EX_OUTPUT_PRINT_F(L"%s %d HP |",powgauge,hp)
 	EX_OUTPUT_PRINT_F(L"%s %d MP |",maggauge,SOM::L.pcstatus[SOM::PC::mp])
 
 	auto &xxx = som_932w_States;
@@ -3122,6 +3128,8 @@ static bool Ex_output_onflip_or_oneffect(bool oneffects)
 
 		Exselector->svg_view(m);
 
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_FILLMODE,3); //2024
+
 		Exselector->svg_begin();
 
 		//HACK: OpenGL ES HAS ZERO STATE MANAGEMENT FACILITIES
@@ -3270,7 +3278,12 @@ static bool Ex_output_onflip_or_oneffect(bool oneffects)
 	{
 		if(Ex_output_cursor) Ex_output_cursor->End();
 	}
-	else Exselector->svg_end(Ex_output_Exselector_xr_callback);
+	else
+	{
+		Exselector->svg_end(Ex_output_Exselector_xr_callback);
+
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_FILLMODE,SOM::L.fill); //2024
+	}
 	
 	DDRAW::Direct3DDevice7->EndScene(); //onflip
 	

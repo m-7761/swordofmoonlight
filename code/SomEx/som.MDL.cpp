@@ -43,7 +43,7 @@ extern DWORD som_MDL_449d20_swing_mask(bool atk)
 	//static DWORD o = ~0;
 	static DWORD o,o2 = 0;
 	int c1 = atk||arms.d>1?arms.c:65535;
-	int c2 = arms.ext.d2?arms.ext.e2:65535;
+	int c2 = arms.ext.d2?arms.ext.c2:65535;
 	DWORD cmp = c1|c2<<16;
 	cmp = ~cmp;
 	if(o2==cmp) return o; o2 = cmp;
@@ -65,7 +65,7 @@ extern DWORD som_MDL_449d20_swing_mask(bool atk)
 
 		int t = c?1:2;
 		mdl::hardanim_t ha[9] = {};
-		mdl::animate(ani,ha,0,t,t==2,ani->time-t);
+		mdl::animate(ani,ha,0,t,t==2,ani->htime-t);
 		for(int i=9;i-->0;) 
 		if(ha[i].dvt) o|=1<<i;
 
@@ -80,29 +80,138 @@ extern DWORD som_MDL_449d20_swing_mask(bool atk)
 
 extern BYTE som_MDL_transform_hard(DWORD*);
 extern BYTE som_MDL_4418b0(SOM::MDL&,float*,DWORD);
-#if 1 //REFERENCE?
-enum{ som_MDL_hz=0 }; //EXPERIMENTAL
-static int som_MDL_animate_soft(SOM::MDL &mdl, float wt=1) //444410
+void som_MDL_restart_soft(SOM::MDL &mdl)
+{
+	//NOTE: there's a second memcpy at
+	//440FE9, immediately after, which
+	//is disabled. likely it's normals
+	if(mdl->ext.mdo) 
+	memset(mdl.anim_vertices,0x00,mdl->vertex_count*12);
+	else memcpy(mdl.anim_vertices,mdl->vertex_buf,mdl->vertex_count*12);
+	mdl.softanim_read_head = mdl->soft_anim_buf[mdl.c].file_ptr2;
+	mdl.softanim_read_tick = 0;
+	if(mdl.ext.anim_read_head2)
+	{
+		mdl.ext.anim_read_head2 = mdl->soft_anim_buf[mdl.ext.c2].file_ptr2;
+		mdl.ext.anim_read_tick2 = 0;
+	}
+}
+static int som_MDL_animate_soft(SOM::MDL &mdl, float wt=1, bool cp_accum=0) //444410
 {	
+//	assert(mdl.f!=-1);
+
 	namespace Sm = SWORDOFMOONLIGHT::mdl;
 
-	//Ghidra's names
-	auto puVar4 = (Sm::softanimframe_t*)mdl.softanim_read_head;
-	
-	//OPTIMIZING/INNOVATING
-	int ff = mdl.d-mdl.f; assert(ff>=1); if(ff!=1)
-	{
-		int most = puVar4->time-mdl.softanim_read_tick;
-		if(ff>most) ff = most;
+	bool reverse = EX::isNeg(wt); //EXTENSION
 
-		wt = wt*ff; //NOTE: staying in one frame
+	float delta = wt;
+
+	assert(!reverse||mdl.f>=mdl.d);
+
+	int rt = mdl.running_time(mdl.c); //TESTING
+
+	if(mdl.c!=0)
+	{
+		rt = rt; //breakpoint
 	}
+
+	if(mdl.ext.t>=1)
+	{
+		assert(mdl.d<rt-1);
+
+		int i = (int)mdl.ext.t; //mod
+
+		mdl.d+=i; mdl.ext.t-=i;
+	}
+
+	if(mdl.f>=rt-1) //attack animation?
+	{
+		assert(mdl.d<rt);
+
+		return 0; 
+	}
+	
+	int ret = reverse?-1:1; //2023	
+
+	//2023: variable speed/framerate	
+	float y = 1, &x = mdl.ext.speed;
+	
+	float ss = mdl.ext.s;
+
+	float limit = x; if(x) //DUPLICATE 
+	{
+		y = x;
+		
+		auto &s = mdl.ext.s;
+		
+		if(ret==1) //clip?
+		{
+			if(mdl.f+s+y>mdl.d+mdl.ext.t)
+			{
+				limit = y = (mdl.d+mdl.ext.t)-(mdl.f+s);
+				assert(y<x);
+			}
+					
+			if(mdl.d+mdl.ext.t+s>rt)
+			{
+				y = limit = rt-(mdl.d+mdl.ext.t);
+			}
+		}
+		else if(ret==-1)
+		{
+			if(mdl.f-s-y<mdl.d-mdl.ext.t)
+			{
+				//limit = y = (mdl.d-mdl.ext.t)-(mdl.f-s);
+				limit = y = (mdl.f-s)-(mdl.d-mdl.ext.t);
+				assert(y<x);
+			}
+		}
+
+		assert(limit>=0); if(!limit) return 0;	
+
+		if(s+y>=0.99999f) //1 isn't enough (rt)
+		{
+			y = 0.99999f-s; s = 0;
+		}
+		else
+		{
+			s+=y; ret = 0;
+		}
+	}
+		
+	auto puVar4 = (Sm::softanimframe_t*)mdl.softanim_read_head; //Ghidra's name
+
+	int d_f = abs(mdl.d-mdl.f); 
+	if(d_f>1)
+	{
+		if(0) //2024: not working, can tunnel through walls
+		{
+			int most = puVar4->time-mdl.softanim_read_tick;
+			if(d_f>most) d_f = most;
+
+				//TODO? overflow? (2023)
+
+			delta*=d_f-1+y; //NOTE: staying in one frame
+
+			ret*=d_f; //2023
+		}
+		else
+		{
+			//note: the CP is accumulated here and given
+			//to som_logic_406ab0 
+
+			delta*=y; d_f = 1;
+		}
+	}
+	else delta*=y;
+
+	assert(!reverse); //TODO: rewind softanim_read_head
 
 	if(!wt) finish: //REMOVE ME?
 	{
 		assert(!EX::isNeg(wt)); //IMPLEMENT ME?
 
-		for(int i=0;i<ff;i++)
+		for(int i=0;i<ret;i++) //d_f
 		if(puVar4->time<=++mdl.softanim_read_tick) 
 		{
 			if(!*++puVar4)
@@ -110,37 +219,51 @@ static int som_MDL_animate_soft(SOM::MDL &mdl, float wt=1) //444410
 			mdl.softanim_read_head = (WORD*)puVar4;
 			mdl.softanim_read_tick = 0;
 		}
-		return ff;
+		return ret; //d_f
 	}
 
-	float cp[3]; 
-	if(mdl.f<1 //NEW
-	||!mdl.ext.subtract_base_control_point) //not advance by CP?
+	float cp[3] = {}; 
+	if(//mdl.f<1||
+	!mdl.ext.subtract_base_control_point) //not advance by CP?
 	{
 		//EXTENSION
 		//I think it's wise to ignore the establishing frame
 		//(4418b0) doesn't seem to check for it
 		memset(cp,0x00,sizeof(cp));
 	}
-	else //OLD
+	else //if(ret) //YUCK: must correspond to som_logic_406ab0
 	{
-		//BUG when animation isn't up-to-date get cp's delta
-	//	som_MDL_4418b0(mdl,cp,~0);
-		//YUCK: f+1 convention differs for som_MDL_animate_hard
-		som_MDL_4418b0(mdl,cp,mdl.f+1); 
+		if(0)
+		{
+			//BUG when animation isn't up-to-date get cp's delta
+		//	som_MDL_4418b0(mdl,cp,~0);
+			//YUCK: f+1 convention differs for som_MDL_animate_hard
+			//som_MDL_4418b0(mdl,cp,mdl.f+1); 
+			som_MDL_4418b0(mdl,cp,1?~0:mdl.f+d_f); //2023
 
-		//2021: instead MDL is kept in 1/1024 units the whole time
-		//which is better for shaders/normals
-	//	if(!mdl->ext.mdo)
-		{
-	//		for(int k=3;k-->0;) cp[k]*=wt*1024;
+			float yy = 1;
+			if(mdl.ext.speed) yy = y/mdl.ext.speed;
+			yy*=wt;
+
+			for(int k=3;k-->0;) cp[k]*=yy;
 		}
-	//	else //2021
+		else
 		{
- 			for(int k=3;k-->0;) cp[k]*=wt;
+			float cp2[3]; float swap = mdl.ext.s; 
+			mdl.ext.s = ss;
+			mdl.control_point(cp2,mdl.c,mdl.f);
+			mdl.ext.s = swap;
+			mdl.control_point(cp,mdl.c,mdl.f+d_f);
+			for(int i=3;i-->0;)
+			cp[i] = (cp[i]-cp2[i])*fabsf(wt); 
 		}
 	}
-	wt*=0.00097656f; //1/1024
+	for(int i=3;i-->0;) 
+	{
+		mdl.ext.clip.cp_accum[cp_accum][i]+=cp[i]; //2023
+	}
+
+	delta*=0.00097656f; //1/1024
 
 	//NOTE: I know how to do this, but I'm deliberately
 	//following 444410 in case there's anything to learn
@@ -163,7 +286,7 @@ static int som_MDL_animate_soft(SOM::MDL &mdl, float wt=1) //444410
 
 	//444410 makes this needlessly complicated
 	//and bad performing (not doing that here)
-	float delta = (uVar7?-1:1)*wt/puVar4->time;
+	delta = (uVar7?-1:1)*delta/puVar4->time;
 
 	for(UINT i=0,n=mdl->file_head[4];i<n;i++) //primchans
 	{
@@ -214,196 +337,36 @@ static int som_MDL_animate_soft(SOM::MDL &mdl, float wt=1) //444410
 		}
 	}
 
+	if(y<limit-0.00001f) //DUPLICATE
+	{
+		float swap = x;
+
+		x = limit-y;
+
+		int f = mdl.f; mdl.f+=d_f;
+
+		if(!reverse&&ret)
+		{
+			for(int i=0;i<ret;i++) //d_f
+			if(puVar4->time<=++mdl.softanim_read_tick) 
+			{
+				if(!*++puVar4)
+				(WORD*&)puVar4 = mdl->soft_anim_buf[mdl.c].file_ptr2;
+				mdl.softanim_read_head = (WORD*)puVar4;
+				mdl.softanim_read_tick = 0;
+			}
+		}
+
+		ret+=som_MDL_animate_soft(mdl,wt);
+				
+		x = swap; mdl.f = f;
+
+		return ret;
+	}
+
 	goto finish;
 }
-#else
-enum{ som_MDL_hz=1 };
-static int som_MDL_animate_soft(SOM::MDL &mdl, float wt=1) //444410
-{	
-	/////UNFINISHED (having problems) EXPERIMENTAL///////
 
-	namespace Sm = SWORDOFMOONLIGHT::mdl; wt*=0.00097656f; //1/1024
-
-	//Ghidra's names
-	auto p = (Sm::softanimframe_t*)mdl.softanim_read_head;
-	
-	const float hz_30 = SOM::motions.hz_30;
-	const float l_hz_30 = SOM::motions.l_hz_30;
-	
-	int t0 = 0; //HACK: neeed time up to now
-	{
-		auto q = (Sm::softanimframe_t*)mdl->soft_anim_buf[mdl.c].file_ptr2;
-		for(;q!=p;q++) t0+=q->time; //DANGER
-	}
-
-	int f = mdl.f, d = mdl.d;
-	
-	float dz = d*l_hz_30;
-
-	int loop = 0;
-	for(float w=wt;f<d;wt=w,loop++)
-	{
-		float fz = f*l_hz_30;
-		float gz = min(dz,t0+p->time);
-
-		if(mdl.softanim_read_tick)
-		{
-			gz = gz; //breakpoint
-		}
-
-		//this is the number of steps in this frame
-		float fc = ceil(fz);
-		int ticks = int(fz<fc&&gz>=fc)+(int)(gz-fc);
-		assert(!EX::isNeg(wt)); //IMPLEMENT ME?
-
-		int ff = f; f+=max(1,ticks);
-
-		float cp[3] = {};
-		if(ff>=1 //NEW
-		&&mdl.ext.subtract_base_control_point) //not advance by CP?
-		{
-			//BUG when animation isn't up-to-date get cp's delta
-			//som_MDL_4418b0(mdl,cp,~0);
-			//YUCK: f+1 convention differs for som_MDL_animate_hard
-			som_MDL_4418b0(mdl,cp,mdl.f+1); 
-			for(int i=f;i-->ff;)
-			{
-				float cp2[3];
-				som_MDL_4418b0(mdl,cp2,i);
-			
-				if(cp[2])
-				{
-					ff = ff; //breakpoint
-				}
-
-				float z = 1;
-				if(i==f-1)
-				{
-					z = 1-(fz-(int)fz);
-				}
-				else if(i==ff)
-				{
-					z = dz-ticks;
-				}
-				z*=hz_30;
-
-				for(int j=3;j-->0;)
-				cp[j]+=cp2[j]*z;
-			}
-
-			//2021: instead MDL is kept in 1/1024 units the whole time
-			//which is better for shaders/normals
-		//	if(!mdl->ext.mdo)
-			{
-		//		for(int k=3;k-->0;) cp[k]*=wt*1024;
-			}
-		//	else //2021
-			{
- 				for(int k=3;k-->0;) cp[k]*=wt;
-			}
-		}
-
-						wt*=gz-fz; //!!
-											
-					//	EX::dbgmsg("wt: %d %f %f-%f %d %d",mdl.f,wt,gz,fz,ticks,loop);
-
-						if(loop==2)
-						{
-							wt = wt; //breakpoint
-						}
-
-		//NOTE: I know how to do this, but I'm deliberately
-		//following 444410 in case there's anything to learn
-		//from it
-
-		//auto p = (Sm::softanimframe_t*)mdl.softanim_read_head;
-		assert(mdl->soft_anim_ptr==mdl->soft_anim_ptr2);
-		WORD *animp = mdl->soft_anim_ptr;
-		UINT stride = mdl->soft_anim_ptr2[1];
-	
-		//REWRITE?
-		//n will be 0 or -1 (~0) so -n is +1 and
-		//p->lo^n inverts if -1 or nothing if 0
-		auto n = p->lo>>0x1f; //CDQ instruction
-		stride+=animp[(p->lo^n)-n+stride*2-1];
-
-		//444410 makes this needlessly complicated
-		//and bad performing (not doing that here)
-		float delta = (n?-1:1)*wt/p->time;
-		
-		WORD *wordp = animp+stride*2;
-		CHAR *b = (CHAR*)wordp+*wordp; //psVar11
-		wordp+=1;
-
-		for(UINT i=0,n=mdl->file_head[4];i<n;i++) //primchans
-		{
-			//TODO: add to lib/swordofmoonlight.h account???
-			if(i!=*(BYTE*)wordp) continue;
-
-			n = mdl->l->ditto_prims_ptr[i].vertcount;
-
-			//DIVIDE BY 8 WITH SOME ROUNDING LOGIC?
-			//TODO: compare to lib/swordofmoonlight.h account
-			stride = n&0x80000007;
-			//if((int)stride<0) //overflow paranoid compiler?
-			//stride = (stride-1|0xfffffff8)+1;
-			stride = ((n+(n>>0x1f&7))>>3)+(stride!=0);
-
-			//TODO: interleaving would be more cache friendly
-			auto x = (BYTE*)wordp+1; 
-			auto y = x+stride;
-			auto z = y+stride;
-
-			//TODO: add to lib/swordofmoonlight.h account???
-			(BYTE*&)wordp = z+stride;
-
-			float *v = mdl.anim_vertices[mdl->primitive_buf[i].vstart];
-			for(unsigned j=0;j<n;j++,v+=3)
-			{
-				//this can be simpler
-				UINT bit = j&0x80000007;
-				//if((int)bit<0) //overflow paranoid compiler?
-				//bit = (bit-1|0xfffffff8)+1;
-			//	BYTE bVar6 = 1<<((BYTE)bit&0x1f);
-			//	if(!bit&&j)
-				{
-			//		x++; y++; z++;
-				}
-				bit = 1<<(j&7); //...
-
-				if(*x&bit) //bVar6
-				v[0]+=delta*(1&*b?(INT)*b++:*((__unaligned SHORT*&)b)++);
-				if(*y&bit) //bVar6
-				v[1]-=delta*(1&*b?(INT)*b++:*((__unaligned SHORT*&)b)++);
-				if(*z&bit) //bVar6
-				v[2]+=delta*(1&*b?(INT)*b++:*((__unaligned SHORT*&)b)++);
-
-				if(bit==1<<7){ x++; y++; z++; }
-
-				for(int k=3;k-->0;) v[k]-=cp[k];
-			}
-		}
-
-		mdl.softanim_read_tick+=ticks;
-		
-		if(p->time<=mdl.softanim_read_tick) 
-		{
-			t0+=p->time;
-
-			//these don't always line up but can be 
-			//ignored
-		//	assert(p->time==mdl.softanim_read_tick);
-
-			if(!*++p) (WORD*&)p =
-			mdl->soft_anim_buf[mdl.c].file_ptr2;
-			mdl.softanim_read_head = (WORD*)p;
-			mdl.softanim_read_tick = 0;
-		}
-	}
-
-	return mdl.d-mdl.f; //REMOVE ME?
-}
-#endif
 static void som_MDL_restart_hard(SOM::MDL &mdl, int ii, int n)
 {
 	for(int i=ii;i<n;i++)
@@ -414,7 +377,7 @@ static void som_MDL_restart_hard(SOM::MDL &mdl, int ii, int n)
 		*(DWORD*)(b+j) = 0x3f800000;
 		memset(b+6,0x00,3*sizeof(float)); //xyz
 	}
-	mdl.hardanim_read_head = mdl->hard_anim_buf[mdl.e].file_ptr2;
+	mdl.hardanim_read_head = mdl->hard_anim_buf[mdl.c].file_ptr2;
 
 	if(&mdl==SOM::L.arm_MDL) //EXTENSION
 	{
@@ -438,8 +401,10 @@ static void som_MDL_restart_hard(SOM::MDL &mdl, int ii, int n)
 			bicep[2] = s;
 		}
 	}
+
+//	mdl.ext.s = mdl.ext.s2 = mdl.ext.t = mdl.ext.t2 = 0; //2023
 }
-static void som_MDL_animate_hard(SOM::MDL &mdl, float wt=1) //445120
+static int som_MDL_animate_hard(SOM::MDL &mdl, float wt=1, bool cp_accum=0) //445120
 {
 	//NOTE: I know how to do this, but I'm deliberately
 	//following 445120 in case there's anything to learn
@@ -447,37 +412,111 @@ static void som_MDL_animate_hard(SOM::MDL &mdl, float wt=1) //445120
 
 	bool reverse = EX::isNeg(wt); //EXTENSION
 
+	int rt = mdl.running_time(mdl.c); //TESTING
+
+	if(mdl.ext.t>=1&&mdl.d<rt)
+	{
+		int i = (int)mdl.ext.t; //mod
+
+		mdl.d+=i; mdl.ext.t-=i;
+	}
+
+	if(mdl.f>=rt-1) //attack animation?
+	{
+		assert(mdl.d<rt);
+
+		return 0;
+	}
+
+	int ret = reverse?-1:1; //2023
+
+	assert(!reverse||mdl.f>=mdl.d);
+	
+	//2023: variable speed/framerate	
+	float y = 1, &x = mdl.ext.speed;
+	
+	enum{ _1=-1 }; //0
+
+	if(_1==0&&mdl.f==-1) //???
+	{
+		mdl.f = 0; //YUCK?
+
+	//	mdl.ext.s = 0; //mdl.ext.t = 0;
+	}
+
+	float ss = mdl.ext.s;
+
+	float limit = x; if(x) //DUPLICATE 
+	{
+		y = x;
+		
+		auto &s = mdl.ext.s;
+
+		if(ret==1) //clip?
+		{
+			if(mdl.f+s+y>mdl.d+mdl.ext.t)
+			{
+				limit = y = (mdl.d+mdl.ext.t)-(mdl.f+s);
+				assert(y<x);
+			}
+		}
+		else if(ret==-1)
+		{
+			if(mdl.f-s-y<mdl.d-mdl.ext.t)
+			{
+				//limit = y = (mdl.d-mdl.ext.t)-(mdl.f-s);
+				limit = y = (mdl.f-s)-(mdl.d-mdl.ext.t);
+				assert(y<x);
+			}
+		}
+
+		assert(limit>=0); if(!limit) return 0;	
+
+		if(s+y>=0.99999f) //1 isn't enough (rt)
+		{
+			y = 0.99999f-s; s = 0;
+		}
+		else 
+		{
+			s+=y; ret = 0;
+		}
+	}
+
+	int ff = mdl.f+ret; 
+
 	int first = 3; if(reverse) //EXTENSION
 	{
-		if(mdl.f==0){ assert(0); return; }
+		if(ff-ret==_1){ assert(0); return 0; }
 
-		WORD test1 = mdl.hardanim_read_head[-2];
-		WORD test2 = mdl.hardanim_read_head[-1];
-
-		//NOTE: som_db.exe didn't implement reverse animation
-		//nonetheless these reverse iterators are part of MDL
-		mdl.hardanim_read_head-=2*mdl.hardanim_read_head[-2];
-
-		assert(test1==mdl.hardanim_read_head[0]&&!test2);
-		assert(mdl.hardanim_read_head>mdl->hard_anim_buf[mdl.e].file_ptr2);
+		if(ret)
+		{
+			WORD test1 = mdl.hardanim_read_head[-2];
+			WORD test2 = mdl.hardanim_read_head[-1];
+				
+			//NOTE: som_db.exe didn't implement reverse animation
+			//nonetheless these reverse iterators are part of MDL
+			mdl.hardanim_read_head-=2*mdl.hardanim_read_head[-2];
+		
+			assert(test1==mdl.hardanim_read_head[0]&&!test2);
+			assert(mdl.hardanim_read_head>mdl.mdl_data->hard_anim_buf[mdl.c].file_ptr2);
+		}
 	}
-	else if(mdl.f==0) //restarting?
+	else if(ff-ret==_1) //restarting?
 	{
-		first+=mdl.e==0; //CRAZINESS
+		first+=mdl.c==0; //CRAZINESS
 
 		//d2 is swapped... so this is ambiguous... it
 		//doesn't really belong here regardless
 		//if(!mdl.ext.d2) //YUCK: arm.mdl?
 		//som_MDL_restart_hard(mdl,0,mdl->skeleton_size);
-		assert(mdl.hardanim_read_head==mdl->hard_anim_buf[mdl.e].file_ptr2);
+		assert(mdl.hardanim_read_head==mdl.mdl_data->hard_anim_buf[mdl.c].file_ptr2);
 	}
 
 	if(!wt) finish: 
 	{
-		if(!reverse)
+		if(!reverse&&ret)
 		mdl.hardanim_read_head+=2*mdl.hardanim_read_head[0];
-
-		return;
+		return ret;
 	}
 
 	//EXTENSION
@@ -503,27 +542,48 @@ static void som_MDL_animate_hard(SOM::MDL &mdl, float wt=1) //445120
 	//not sure yet if objects should be made
 	//to move like NPCs but they don't right
 	//now
-	float cp[3]; 
-	if(mdl.f<first-2 //ASSUMING MODERN?
-	||!mdl.ext.subtract_base_control_point) //not advance by CP?
+	float cp[3] = {}; 
+	if(//ff<first-2|| //ASSUMING MODERN?
+	!mdl.ext.subtract_base_control_point) //not advance by CP?
 	{
-		memset(cp,0x00,sizeof(cp));
+		//memset(cp,0x00,sizeof(cp));
 	}
-	else
+	else //if(ret) //YUCK: must correspond to som_logic_406ab0
 	{
-		/*BUG when animation isn't up-to-date get cp's delta
-		som_MDL_4418b0(mdl,cp,~0);*/
-		//YUCK: f+1 convention differs for som_MDL_animate_soft
-		som_MDL_4418b0(mdl,cp,mdl.f); //f+1 overflows 60fps mode
+		if(0)
+		{
+			/*BUG when animation isn't up-to-date get cp's delta
+			som_MDL_4418b0(mdl,cp,~0);*/
+			//YUCK: f+1 convention differs for som_MDL_animate_soft
+			som_MDL_4418b0(mdl,cp,1?~0:ff); //f+1 overflows 60fps mode
 
-		for(int k=3;k-->0;) cp[k]*=wt;
+			float yy = 1;
+			if(mdl.ext.speed) yy = y/mdl.ext.speed;
+			yy*=wt;
+
+			for(int k=3;k-->0;) cp[k]*=yy;
+		}
+		else if(mdl.f>-1)
+		{
+			float cp2[3]; float swap = mdl.ext.s;
+			mdl.ext.s = ss;
+			mdl.control_point(cp2,mdl.c,mdl.f);
+			mdl.ext.s = swap;
+			mdl.control_point(cp,mdl.c,ff);
+			for(int i=3;i-->0;)
+			cp[i] = (cp[i]-cp2[i])*fabs(wt); 
+		}
 	}
-
+	for(int i=3;i-->0;)
+	{
+		mdl.ext.clip.cp_accum[cp_accum][i]+=cp[i]; //2023
+	}
+	
 	//2021: originally a scale matrix added 1/1024
 	//however MDO files don't need this and it's
 	//better to put MDL in the same units
-	const float delta = wt*0.08789063f; //rotate (180/2048)
-	const float delta2 = wt*0.00097656f; //translate (1/1024)
+	const float delta = y*wt*0.08789063f; //rotate (180/2048)
+	const float delta2 = y*wt*0.00097656f; //translate (1/1024)
 	//const float delta3 = wt*0.0078125f; //scale
 
 	union //OPTIMIZING
@@ -551,16 +611,31 @@ static void som_MDL_animate_hard(SOM::MDL &mdl, float wt=1) //445120
 				ch.parent = (BYTE)p[-1]; //255 (not -1)
 			}
 		}
-		assert(channel<(int)mdl->skeleton_size); //arm.mdl is crashing 
+		assert(channel<(int)mdl.mdl_data->skeleton_size); //arm.mdl is crashing 
 
 		float *b = mdl.skeleton[channel].uvw;
 
 		if(diffmask&1)
-		b[0]+=delta*(bitsmask&1?(INT)*p++:*((__unaligned SHORT*&)p)++);
+		{
+			int v = bitsmask&1?(INT)*p++:*((__unaligned SHORT*&)p)++;
+			if(v<-2048||v>2048)
+			v+=v<0?4096:-4096; //wrap subsample?
+			b[0]+=delta*v;
+		}
 		if(diffmask&2)
-		b[1]+=delta*(bitsmask&2?(INT)*p++:*((__unaligned SHORT*&)p)++);
+		{
+			int v = bitsmask&2?(INT)*p++:*((__unaligned SHORT*&)p)++;
+			if(v<-2048||v>2048)
+			v+=v<0?4096:-4096; //wrap subsample?	
+			b[1]+=delta*v;
+		}
 		if(diffmask&4)
-		b[2]+=delta*(bitsmask&4?(INT)*p++:*((__unaligned SHORT*&)p)++);
+		{
+			int v = bitsmask&4?(INT)*p++:*((__unaligned SHORT*&)p)++;
+			if(v<-2048||v>2048)
+			v+=v<0?4096:-4096; //wrap subsample?
+			b[2]+=delta*v;
+		}
 		if(diffmask&8)
 		b[6]+=delta2*(bitsmask&8?(INT)*p++:*((__unaligned SHORT*&)p)++);
 		if(diffmask&16)
@@ -593,6 +668,24 @@ static void som_MDL_animate_hard(SOM::MDL &mdl, float wt=1) //445120
 		}
 	}
 
+	if(y<limit-0.00001f) //DUPLICATE
+	{
+		float swap = x;
+
+		int f = mdl.f; mdl.f = ff;
+
+		if(!reverse&&ret)
+		mdl.hardanim_read_head+=2*mdl.hardanim_read_head[0];
+
+		x = limit-y;
+				
+		ret+=som_MDL_animate_hard(mdl,wt);
+
+		x = swap; mdl.f = f;
+
+		return ret;
+	}
+
 	goto finish;
 }
 static void som_MDL_animate(SOM::MDL &mdl)
@@ -611,7 +704,8 @@ static void som_MDL_animate(SOM::MDL &mdl)
 	if(mdl.e!=mdl.c) reset:
 	{
 		mdl.e = mdl.c;
-		mdl.f = mode&3?-1:0;
+		mdl.f = mode&3?-1:0; //2023
+	//	mdl.ext.s = 0;
 		if(mdl.ext.f2>=1&&!mdl.ext.d2)
 		mdl.ext.f2 = mdl.f;
 	}
@@ -620,29 +714,19 @@ static void som_MDL_animate(SOM::MDL &mdl)
 		uptodate = false;
 
 		if(mdl.f==-1&&mode&3) 
-		{
+		{			
 			//moving out of 445120 (animate_hard)
 			if(!mdl.ext.d2)
 			som_MDL_restart_hard(mdl,0,mdl->skeleton_size);
-		}
-		if(mdl.f==0&&mode&4)
+		}	
+		else if(mode&4) 
 		{
-			//NOTE: there's a second memcpy at
-			//440FE9, immediately after, which
-			//is disabled. likely it's normals
-			if(mdl->ext.mdo) 
-			memset(mdl.anim_vertices,0x00,mdl->vertex_count*12);
-			else memcpy(mdl.anim_vertices,mdl->vertex_buf,mdl->vertex_count*12);
-			mdl.softanim_read_head = mdl->soft_anim_buf[mdl.c].file_ptr2;
-			mdl.softanim_read_tick = 0;
-			if(mdl.ext.anim_read_head2)
-			{
-				mdl.ext.anim_read_head2 = mdl->soft_anim_buf[mdl.ext.e2].file_ptr2;
-				mdl.ext.anim_read_tick2 = 0;
-			}
+			mdl.f = 0;
+
+			som_MDL_restart_soft(mdl);
 		}
 	}	
-	else if(mdl.d<mdl.f) //reverse_d?
+	else if(mdl.d<mdl.f||mdl.ext.reverse_d) //reverse_d?
 	{
 		if(!mdl.ext.reverse_d) //arm?
 		goto reset;
@@ -651,54 +735,62 @@ static void som_MDL_animate(SOM::MDL &mdl)
 
 		if(mode&3) //hard
 		{
-			while(mdl.f>mdl.d)
+			//while(mdl.f>mdl.d)
+			while(mdl.f-mdl.ext.s>mdl.d-mdl.ext.t)
 			{
-				mdl.f--;
-				som_MDL_animate_hard(mdl,-1);
+				mdl.f+=som_MDL_animate_hard(mdl,-1);
+
+				assert(mdl.f>=mdl.d);
 			}
 		}
 		else assert(0); goto reverse_d;
 	}
 	if(mdl.ext.d2) //arm.mdl? //TESTING
 	{
-		assert(mdl.ext.e2>=0);
+		assert(mdl.ext.c2>=0);
 		assert(&mdl==SOM::L.arm_MDL);
 
-		if(mdl.f<=0) //YUCK
+		if(mode&3)
 		{
-			assert(mdl.d>=1);
-
-			//can't help with two-handed attacks???
-			if(som_MDL_449d20_swing_mask(0)&1<<30)
+			if(mdl.f<=0) //YUCK
 			{
-				//TODO: need to solve elsewhere
+				assert(mdl.d>=1);
 
-				mdl.ext.d2 = mdl.ext.f2 = 0;
+				//can't help with two-handed attacks???
+				if(som_MDL_449d20_swing_mask(0)&1<<30)
+				{
+					//TODO: need to solve elsewhere
+
+					mdl.ext.d2 = mdl.ext.f2 = 0;
 					
-				mdl.f = -1; 
+					mdl.f = -1; 
 				
-				som_MDL_restart_hard(mdl,0,mdl->skeleton_size);
-				goto duce;
-			}
+					som_MDL_restart_hard(mdl,0,mdl->skeleton_size);
+					goto duce;
+				}
 			
-			recover = true;
+				recover = true;
 
-			assert(mdl.d>-1);
-			if(mode&3)
-			som_MDL_restart_hard(mdl,0,4);
-		}
+				som_MDL_restart_hard(mdl,0,4);
+			}
 
-		if(mode&3) //legit mode??
-		{
-			if(int dir=mdl.ext.d2-mdl.ext.f2)
+			float dsn = mdl.ext.d2-mdl.ext.f2; //YUCK		
+			if(!dsn) dsn = mdl.ext.dir2;
+			dsn = max(-1,min(1,dsn));
+				
+			//if(int dir=mdl.ext.d2-mdl.ext.f2)
+			if(float dir=(mdl.ext.d2+dsn*mdl.ext.t2)-(mdl.ext.f2+dsn*mdl.ext.s2))
 			{
 				uptodate = false;
 
 				for(int one_off=2;one_off-->0;)
 				{
-					std::swap(mdl.ext.d2,mdl.d);
-					std::swap(mdl.ext.e2,mdl.e);
+					std::swap(mdl.ext.c2,mdl.c);
+					std::swap(mdl.ext.d2,mdl.d);					
 					std::swap(mdl.ext.f2,mdl.f);					
+					std::swap(mdl.ext.s2,mdl.ext.s);
+					std::swap(mdl.ext.t2,mdl.ext.t);
+					std::swap(mdl.ext.speed2,mdl.ext.speed);
 					std::swap(mdl.ext.anim_read_head2,mdl.hardanim_read_head);				
 					if(one_off) if(dir>0)
 					{
@@ -709,20 +801,24 @@ static void som_MDL_animate(SOM::MDL &mdl)
 							memcpy(mdl.skeleton[i]._uvw_scale_xyz2,mdl.skeleton[i].uvw,sizeof(float)*9);
 
 						}
-						while(mdl.f<mdl.d) 
+						//while(mdl.f<mdl.d) 
+						while(mdl.f+mdl.ext.s<mdl.d+mdl.ext.t) //speed?
 						{
-							mdl.f++;
-							som_MDL_animate_hard(mdl);
+							mdl.f+=som_MDL_animate_hard(mdl,+1);
+
+							assert(mdl.f<=mdl.d);
 
 							if(mdl.f==1) //YUCK
 							for(int i=4;i-->0;)
 							memcpy(mdl.skeleton[i].uvw,mdl.skeleton[i]._uvw_scale_xyz2,sizeof(float)*9);
 						}
 					}
-					else while(mdl.f>mdl.d)
+					//else while(mdl.f>mdl.d)
+					else while(mdl.f-mdl.ext.s>mdl.d-mdl.ext.t) //speed?
 					{
-						mdl.f--;
-						som_MDL_animate_hard(mdl,-1);
+						mdl.f+=som_MDL_animate_hard(mdl,-1);
+
+						assert(mdl.f>=mdl.d);
 					}
 				}
 			}
@@ -736,7 +832,8 @@ static void som_MDL_animate(SOM::MDL &mdl)
 			duce:;
 		}
 	}
-	while(mdl.f<mdl.d) //-1?
+	//while(mdl.f<mdl.d) //-1?
+	while(mdl.f+mdl.ext.s<mdl.d+mdl.ext.t) //speed?
 	{
 		uptodate = false;
 		
@@ -751,25 +848,18 @@ static void som_MDL_animate(SOM::MDL &mdl)
 			if(auto&swap1=mdl.ext.anim_read_head2)
 			{
 				auto &swap2 = mdl.ext.anim_read_tick2;
-
-				//mdl.ext.f2++;
-
-				//EX::dbgmsg("f2: %d %d (%d)",mdl.f,mdl.ext.f2,mdl.f==mdl.ext.f2);
-				assert(mdl.f==mdl.ext.f2);
-				assert(mdl.c!=mdl.ext.e2);
-				
-				while(mdl.f<mdl.d)
-				mdl.f+=som_MDL_animate_soft(mdl,mdl.ext.anim_weights[0]);
-
+								
+				mdl.ext.f2 = mdl.f;
+				mdl.ext.s2 = mdl.ext.s;
 				for(int one_off=2;one_off-->0;)
 				{
 					//YUCK: c/d is for som_MDL_4418b0
-					std::swap(mdl.ext.e2,mdl.c);
+					std::swap(mdl.ext.c2,mdl.c);
 					std::swap(mdl.ext.f2,mdl.f); //mdl.d
+					std::swap(mdl.ext.s2,mdl.ext.s);
 					std::swap(swap1,mdl.softanim_read_head);
 					std::swap(swap2,mdl.softanim_read_tick);
 					if(one_off)
-					while(mdl.f<mdl.d)
 					{
 						//IMPLEMENT ME
 						//TODO: these shouldn't be coupled
@@ -777,6 +867,7 @@ static void som_MDL_animate(SOM::MDL &mdl)
 						mdl.f+=som_MDL_animate_soft(mdl,mdl.ext.anim_weights[1]);
 					}
 				}
+				mdl.f+=som_MDL_animate_soft(mdl,mdl.ext.anim_weights[0]);
 			}
 			else
 			{			
@@ -785,13 +876,13 @@ static void som_MDL_animate(SOM::MDL &mdl)
 			}
 		}
 		else if(mode&3) //hard
-		{
-			mdl.f++;
-
+		{		   
 			//((BYTE(__cdecl*)(void*))0x445120)(&mdl);
-			som_MDL_animate_hard(mdl);
+			mdl.f+=som_MDL_animate_hard(mdl);
 
-			if(recover) if(mdl.f<=(mdl.e?1:2)) //YUCK
+			assert(mdl.f<=mdl.d);
+
+			if(recover) if(mdl.f<=(mdl.c?1:2)) //YUCK
 			{
 				assert(&mdl==SOM::L.arm_MDL);
 				for(int i=mdl->skeleton_size;i-->4;)
@@ -959,8 +1050,8 @@ static void som_MDL_animate_post(SOM::MDL &mdl)
 			auto se = mdl.elements[i].buf;
 			//there's a branch here but both
 			//have identical code 
-			assert(3==(0xf&se->mode));
-			//if(3==(0xf&&se->mode))
+			assert(3==se->fmode);
+			//if(3==se->fmode)
 			for(int j=0,jN=el->vindex_count;j<jN;j++)
 			{
 				//I guess this is multicasting MDL vertices to
@@ -1140,7 +1231,7 @@ extern BYTE __cdecl som_MDL_transform_hard(DWORD *mdl)
 			{
 				//FIX ME
 				//matrix multiply but extra logic is slipped in
-				//here (could hoisted out to here)
+				//here (could be hoisted out to here)
 				som_MDL_449f70_scale(dst,*src,*mul);
 			}
 			//else Somvector::multiply<4,4>(mul,src,dst);
@@ -1282,9 +1373,6 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 		if(0x3f800000==mdl2[10]&&SOM::tool) //TOOL?
 		{
 			//THIS PATH IS ONE-OFF FOR TOOLS (2021)
-			
-			//mdl2[11] seems to be stuck at 0xbf800000?
-			faded = false; mdl2[10] = 0x3f800000;
 
 			//REMINDER: this is done here since there's no
 			//hook into when the MDL instance is generated
@@ -1332,7 +1420,15 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 				float alpha = mdo->materials_ptr[i][3];
 				auto *d = SOM::L.materials[mats[i]].f+1;
 				assert(d[4]==d[0]&&d[5]==d[1]&&d[6]==d[2]);
-				d[3] = d[7] = fade*alpha;
+				d[3] = d[7] = fade*alpha; 
+				
+				if(d[15]) //white ghost?
+				{
+					assert(!mdl.ext.mdo_elements->kage);
+
+					d[3]*=fade; d[7]*=fade;				
+					d[15] = 1-sqrtf(fade)+0.000001f;
+				}
 			}
 		}
 		else for(int i=0;i<3;i++) //MDL?
@@ -1453,6 +1549,8 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 		{
 			auto se = mdl.elements[i].buf; //som_scene_element
 
+			if(15==se->fmode) continue; //som_scene_swing?
+
 			int blend_mode = mdl.elements[i].data->blend_mode;
 
 			//TESTING: textures are interleaved per pc
@@ -1466,16 +1564,14 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 			else memcpy(se->worldxform,m,sizeof(m));
 
 			//UNNECESSARY? (do_lights/do_fix_lighting_dropout)
-			//som_scene_alit is overwriting this... especially
+			//som_scene_alit is overwriting this... especiallyk
 			//in batch mode that's having trouble with it, but
 			//this should run before the selector is overridden
 			memcpy(se->lightselector,mdl.xyzuvw,sizeof(FLOAT)*3);
 
 			if(faded)
 			{
-				assert(15!=(se->mode&4)); //som_scene_swing?
-
-				int l = 1; if(3!=(0xf&se->mode))
+				int l = 1; if(3!=se->fmode)
 				{
 					//NOTE: THIS PATH ONLY APPLIES TO SPRITES
 
@@ -1490,7 +1586,7 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 						case 0: x = *(float*)0x458618; break; //127.5
 						case 3: x = *(float*)0x458614; break; //63.75
 						}
-						unsigned a = (int)(x*fade)<<0x18;					
+						unsigned a = (int)(x*fade)<<24;					
 						int n = se->vcount;
 						auto *q = (unsigned int*)(se->vdata)+4; 
 						for(int i=0;i<n;i++)
@@ -1634,15 +1730,15 @@ extern void som_MDL_440f30(SOM::MDL &mdl)
 		else ((BYTE(__cdecl*)(void*))0x445410)(&mdl);
 	}*/
 }
-static void __cdecl som_MDL_440f30_drawing(SOM::MDL &mdl, DWORD x440ab0)
+static void __cdecl som_MDL_440f30_drawing(SOM::MDL &mdl, DWORD _tes)
 {
 	som_MDL_440f30(mdl);
 
 	//if(som_MDL_440f30_440ab0) //drawing? (som.scene.cpp)
 	{
-		//ATTENTION: x440ab0 is not a real parameter, it
+		//ATTENTION: "_tes" is not a real parameter, it
 		//just happens to be next available on the stack
-		som_MDL_440ab0_unanimated(mdl,(void*)x440ab0);
+		som_MDL_440ab0_unanimated(mdl,(void*)_tes);
 	}
 }
 static void __cdecl som_MDL_440f30_loading(SOM::MDL &mdl)
@@ -1738,9 +1834,7 @@ static void __cdecl som_MDL_440f30_loading(SOM::MDL &mdl)
 	//mdl.d = swap;
 }
 
-//TEMPORARY
-//TODO: multiply by 3 for 90hz, etc.
-enum{ som_MDL_fps=2 }; 
+int som_MDL::fps = 1; //2
 
 extern float som_MDL_arm_fps = 0.06f;
 
@@ -1757,7 +1851,8 @@ static int __cdecl som_MDL_44fbfb(FILE *f)
 		//HACK: tell som_game_60fps to adjust SOM::L.item_pr2_file
 		if(!SOM::arm[0])
 		{
-			SOM::arm[0] = 60; som_MDL_arm_fps*=2; 
+			SOM::arm[0] = 30*som_MDL::fps;
+			som_MDL_arm_fps*=som_MDL::fps; 
 		}
 	}
 
@@ -1786,7 +1881,7 @@ static int __cdecl som_MDL_44fbfb(FILE *f)
 		size_t timstart = hd.primchanwords
 		+hd.hardanimwords+hd.softanimwords+4;
 
-		if(timstart*4<len)
+		if(timstart*4<=len) //word size
 		{
 			hd.timblocks = 0;
 			len = timstart*4;
@@ -1794,7 +1889,9 @@ static int __cdecl som_MDL_44fbfb(FILE *f)
 		else assert(0);
 	}
 
-	return len+(4*hd.hardanimwords)*(som_MDL_fps-1);
+	if(som_MDL::fps==1||hd.animflags&16) return len; //2024
+
+	return len+(4*hd.hardanimwords)*(som_MDL::fps-1); //...
 }
 static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 {
@@ -1811,7 +1908,7 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 		size_t timstart = hd.primchanwords
 		+hd.hardanimwords+hd.softanimwords+4;
 
-		if((size_t)eof>=timstart*4)
+		if((size_t)eof>=timstart*4) //word size
 		{
 			eof = timstart*4;
 		}
@@ -1844,11 +1941,14 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 
 		channels = min(255,*(uint16_t*)p);
 
-		if(add!=(som_MDL_fps-1)*4*hd.hardanimwords)
+		if(add!=(som_MDL::fps-1)*4*hd.hardanimwords)
 		{
 			assert(0); return len; //UNUSED
 		}				
-		hd.hardanimwords*=som_MDL_fps;
+		hd.hardanimwords*=som_MDL::fps;
+
+		//the CP data isn't updated in this case
+		//hd.animflags|=16; //2024
 	
 		memmove(p+add,p,eof-(p-pp));
 
@@ -1856,7 +1956,7 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 
 		p+=4; //animation header
 	}
-	else if(4!=mode)
+	else if(16&mode||4!=mode||som_MDL::fps==1)
 	{
 		//this is for ARM.MDL because som.game.cpp
 		//is knocking out the code that made it to
@@ -1864,6 +1964,7 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 		//frame
 		return len; //UNUSED
 	}
+	assert(16&~hd.animflags);
 
 	mdl::hardanim_t *ha = 0; int ha2 = 0;
 
@@ -1882,7 +1983,7 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 		{
 			auto &t = anis[i]->frames[j].time;
 
-			if(j||t>1) t*=som_MDL_fps; 
+			if(j||t>1) t*=som_MDL::fps; 
 		}
 	}
 	else if(3&mode) if(ha2) //hard?	
@@ -1939,7 +2040,7 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 		//enum{ skip = 2 };
 		int skip = i==0?min(time,2):1; //som_MDL_skip
 		
-		p2[-1] = time>=skip?skip+(time-skip)*som_MDL_fps:0;
+		p2[-1] = time>=skip?skip+(time-skip)*som_MDL::fps:0;
 
 		//bool scaling = false;
 
@@ -1972,7 +2073,7 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 			memcpy(ha[channel].ct,ha[channel].cv,6); //REPURPOSING
 
 			auto *qq = q;			
-			for(int x=som_MDL_fps;x-->0;q=qq,p=d)
+			for(int x=som_MDL::fps;x-->0;q=qq,p=d)
 			{
 				for(int channel=channels;channel-->0;)
 				memcpy(ha[channel].cv,ha[channel].ct,6); //REPURPOSING
@@ -2016,8 +2117,8 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 							}
 							else if(abs(n)<512) k_3: //1/2 meter?
 							{
-								*(int16_t*)p = n/som_MDL_fps;
-								if(!x) *(int16_t*)p+=n%som_MDL_fps;
+								*(int16_t*)p = n/som_MDL::fps;
+								if(!x) *(int16_t*)p+=n%som_MDL::fps;
 							}
 							else //teleporting? (per component)
 							{
@@ -2041,8 +2142,8 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 						else
 						{
 							auto n = *(int8_t*)q;
-							*(int8_t*)p = n/som_MDL_fps;
-							if(!x) *(int8_t*)p+=n%som_MDL_fps;
+							*(int8_t*)p = n/som_MDL::fps;
+							if(!x) *(int8_t*)p+=n%som_MDL::fps;
 							p++; q++;
 
 							if(k<3) ha[channel].cv[k]+=n;
@@ -2070,12 +2171,12 @@ static int __cdecl som_MDL_44fb13(BYTE *pp, int, int len, FILE *f)
 
 						for(int k=0;k<3;k++) if(diffmask&1<<k)
 						{
-							BYTE sx = *q++; if(x&&cmp[k]!=sx&&som_MDL_fps>1)
+							BYTE sx = *q++; if(x&&cmp[k]!=sx&&som_MDL::fps>1)
 							{
 								if(cmp[k]&&sx) //2022: don't interpolate hiding
 								{
-									if(som_MDL_fps>2) //for example
-									sx = cmp[k]+float(sx-cmp[k])/som_MDL_fps*(som_MDL_fps-x);
+									if(som_MDL::fps>2) //for example
+									sx = cmp[k]+float(sx-cmp[k])/som_MDL::fps*(som_MDL::fps-x);
 									else sx = cmp[k]+(sx-cmp[k])/2;
 								}
 							}
@@ -2202,10 +2303,22 @@ static void som_MDO_init_ext(SOM::MDO::data *o)
 static SOM::MHM *som_MDL_mhm(char *a, char *ext) //MHM?
 {
 	memcpy(ext,".mhm",5);
-	FILE *f = fopen(a,"rb");
-	extern som_MHM *som_MHM_417630(FILE*,bool);
-	auto *h = f?som_MHM_417630(f,false):0;
-	if(f) fclose(f); return h;
+	//FILE *f = fopen(a,"rb");
+	HANDLE f = CreateFileA(a,SOM_TOOL_READ);
+	if(f==INVALID_HANDLE_VALUE) 
+	return 0;
+
+	DWORD rd,sz = GetFileSize(f,0);	
+	char _buf[4096];
+	char *buf = sz<=sizeof(buf)?_buf:new char[sz];	
+	ReadFile(f,buf,sz,&rd,0);
+
+	extern som_MHM *som_MHM_417630(char*,DWORD);
+	auto *h = f?som_MHM_417630(buf,sz):0;
+	
+	if(buf!=_buf) delete[] buf;
+
+	CloseHandle(f); return h;
 }
 extern SOM::MDO::data *__cdecl som_MDO_445660(char *a) //MDO?
 {
@@ -2215,6 +2328,8 @@ extern SOM::MDO::data *__cdecl som_MDO_445660(char *a) //MDO?
 	void **ins = 0;
 	if(SOM::game&&*(ins=&som_MPX_swap::models_ins(a)))
 	return (SOM::MDO::data*)*ins;
+
+	SOM::Game::operator_new_lock_raii raii; //2023
 
 	wchar_t art[MAX_PATH]; 	
 	int e = som_art_model(a,art); //2021
@@ -2267,6 +2382,9 @@ extern DWORD __cdecl som_TXR_4485e0(char *a, int _2, int _3, int _4)
 	if(SOM::game&&*(ins=&som_MPX_swap::images_ins(a)))
 	return *ins-SOM::L.textures;
 
+	char map_texture[64]; //2024
+	*map_texture = false; map_texture:
+
 	wchar_t art[MAX_PATH]; 	
 	int e = som_art_model(a,art); //2021
 	using namespace x2mdl_h;
@@ -2277,16 +2395,19 @@ extern DWORD __cdecl som_TXR_4485e0(char *a, int _2, int _3, int _4)
 	}
 	if(0==(e&_txr)) //return 0xffffFFFF; //2022
 	{
+		if(!*map_texture) //2024
 		if(*(DWORD*)(a+5)==0x5C70616D) //map/model?
 		{
 			//HACK: don't overwrite som.MPX.cpp's 
 			//map.textures strings, which need to
 			//be the same for images_ins to match 
-			char aa[64];
+			//char aa[64];
+			char *aa = map_texture;  //2024
 			memcpy(aa,a,8);
 			memcpy(aa+8,"\\texture",8);
 			memcpy(aa+16,a+14,32);
-			if(EX::data(aa+5,art)) e|=_txr; //2022
+			//if(EX::data(aa+5,art)) e|=_txr; //2022
+			a = aa; goto map_texture; //2024
 		}
 		if(0==(e&_txr))
 		{
@@ -2378,6 +2499,8 @@ extern void *som_MDL_401300_maybe_mdo(char *a, int *ee)
 	}
 	else
 	{
+		SOM::Game::operator_new_lock_raii raii; //2023
+
 		//NOTE: this is just determining the type
 		//but there's no real way to know without
 		//converting it
@@ -2524,7 +2647,8 @@ static SOM::MDO::data *__cdecl som_MDO_445660_substitute(char *a) //MDO?
 			auto *cp = o->chunks_ptr;			
 			for(;i-->0;se++,cp++)
 			{
-				se->mode = 0x80000003;
+				//se->mode = 0x80000003;
+				se->fmode = 3; se->lit = 1; //2023
 				if(cp->texnumber<t.count)
 				se->texture = o->textures[cp->texnumber];
 				else se->texture = 0xffff;
@@ -2548,9 +2672,11 @@ static SOM::MDO::data *__cdecl som_MDO_445660_substitute(char *a) //MDO?
 extern SOM::MDL::data *__cdecl som_MDL_440030(char *a) //MDL+MDO?
 {
 	//2022: share ref counted models between maps
-	void **ins = 0;
+ 	void **ins = 0;
 	if(SOM::game&&*(ins=&som_MPX_swap::models_ins(a)))
 	return (SOM::MDL::data*)*ins;
+
+	SOM::Game::operator_new_lock_raii raii; //2023
 
 	wchar_t art[MAX_PATH]; 	
 	int e = som_art_model(a,art); //2021
@@ -2591,12 +2717,30 @@ extern SOM::MDL::data *__cdecl som_MDL_440030(char *a) //MDL+MDO?
 	//HACK: this is used to load files from
 	//nonstandard locations
 	som_art_CreateFile_w = art; 
-	
+	   	
 	auto ret = som_MDL_440030_sub(a,e); 
 	
 	if(ins&&(*ins=ret)) ret->ext.refs = 1;
 
-	assert(!som_art_CreateFile_w); return ret;
+	assert(!som_art_CreateFile_w); 
+		
+	extern bool som_MPX_loading_shadows; //2024
+	if(som_MPX_loading_shadows)
+	{
+		//not som_MDL_440030_sub
+		if(ins) if(SOM::game&&EX::INI::Option()->do_shadow)
+		{
+			auto *ext = PathFindExtension(art);
+			wcscpy(ext,L"_kage.ico");
+
+			extern SOM::Kage *som_kage_ico(wchar_t*,char*);
+			if(PathFileExists(art))
+			((SOM::MDL::data*)*ins)->ext.kage2 = som_kage_ico(art,a);
+		}
+		else assert(!((SOM::MDL::data*)*ins)->ext.kage);
+	}
+	
+	return ret;
 }
 static SOM::MDL::data *som_MDL_440030_sub(char *a, int e) //MDL+MDO?
 {
@@ -2731,10 +2875,16 @@ static SOM::MDL::data *som_MDL_440030_sub(char *a, int e) //MDL+MDO?
 		v[i]*=0.00097656f; //1/1024
 	}
 
-	if(e&_mhm) l->ext.mhm = som_MDL_mhm(a,ext); //2022
+	if(e&_mhm) 
+	{
+		l->ext.mhm = som_MDL_mhm(a,ext); //2022
+	}
 
 	return l;
 }
+//in release optimized builds there's a problem around
+//0x4458d0/som_MDL_free with ESP (MSVC2010)
+#pragma optimize("",off) //2023
 static DWORD __cdecl som_MDL_447fc0_cpp(SOM::MDL &mdl) //MDO?
 {
 	//this kills 2 birds with 1 stone by initializing
@@ -2904,6 +3054,7 @@ static DWORD __cdecl som_MDL_447fc0() //MDO?
 		ret //required
 	}
 }
+#pragma optimize("",on)
 extern void __cdecl som_MDO_445870(void *o) //2022
 {
 	//NOTE: SOM::Game.item_lock would be useful here but 
@@ -2915,12 +3066,20 @@ extern void __cdecl som_MDO_445870(void *o) //2022
 
 	if(o) ((SOM::MDO::data*)o)->ext.refs--; //wait until map change?
 }
-extern void __cdecl som_MDL_4403F0(void *l) //2022
+static void __cdecl som_MDL_4403f0(void *l) //2022
 {
 	if(l) ((SOM::MDL::data*)l)->ext.refs--; //wait until map change?
 }
 static void __cdecl som_MDL_4403f0_free(SOM::MDL::data *l) //MDO?
 {
+	if(l->ext.kage) if((unsigned)l->ext.kage<1024) //2023
+	{
+		assert(SOM::game);
+		extern void __cdecl som_MPX_4498d0(SOM::Texture*);
+		som_MPX_4498d0(&SOM::L.textures[l->ext.kage]);
+	}
+	else if(l->ext.kage!=-1) delete l->ext.kage2; //2024
+
 	if(auto*o=l->ext.mdo) if(SOM::tool)
 	{
 		//this is done after loading the model
@@ -2941,7 +3100,7 @@ static void __cdecl som_MDL_4403f0_free(SOM::MDL::data *l) //MDO?
 
 	som_MDL_free(l); //free
 }
-static void __cdecl som_MDL_4409d0_free(SOM::MDL *l) //MDO?
+extern void __cdecl som_MDL_4409d0_free(SOM::MDL *l) //MDO?
 {
 	if(l->ext.mdo_elements) //445ad0 (DUPLICATE)
 	{
@@ -2958,7 +3117,7 @@ static void __cdecl som_MDL_4409d0_free(SOM::MDL *l) //MDO?
 
 	som_MDL_free(l); //free
 }
-static BYTE __cdecl som_MDO_445ad0_free(SOM::MDO *o) //MDO?
+extern BYTE __cdecl som_MDO_445ad0_free(SOM::MDO *o) //MDO?
 {
 	assert(SOM::game);
 
@@ -2993,15 +3152,15 @@ extern BYTE __cdecl som_MDL_4416c0(SOM::MDL &mdl)
 
 	INT32 d = mdl.d, swap = d; //halving CP index 
 	assert(swap<0xFFFF);
-	if(d>skip)
-	{
+	if(d>skip) 
+	if(~mode&16)
+	{ 
 		//TODO: technically these need to be averaged
-		d = (d-skip)/som_MDL_fps+skip;
+		mdl.d = skip+(d-skip)/som_MDL::fps;
 	}	
+	else mdl.d = d;
 	
-	if(som_MDL_hz)
-	d = (DWORD)(d*SOM::motions.l_hz_30); //2023
-
+	//TODO? use mdl.control_point instead?
 	BYTE ret = ((BYTE(__cdecl*)(void*))0x4416c0)(&mdl);
 	mdl.d = swap; return ret;
 }
@@ -3040,39 +3199,47 @@ extern BYTE __cdecl som_MDL_4418b0(SOM::MDL &mdl, float *cp, DWORD _)
 	//passes _+1 to fix a bug
 	DWORD d = _==~0u?mdl.d:_;
 
-	if(som_MDL_hz)
-	d = (DWORD)(d*SOM::motions.l_hz_30); //2023
-
 	if(SOM::game) //tool?
-	if(EX::INI::Bugfix()->do_fix_animation_sample_rate)
+//	if(EX::INI::Bugfix()->do_fix_animation_sample_rate)
 	{
-		if(d>skip) //TESTING 60FPS
+		if(d>skip)
 		{
-			_ = (d-skip)/som_MDL_fps+skip;
+			if(som_MDL::fps==2&&16&mode) //2024
+			{
+				_ = d;
+			}
+			else _ = skip+(d-skip)/som_MDL::fps;
 		}	
 		else _ = skip;
 
 		BYTE ret = som_MDL_x4418b0(&mdl,cp,_);
 
 		/*the returned value is relative to the next CP position
-		if(ret&&mdl[0xd]%som_MDL_fps==0)
+		if(ret&&mdl[0xd]%som_MDL::fps==0)
 		{
 			float cp2[3]; memcpy(cp2,cp,sizeof(cp2));
 
 			ret = som_MDL_x4418b0(&mdl,cp,_+1);
 
-			for(int i=3;i-->0;) (cp[i]+=cp2[i])/=som_MDL_fps; assert(ret);
+			for(int i=3;i-->0;) (cp[i]+=cp2[i])/=som_MDL::fps; assert(ret);
 		}*/
 
-		float x = 1.0f/som_MDL_fps;
+		if(mdl.ext.speed) for(int i=3;i-->0;) //2023
+		{
+			assert(_); //0 is not a delta
 
-		if(som_MDL_hz) x*=SOM::motions.l_hz_30;
+			cp[i]*=mdl.ext.speed; //HACK: good enough?
+		}
+		else if(som_MDL::fps==2&&16&~mode)
+		{
+			float x = 1.0f/som_MDL::fps;
 
-		for(int i=3;i-->0;) cp[i]*=x;
+			for(int i=3;i-->0;) cp[i]*=x;
+		}
 
 		return ret;
 	}
-	else if(d<=skip) //2022
+//	else if(d<=skip) //2022
 	{
 		//HACK: 4418b0 crashes around 441914 when passed -1
 		//because it hard codes 0x88 and empty CP files end
@@ -3081,10 +3248,17 @@ extern BYTE __cdecl som_MDL_4418b0(SOM::MDL &mdl, float *cp, DWORD _)
 		//turn off do_fix_animation_sample_rate with such a
 		//file, so this duplicates the logic above, forcing
 		//the animations length to be considered
-		_ = skip;
+//		_ = skip;
 	}
 
-	return som_MDL_x4418b0(&mdl,cp,_);
+	if(!som_MDL_x4418b0(&mdl,cp,_)) return 0;
+
+	if(mdl.ext.speed) for(int i=3;i-->0;) //2023
+	{
+		cp[i]*=mdl.ext.speed; //HACK: good enough?
+	}
+
+	return 1;
 }
 static void __cdecl som_MDL_43a350(SOM::Struct<126> *sfx) //1c9dd38 table
 {
@@ -3185,11 +3359,6 @@ static void *__cdecl som_MDL_42f7a0(DWORD _1, DWORD _2) //initialize SFX
 	((SOM::sfx_element*)ret)->sort = 1; return ret;
 }
 
-static int __cdecl som_MDL_441430(SOM::MDL &mdl, int c)
-{
-	return mdl.running_time(c);
-}
-
 //2023: these retain model viewer point-of-view
 static void __fastcall som_MDO_edit(char *tp)
 {
@@ -3287,6 +3456,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		*(DWORD*)0x40B516 = (DWORD)som_MDL_440030-0x40B51a;		
 		//00401769 68 B8 09 00 00       push        9B8h
 		*(DWORD*)0x40176a = sizeof(SOM::MDL::data);
+		*(DWORD*)0x401778 = sizeof(SOM::MDL::data)/4;
 		//00401c2f F3 AB                rep stos    dword ptr es:[edi] 
 		//00401c31 E8 F6 9D 01 00       call        0041ba2c 
 		*(WORD*)0x401c2f = 0x9090;
@@ -3342,6 +3512,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		*(DWORD*)0x403782 = (DWORD)som_MDL_440030-0x403786;
 		//004039a9 68 B8 09 00 00       push        9B8h
 		*(DWORD*)0x4039aa = sizeof(SOM::MDL::data);
+		*(DWORD*)0x4039b8 = sizeof(SOM::MDL::data)/4;
 		//00403E6F F3 AB                rep stos    dword ptr es:[edi] 
 		//00403E71 E8 12 90 00 00       call        0040CE88 
 		*(WORD*)0x403E6F = 0x9090;
@@ -3387,6 +3558,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		*(DWORD*)0x403762 = (DWORD)som_MDL_440030-0x403766;
 		//00403989 68 B8 09 00 00       push        9B8h
 		*(DWORD*)0x40398a = sizeof(SOM::MDL::data);
+		*(DWORD*)0x403998 = sizeof(SOM::MDL::data)/4;
 		//00403e4f F3 AB                rep stos    dword ptr es:[edi] 
 		//00403e51 E8 12 90 00 00       call        0040ce68 
 		*(WORD*)0x403e4f = 0x9090;
@@ -3562,11 +3734,11 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//0042E8C4 E8 27 1B 01 00       call        004403F0 //sfx
 		//0042E9B1 E8 3A 1A 01 00       call        004403F0 //sfx
 		//0043CD6A E8 81 36 00 00       call        004403F0 //kage.mdl?
-		*(DWORD*)0x406571 = (DWORD)som_MDL_4403F0-0x406575; //enemy
-		*(DWORD*)0x428EAe = (DWORD)som_MDL_4403F0-0x428Eb2; //npc
-		*(DWORD*)0x42AB0f = (DWORD)som_MDL_4403F0-0x42AB13; //object
-		*(DWORD*)0x42E8C5 = (DWORD)som_MDL_4403F0-0x42E8C9; //sfx
-		*(DWORD*)0x42E9B2 = (DWORD)som_MDL_4403F0-0x42E9B6; //sfx
+		*(DWORD*)0x406571 = (DWORD)som_MDL_4403f0-0x406575; //enemy
+		*(DWORD*)0x428EAe = (DWORD)som_MDL_4403f0-0x428Eb2; //npc
+		*(DWORD*)0x42AB0f = (DWORD)som_MDL_4403f0-0x42AB13; //object
+		*(DWORD*)0x42E8C5 = (DWORD)som_MDL_4403f0-0x42E8C9; //sfx
+		*(DWORD*)0x42E9B2 = (DWORD)som_MDL_4403f0-0x42E9B6; //sfx
 		//00403EA9 E8 C2 19 04 00       call        00445870 //gold
 		//0040FD11 E8 5A 5B 03 00       call        00445870 //item load error?
 		//0040FDBF E8 AC 5A 03 00       call        00445870 //item
@@ -3687,6 +3859,14 @@ extern void som_MDL_reprogram() //som.state.cpp
 	
 	if(EX::INI::Bugfix()->do_fix_animation_sample_rate)
 	{
+		if(1) //shield still looks better with this at 60fps
+		{
+			//2024: preferring variable playback (ext.speed)
+			int todolist[SOMEX_VNUMBER<=0x1020602UL];
+
+			som_MDL::fps = 2; //can't be more than 2 for BYTE
+		}
+
 		//OBJECTS ARE INTIALIZED TO #6???
 		//OBJECTS ARE INTIALIZED TO #6???
 		//OBJECTS ARE INTIALIZED TO #6???
@@ -3700,7 +3880,17 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//this makes the swing model skip a frame
 		//00425C71 E8 9A B8 01 00       call        00441510
 		//00425C8A E8 81 B8 01 00       call        00441510
-		memset((void*)0x425C71,0x90,5);
+		memset((void*)0x425C71,0x90,5);		
+		//2023: DISABLE SWING SOUNDS FOR HIGH FRAME RATE
+		{
+			//som.mocap.cpp puts it back
+		
+			//4023c0 isn't called every frame
+			//00425c8a CALL FUN_00441510_advance_MDL
+			memset((void*)0x425c8a,0x90,5);
+			//00425ce7 CALL FUN_0043f540_play_2D_sound_w_pitch
+			memset((void*)0x425ce7,0x90,5);
+		}
 
 		//loading MDL
 		//004400cc e8 2a fb 00 00       call        0044fbfb //ftell
@@ -3710,13 +3900,13 @@ extern void som_MDL_reprogram() //som.state.cpp
 
 		//extend fade out (death) time... note this isn't tied
 		//to the length of the death animation
-		SOM::L.fade/=som_MDL_fps;
+		SOM::L.fade/=2; //som_MDL::fps;
 		//
 		// this affects turn rates, but there's many instances of this
 		// constant, so this is pretty unsafe (pretty much all of them
 		// look like SFX procedures)
 		//
-		*(FLOAT*)0x45831C/=som_MDL_fps; //SOM::L.rate
+		*(FLOAT*)0x45831C/=2; //som_MDL::fps; //SOM::L.rate
 
 		//testing a theory
 		//00440F69 C7 45 3C FF FF FF FF mov         dword ptr [ebp+3Ch],0FFFFFFFFh
@@ -3730,21 +3920,25 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//objects...
 		//0042A9D0 E8 EB 6C 01 00       call        004416C0
 		//0042B19C E8 1F 65 01 00       call        004416C0
+		//0042B040 E8 7B 66 01 00       call        004416C0
 		//0042B87A E8 41 5E 01 00       call        004416C0  
 		//0042D17F E8 3C 45 01 00       call        004416C0  
 		*(DWORD*)0x40740F = (DWORD)som_MDL_4416c0-0x407413;
 		*(DWORD*)0x42988D = (DWORD)som_MDL_4416c0-0x429891;
 		*(DWORD*)0x42A9D1 = (DWORD)som_MDL_4416c0-0x42A9D5;
 		*(DWORD*)0x42B19D = (DWORD)som_MDL_4416c0-0x42B1a1;
+		*(DWORD*)0x42B041 = (DWORD)som_MDL_4416c0-0x42B045;
 		*(DWORD*)0x42B87B = (DWORD)som_MDL_4416c0-0x42B87F;
 		*(DWORD*)0x42D180 = (DWORD)som_MDL_4416c0-0x42D184;
 		//these are called by nonstatic subroutine pointers
 		//00406E18 E8 A3 A8 03 00       call        004416C0
 		//00429585 E8 36 81 01 00       call        004416C0
-		//0042B040 E8 7B 66 01 00       call        004416C0
 		*(DWORD*)0x406E19 = (DWORD)som_MDL_4416c0-0x406E1d;
 		*(DWORD*)0x429586 = (DWORD)som_MDL_4416c0-0x42958a;
-		*(DWORD*)0x42B041 = (DWORD)som_MDL_4416c0-0x42B045;
+		//
+		//2023: let -1 or 0xff get c0
+		//0044163d 74 0b           JZ         LAB_0044164a
+		*(BYTE*)0x44163d = 0xeb; //jmp
 
 		//SFX procedure table hacks
 		//
@@ -3808,22 +4002,6 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//NOTE: som_state_40a480 may already have made this obsolete
 		//0040a573 c1 ea 03        SHR        EDX,0x3
 		*(BYTE*)0x40a575 = 2; //shr edx,2
-	}	
-	if(som_MDL_hz) //testing //2023 //som_MDL_hz
-	{
-		SOM::motions.hz_30 = SOM::motions.l_hz_30 = 1;
-
-		//animation length
-		//0040E2D7 E8 54 31 03 00       call        00441430
-		//0042A92B E8 00 6B 01 00       call        00441430
-		//0042D0DB E8 50 43 01 00       call        00441430
-		//0x4415DA E8 51 FE FF FF       call        0x441430  
-		//0x4418FC E8 2F FB FF FF       call        0x441430 
-		*(DWORD*)0x40E2D8 = (DWORD)som_MDL_441430-0x40E2Dc;
-		*(DWORD*)0x42A92c = (DWORD)som_MDL_441430-0x42A930;
-		*(DWORD*)0x42D0Dc = (DWORD)som_MDL_441430-0x42D0e0;
-		*(DWORD*)0x4415Db = (DWORD)som_MDL_441430-0x4415Df;
-		*(DWORD*)0x4418Fd = (DWORD)som_MDL_441430-0x441901;
 	}
 
 	//if(SOM::game) //fix (it actually worked)
@@ -3985,6 +4163,15 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//0043A432 E8 69 53 FF FF       call        0042F7A0
 		*(DWORD*)0x43A433 = (DWORD)som_MDL_42f7a0-0x43A437;
 	}
+
+	//2023: som.kage.cpp
+	{
+		//don't overwrite kage_bbox
+		//004484B7 B9 28 00 00 00       mov         ecx,28h 
+		//00449571 B9 28 00 00 00       mov         ecx,28h
+		*(DWORD*)0x4484B8 = 40-8;
+		*(DWORD*)0x449572 = 40-8;
+	}
 }
 
 int SOM::MDL::animation(int id)
@@ -4000,22 +4187,17 @@ int SOM::MDL::animation_id(int c)
 int SOM::MDL::running_time(int c)
 {
 	assert(SOM::game);
-	c = ((int(__cdecl*)(MDL*,int))0x441430)(this,c);
-
-	//2023: try to scale to framerate
-	return som_MDL_hz?(int)(c*SOM::motions.hz_30):c;
+	return ((int(__cdecl*)(MDL*,int))0x441430)(this,c);
 }
 bool SOM::MDL::ending_soon(int f)
 {
-	int fps = EX::INI::Bugfix()->do_fix_animation_sample_rate?2:1;
-	return d<=1||d>running_time(c)-f*fps;
+	return d<=1||d>running_time(c)-f*som_MDL::fps;
 }
 bool SOM::MDL::ending_soon2(int f)
 {
-	int fps = EX::INI::Bugfix()->do_fix_animation_sample_rate?2:1;
-	return ext.d2<=1||ext.d2>running_time(ext.e2)-f*fps;
+	return ext.d2<=1||ext.d2>running_time(ext.c2)-f*som_MDL::fps;
 }
-bool SOM::MDL::control_point(float avg[3], int c, int f, int cp)
+bool SOM::MDL::control_point(float avg[3], int c, int f, int cp, bool s2)
 {
 	DWORD *cps = mdl_data->cp_file;
 	if(!cps||0==~cps[2+cp]) //UNFINISHED
@@ -4025,22 +4207,43 @@ bool SOM::MDL::control_point(float avg[3], int c, int f, int cp)
 	
 	bool partial = false;
 
-	if(EX::INI::Bugfix()->do_fix_animation_sample_rate)
+	int mode = mdl_data->file_head[0];
+
+	//assert(f<running_time(c));
+
+	if(som_MDL::fps==2&&16&~mode) //2024
 	{
-		int skip = 0==c&&mdl_data->file_head[0]&3?2:1; 
+		int skip = 0==c&&mode&3?2:1; 
 
 		if(f>skip)
 		{
 			f-=skip;
-			partial = (f&1)==0; assert(2==som_MDL_fps);
-			f/=som_MDL_fps;
+			partial = (f&1)==0;
+			f/=som_MDL::fps;
 			f+=skip;
 		}
 	}
-	
+
+	//2024: this is for "kage_bbox" to work
+	//I'm not sure this isn't more correct?
+	if(f) f-=1;
+
 	BYTE *fp = (BYTE*)cps+cps[2+cp]+cps[c+34]+f*12;
 	memcpy(avg,fp,12);
-	if(partial) for(int i=3;i-->0;)
+	if(float s=s2?ext.s2:ext.s) //2023
+	{
+		float *fq = (FLOAT*)fp+(partial?-3:3);
+
+		for(int i=3;i-->0;)
+		{
+			float mid = (avg[i]+fq[i])*0.5f;
+
+			if(partial) avg[i] = mid+(avg[i]-mid)*s;
+
+			if(!partial) avg[i] = avg[i]+(mid-avg[i])*s;
+		}
+	}
+	else if(partial) for(int i=3;i-->0;)
 	{
 		avg[i] = (avg[i]+((FLOAT*)fp)[i-3])*0.5f;
 	}
@@ -4058,4 +4261,80 @@ void SOM::MDL::update_animation()
 void SOM::MDL::update_transform()
 {
 	som_MDL_440ab0_transforms(*this);
+}
+bool SOM::MDL::advance(int dir) //2023: speed
+{
+	if(!dir) return true;	
+
+	ext.dir = dir;
+
+	int rt = running_time(c)-1; //e
+
+	if(ext.speed&&d<rt)
+	{
+		if(d==f)
+		{
+		//	assert(t>=ext.s);
+			ext.t = max(ext.t,ext.s); //HACK
+		}
+
+		ext.t+=ext.speed;
+
+		//while(ext.t>=1)
+		while(ext.t>=0.99999f) //1 isn't enough (rt)
+		{
+			d+=dir; ext.t-=0.99999f;
+		}
+	}
+	else d+=dir;
+
+	//if(d<=-1||d>=rt) return false;
+	if(d<0){ d = 0; return false; }
+	if(d+ext.t>rt)
+	{
+		//if(d>rt) ext.t+=d-rt; 
+		ext.t = 0;
+
+		d = rt; return false; 
+	}
+
+	return true;
+}
+bool SOM::MDL::advance2(int dir) //2023: speed
+{
+	if(!dir) return true;
+
+	ext.dir2 = dir;
+
+	int rt = running_time(ext.c2)-1;
+
+	if(ext.speed2&&ext.d2<rt)
+	{
+		if(ext.d2==ext.f2)
+		{
+		//	assert(t2>=ext.s2);
+			ext.t2 = max(ext.t2,ext.s2); //HACK
+		}
+
+		ext.t2+=ext.speed2;		
+		
+		//while(ext.t2>=1)
+		while(ext.t2>=0.99999f) //1 isn't enough (rt)
+		{
+			ext.d2+=dir; ext.t2-=0.99999f;
+		}
+	}
+	else ext.d2+=dir;
+
+	//if(ext.d2<=-1||ext.d2>=rt) return false;
+	if(ext.d2<0){ ext.d2 = 0; return false; }
+	if(ext.d2+ext.t2>rt)
+	{
+		//if(ext.d2>rt) ext.t2+=ext.d2-rt;
+		ext.t2 = 0;
+
+		ext.d2 = rt; return false; 
+	}	
+
+	return true;
 }

@@ -9,6 +9,7 @@ namespace DDRAW
 	extern unsigned noFlips;
 }
 
+#include "Ex.ini.h"
 #include "Ex.cursor.h"
 #include "Ex.window.h"
 
@@ -17,7 +18,7 @@ namespace DDRAW
 #include "som.tool.hpp"
 #include "../lib/swordofmoonlight.h"
 #include "../x2mdl/x2mdl.h"
-#if SOMEX_VNUMBER!=0x1000102UL
+#if SOMEX_VNUMBER!=0x1000108UL
 #error need to copy Somimp/x2mdl.h into x2mdl/x2mdl.h
 #endif
 
@@ -94,8 +95,10 @@ extern wchar_t *som_art_path()
 	{
 		path = new wchar_t[MAX_PATH+16]; //mipmap?
 
-		if(!ExpandEnvironmentStringsW(L"%TEMP%\\Swordofmoonlight.net\\art",path,MAX_PATH))
-		path[0] = '\0'; //PARANOID
+		//2024: it looks like Windows deletes random files in %TEMP%, trying %INSTALL%/art
+	//	if(!ExpandEnvironmentStringsW(L"%TEMP%\\Swordofmoonlight.net\\art",path,MAX_PATH))
+	//	path[0] = '\0'; //PARANOID
+		Sompaste->path(wcscpy(path,Sompaste->get(L"ART")));	
 
 		//TODO: this will need to be a suffix that
 		//begins with a period depending on mipmap
@@ -193,6 +196,15 @@ extern int som_art(const wchar_t *path, HWND hwnd)
 				else SetCursor(LoadCursor(0,IDC_WAIT));
 			}
 
+			static int was = EX::tick();
+			static int cmp = DDRAW::noFlips;
+			static int more = 0;
+			//assume rendering has occurred?
+			if(cmp-DDRAW::noFlips>5)
+			{
+				was = EX::tick(); more = 0;
+			}			
+
 			//FIX ME?
 			// 
 			// REMINDER: I've gotten into some bad situtations when
@@ -215,6 +227,60 @@ extern int som_art(const wchar_t *path, HWND hwnd)
 					EX::following_cursor(); //hack
 				}
 				else SetCursor(LoadCursor(0,IDC_ARROW));
+
+				auto now = EX::tick();
+
+				static unsigned mute = 0;
+
+				unsigned to = EX::INI::Output()->art_action_center_note_ms_timeout;
+
+				if(now-was>to&&to!=~0u) //10000 //10 seconds?
+				{
+					/*this doesn't seem like a useful method (it quietly
+					//adds an icon to the systray that pops after reading it)
+					NOTIFYICONDATA nid = {sizeof(nid)};
+					nid.hWnd = FindWindow(L"Swordofmoonlight.net Systray WNDCLASS",0);
+					nid.uID = 2; //1
+					//how to associate a Window???
+				//	IIDFromString(L"{793FB9A5-D687-4470-8229-6D9EF3C8286E}",&nid.guidItem);
+					nid.uTimeout = 1000;
+					nid.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
+					nid.uFlags = NIF_TIP | NIF_ICON | NIF_MESSAGE | NIF_INFO | NIF_SHOWTIP | NIF_REALTIME; //NIF_GUID
+				//	nid.uCallbackMessage = WM_USER + 200;
+					nid.hIcon = LoadIcon(NULL, IDI_INFORMATION);
+					nid.hBalloonIcon = nid.hIcon;
+					lstrcpy(nid.szTip, L"Finished converting Sword of Moonlight model (it took a while!)");
+					lstrcpy(nid.szInfoTitle,L"x2mdl.dll");
+					BOOL test = Shell_NotifyIconW(NIM_ADD,&nid);
+					test = test; //1 requires nid.uID = !0 ???
+					nid.uVersion = NOTIFYICON_VERSION_4;	
+					Shell_NotifyIconW(NIM_SETVERSION,&nid);
+					*/
+					extern int Ex_toast_wmain(int argc, LPWSTR *argv);
+					WCHAR msg[128];
+					auto *pp = argv[7];
+					auto *m = wcsstr(pp,L"\\model\\");
+					if(!m) m = PathFindFileName(pp); //paranoia
+					if(m!=pp&&m[-1]=='\\') m--; //same
+					while(m!=pp&&m[-1]!='\\') m--; //strip back to top level model directory?
+					swprintf(msg,(more //...
+					?L"Converted art %s and %d more\n(it's taking a while)"
+					:L"Converted art %s\n(it took while)"),m,more);
+					WCHAR *toast[] = {L"",
+					L"--text",msg,
+					//a title like this is quietly ignored (i.e. no toast popup is generated)
+					//L"--appname", L"WinToast by Mohammed Boujemaoui <mohabouje@gmail.com>",
+					L"--appname", L"Sword of Moonlight",
+					//Note: Windows generates an app icon, e.g. the moonlight sword for example
+					L"--appid", L"Ex runtime",
+					L"--audio-state",(mute&&now-mute<90000?L"1":L"0"),
+					L"--alarm-audio",L"1", //HACK: override Focus Assist
+					};
+					Ex_toast_wmain(EX_ARRAYSIZEOF(toast),toast);
+
+					was = now; more = 0; mute = now;
+				}
+				else more++;
 			}
 		}
 		if(convert_job)
@@ -444,8 +510,9 @@ static bool som_art_X2MDL_UPTODATE(FILETIME &t2)
 {
 	SYSTEMTIME st;
 	FileTimeToSystemTime(&t2,&st);
-	WORD dt[3] = {X2MDL_UPTODATE};
-	return st.wYear>=dt[0]||st.wMonth>=dt[1]||st.wDay>=dt[2];
+	wchar_t dt[3] = {X2MDL_UPTODATE};
+	wchar_t cmp[3] = {st.wYear,st.wMonth,st.wDay};
+	return wmemcmp(dt,cmp,3)<=0;
 }
 extern bool som_art_nofollow = false; //DEBUGGING
 //extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH], WCHAR *ico)
@@ -491,7 +558,7 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 
 	bool art = false, exact = false; 
 //	#ifdef _DEBUG
-	bool nofollow = som_art_nofollow; nofollow:
+	bool nofollow = som_art_nofollow||SOM::retail; nofollow:
 //	#else
 //	bool nofollow = false; nofollow:
 //	#endif
@@ -505,6 +572,9 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 		//model.mm3d file as an art file
 		wchar_t *ext = found.cFileName+j;
 		if('.'!=*ext) continue;
+
+		//2024: x2mdl does this by default
+		if(wcschr(ext+1,'.')) continue;
 
 		char mc[4] = {ext[3],ext[2],ext[1],ext[0]};
 		for(int i=4;i-->0;) mc[i] = tolower(mc[i]);

@@ -181,11 +181,14 @@ SOM::altdown = 0,
 SOM::alt = 0, SOM::alt2 = 0, SOM::ctrl = 0, SOM::shift = 0, SOM::space = 0,
 SOM::altf_mask = 0,
 SOM::altf = 0, SOM::limbo = 0, SOM::crouched = 0,
-SOM::shoved = 0, SOM::bopped = 0;
+SOM::shoved = 0, SOM::bopped = 0,
+SOM::swing = 0, SOM::counteratk = 0;
 
 extern int SOM::tilt = 0; //mouse
+extern int SOM::se_looping = 0; //2023
+extern int SOM::se_volume = 0;
 
-extern SOM::TextureAtlasRec SOM::TextureAtlas[1024][2] = {};
+//extern SOM::TextureAtlasRec SOM::TextureAtlas[1024][2] = {}; //UNUSED
 
 //TODO
 //think probably this is 0x19AA978
@@ -816,8 +819,17 @@ extern bool SOM::altf3(int shift) //zoom mode
 	SOM::zoom = *p; return true;
 }	
 extern SOM::Thread *som_MPX_thread;
-extern bool SOM::altf4() //terminate program
+extern bool SOM::altf4(int code) //terminate program
 {	
+	if(!code&&!EX::debug) //2023: matching Alt+F5
+	{
+		if(!SOM::retail||SOM::alt2==SOM::frame)
+		if(IDOK!=MessageBoxW(EX::display(),L"Leave this game?",L"SOM_DB",MB_OKCANCEL))
+		{
+			return false;
+		}
+	}
+
 	bool one_off = SOM::altf&1<<4;
 
 	EXLOG_LEVEL(3) << "SOM::altf4(" << one_off << ")\n";
@@ -872,6 +884,35 @@ extern bool SOM::altf4() //terminate program
 	if(DDRAW::xr) DDRAW::stereo_toggle_OpenXR(); //avoid crashing
 
 	return true;
+}
+extern bool SOM::altf5()
+{
+	if(EX::debug) goto dbg;
+
+	if(!SOM::retail||SOM::alt2==SOM::frame)
+	if(IDOK==MessageBoxW(EX::display(),L"Reload this level?",L"SOM_DB",MB_OKCANCEL))
+	{	
+dbg:	auto &dst = *SOM::L.corridor;
+
+		dst.lock = 1; dst.nosetting = 2; //som_files_wrote_db
+
+		return true;
+	}
+	return false;
+}
+extern void EX::play(int w)
+{
+	//this is because the map reload may be triggered by
+	//saving the maps (note, that was developed first)
+	if(w==SOM::mpx&&SOM::frame-SOM::newmap<120*10) return; 
+
+	auto &dst = *SOM::L.corridor;
+
+	dst.map = w;
+	dst.lock = 1; dst.nosetting = w==SOM::mpx?2:1; //som_files_wrote_db
+
+	SetForegroundWindow(EX::display());
+	SetActiveWindow(EX::display());
 }
 extern bool SOM::f10() //Alt-like system key
 {	 	
@@ -958,6 +999,8 @@ extern bool SOM::altf11()
 
 extern bool SOM::altf12(int shift)
 {
+	if(shift==2) shift = 0; //SomEx_fbuf_remember?
+
 	SOM::altf|=1<<12; 
 
 	int mv = SOM::masterVol; //NEW: act like bgmVol/seVol
@@ -1056,7 +1099,7 @@ static void som_state_404470_strength_and_magic(int pc, float io[2])
 	else if(pc==12288)
 	{
 		//TODO? player_character_weight is probably
-		//not destined for greatness. Should maybe
+		//not destined for greatness. should maybe
 		//be using 50 instead ever since 1.2.1.12.
 		EX::INI::Player pc;
 		
@@ -1136,7 +1179,15 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 	//const DWORD player_1 = 0x4c28a8; //traps too! enemies are below
 	const DWORD player_2 = 0x19c1d14; //NPCs are above player, enemies below	
 	
-	EX::INI::Damage hp; EX::INI::Player pc; EX::INI::Bugfix bf;	
+	float y = 1;
+	if(_2==player_2) //2024: add jump/fall damage?
+	{
+		float speeds[3]; EX::speedometer(speeds);
+		y+=fabsf(speeds[0]-speeds[1]);
+	}
+	
+	EX::INI::Damage hp; EX::INI::Player pc; 
+	EX::INI::Option op; EX::INI::Bugfix bf;
 
 	//TODO: allow player to confirm decision to harm
 	if(attack.target_type==4&&*(DWORD*)attack.source!=0x19C1A18)
@@ -1242,8 +1293,6 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 		{
 			int pce = !SOM::motions.swing_move?5:0;
 
-			//TODO: offer counter protecion for regular
-			//attacks too (for monsters too)
 			if(auto*mv=SOM::shield_or_glove(pce))
 			{
 				int d = pce?mdl.ext.d2:mdl.d;
@@ -1252,7 +1301,8 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 				if(e>=250) e = SOM::L.pcequip[3];
 
 				//approximately +/-200 ms allowance?
-				int fps = bf->do_fix_animation_sample_rate?2:1;
+				//int fps = bf->do_fix_animation_sample_rate?2:1;
+				int fps = som_MDL::fps;
 				if(6*fps>abs(d-mv->uc[86])||3==SOM::motions.swing_move)
 				{
 					float *xyz = attack.attack_origin;
@@ -1273,6 +1323,12 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 
 					if(cmp>-arc&&cmp<arc) //attack.pie?
 					{
+						if(pce==0&&!trap&&!attack._source_SFX)
+						{
+							//TODO? set when enemy is nearby?
+							SOM::counteratk = SOM::frame;
+						}
+
 						//SOM_PRM_extend_items
 						shield = SOM::L.item_prm_file[e].uc+328;
 
@@ -1469,6 +1525,7 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 		float rating = *(BYTE*)(ebx+esi+4);
 
 		if(shield) offset+=shield[esi];
+		rating*=y; //2024
 		
 		//if(!rating) continue; //todo: extension to bypass this?
 		/*		
@@ -1495,6 +1552,7 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 		else if(!bf->do_fix_damage_calculus) //emulate Som2k?
 		{
 			if(!rating) continue;
+			rating+=srcStats[magic]; //2023?
 			offset+=dstStats[magic]+defense;  
 		}
 		else //built-in formula
@@ -1686,31 +1744,32 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 	*/
 	*out2 = 0; if(!*out) return;
 
-	EX::INI::Option op; 
-
-	//note: this says if player
+	//NOTE: this says if player
 	//is the attacker then skip
 	//the attack's side effects 
-	//But that is incorrect. It
+	//but that is incorrect. it
 	//should check the defender
 	//if(*(DWORD*)(ebx+0x14)==edi) //0x19C1A18
-	if(*(DWORD*)(ebx+0x40)!=edi) //fix: defender/target
+	if(*(DWORD*)(ebx+0x40)!=edi) //FIX: defender/target
 	{
 		if(dbg&&!invincible) EX::dbgmsg("%d (%d)",dbg,*out);		
 
 		//2017: King's Field 3 style nonstunned hit?
-		//NEW: Feed SOM::Versus.hit().
-		//TODO: Detect invincible NPCs that have HP.
+		//NEW: feed SOM::Versus.hit()
+		//TODO: detect invincible NPCs that have HP
 		//if(op->do_red&&op->do_hit)
 		bool hit = op->do_red&&op->do_hit?false:true;
 		{
 			float red; //2020
 			WORD *hp,_hp;
+			SOM::MDL *mdl = nullptr;
 			if(enemy_2) //_2<player_2
 			{
 				//int enemy = (_2-0x4C77C8)/(4*149);
 				int enemy = (_2-(DWORD)SOM::L.ai)/(4*149);
-				hp = (WORD*)&SOM::L.ai[enemy][SOM::AI::hp];
+				auto &ai = SOM::L.ai[enemy];
+				hp = (WORD*)&ai[SOM::AI::hp];
+				mdl = (SOM::MDL*)ai[SOM::AI::mdl];
 				WORD prm = SOM::L.ai[enemy][SOM::AI::enemy];
 				_hp = SOM::L.enemy_prm_file[prm].s[148];
 				//red = SOM::Red(*out,_hp);
@@ -1728,7 +1787,9 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 			{
 				int npc = (_2-0X1A12DF0)/(4*43);
 				hp = (WORD*)&SOM::L.ai2[npc][SOM::AI::hp2];
-				WORD prm = SOM::L.ai2[npc][SOM::AI::npc];
+				auto &ai = SOM::L.ai2[npc];
+				WORD prm = ai[SOM::AI::npc];
+				mdl = (SOM::MDL*)ai[SOM::AI::mdl2];
 				_hp = SOM::L.NPC_prm_file[prm].s[1];
 				//red = SOM::Red(*out,_hp);
 				red = SOM::Red(*out,src,dst,_hp);
@@ -1738,7 +1799,20 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 				}
 			}
 
-			if(*out<*hp) if(!hit) if(!SOM::Stun(red))
+			if(*out>=*hp) //2023
+			{
+				//kf2: fading to white! //white ghost? //EXTENSION?
+				if(auto*d=(*mdl)->ext.mdo)				
+				for(int i=d->material_count;i-->0;)
+				{
+					float *m7 = SOM::L.materials[mdl->ext.mdo_materials[i]].f+1;
+					//nonzero: som_MDL_440ab0_unanimated manages this
+					//emissive ambient
+					m7[12+3] = 0.0000001f; 
+				}
+								
+			}
+			else if(!hit) if(!SOM::Stun(red))
 			{					
 				*hp-=*out; *out = 0;
 			}
@@ -1817,77 +1891,78 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 		
 	if(_2!=player_2){ assert(0); return; } //paranoia
 	
-	if(!op->do_hit) return; 
-
+	if(op->do_hit)
 	if(SOM::invincible&&!op->do_hit2) //invincibility?
 	{
-		*out = *out2 = 0; return; //prevent damage/effect
+		 *out = *out2 = 0; //prevent damage/effect
 	}
-
-	//static int testing = 0;
-	//EX::dbgmsg("hit: %d",testing++);
-	//EX::dbgmsg("hit: %x",attack.source);
-
-	//bool indirect = attack.attack_mode==9;
-	//float *player = SOM::L.pcstate?SOM::L.pcstate:SOM::xyz; //???
-	float *player = SOM::L.pcstate;
-	//2020: can get the CP I think?
-	//float *origin = &attack.source->f[SOM::AI::xyz-trap];
-	float *origin = attack.attack_origin;
-	origin[1] = player[1]; //2020
-
-	//REMINDER: som_logic_reprogram IS COUNTING ON THIS 
-	//TO FINALLY ENABLE SPEAR TRAPS
-	float hit[3];
-	Somvector::map(hit).copy<3>(player).remove<3>(origin).unit<3>();
-
-	//NOTE: Red is processing critical_hit_point_quantifier
-	//and returns 1 for a critical hit even if do_red is no
-	SOM::red2 = SOM::Red(*out,src);
-	bool crit = SOM::red2==1;
-
-	//2020: factor stun into damage response?
-	bool stun2 = SOM::Stun(SOM::red2);
-	bool stun = trap||!op->do_red||stun2;
-
-	if(!trap
-	//2020: if the trap sweeps through it tends to cancel out
-	||SOM::hit!=attack.source
-	//this is to include all CPs in a multi CP trap knockback
-	||SOM::frame-SOM::invincible<2)
+	else
 	{
-		//2021: critical hit?
-		float knockback = crit?4:trap||stun&&stun2?2:1;
-		if(shield)
+		//static int testing = 0;
+		//EX::dbgmsg("hit: %d",testing++);
+		//EX::dbgmsg("hit: %x",attack.source);
+
+		//bool indirect = attack.attack_mode==9;
+		//float *player = SOM::L.pcstate?SOM::L.pcstate:SOM::xyz; //???
+		float *player = SOM::L.pcstate;
+		//2020: can get the CP I think?
+		//float *origin = &attack.source->f[SOM::AI::xyz-trap];
+		float *origin = attack.attack_origin;
+		origin[1] = player[1]; //2020
+
+		//REMINDER: som_logic_reprogram IS COUNTING ON THIS 
+		//TO FINALLY ENABLE SPEAR TRAPS
+		float hit[3];
+		Somvector::map(hit).copy<3>(player).remove<3>(origin).unit<3>();
+
+		//NOTE: Red is processing critical_hit_point_quantifier
+		//and returns 1 for a critical hit even if do_red is no
+		SOM::red2 = SOM::Red(*out,src);
+		bool crit = SOM::red2==1;
+
+		//2020: factor stun into damage response?
+		bool stun2 = SOM::Stun(SOM::red2);
+		bool stun = trap||!op->do_red||stun2;
+
+		if(!trap
+		//2020: if the trap sweeps through it tends to cancel out
+		||SOM::hit!=attack.source
+		//this is to include all CPs in a multi CP trap knockback
+		||SOM::frame-SOM::invincible<2)
 		{
-			//REMINDER: what about side_effects_potency?
+			//2021: critical hit?
+			float knockback = crit?4:trap||stun&&stun2?2:1;
+			if(shield)
+			{
+				//REMINDER: what about side_effects_potency?
 
-			//NOTE: holding the shield close here causes
-			//more of the impact to transfer
-			SOM::motions.shield3 = 0.5f*shield2;
+				//NOTE: holding the shield close here causes
+				//more of the impact to transfer
+				SOM::motions.shield3 = 0.5f*shield2;
 
-			knockback*=SOM::motions.shield3;
-		}				   
-		auto &p = EX::Affects[0].position;		
-		float prev = Somvector::map(p).length<3>();
-		p[0]+=hit[0]*knockback;
-		p[2]+=hit[2]*knockback;
-		Somvector::map(p).unit<3>(); //renormalize
-		knockback+=prev; 
-		p[0]*=knockback; 
-		p[2]*=knockback;
-	}
-
-	if(!SOM::invincible) 	
-	{
-		//NOTE: do_red is to complement enemy stun behavior when
-		//using do_red and do_hit 	
-		if(stun)
-		{	
-			SOM::hit = /*SOM::invincible =*/ attack.source; //true;
+				knockback*=SOM::motions.shield3;
+			}				   
+			auto &p = EX::Affects[0].position;		
+			float prev = Somvector::map(p).length<3>();
+			p[0]+=hit[0]*knockback;
+			p[2]+=hit[2]*knockback;
+			Somvector::map(p).unit<3>(); //renormalize
+			knockback+=prev; 
+			p[0]*=knockback; 
+			p[2]*=knockback;
 		}
-		//2017: poison, events, etc.
-		SOM::invincible = SOM::frame; //true
+
+		if(!SOM::invincible) 	
+		{
+			//NOTE: do_red is to complement enemy stun behavior when
+			//using do_red and do_hit 	
+			if(stun)
+			{	
+				SOM::hit = /*SOM::invincible =*/ attack.source; //true;
+			}
+			//2017: poison, events, etc.
+			SOM::invincible = SOM::frame; //true
+		}
 	}
 }
 
@@ -1924,7 +1999,7 @@ extern bool som_state_42bca0_door(float(&neg)[3], int obj)
 	//hack: using this just for doors just for now
 	//Somvector::map(sep).copy<3>(xyz).move<3>(neg);
 	Somvector::series(sep,xyz[0],0,xyz[2]).move<3>(neg);
-	if(abs(sep[0])>radius_2||abs(sep[2])>radius_2)
+	if(fabsf(sep[0])>radius_2||fabsf(sep[2])>radius_2)
 	{
 		return false; //continue;
 	}
@@ -2103,7 +2178,7 @@ static DWORD __cdecl som_state_42bca0() //42AE60
 				{
 					//42bca0 detects the closest object, and perhaps inert objects
 					//should be given lower priority (this isn't event activation)
-					int todolist[SOMEX_VNUMBER<=0x1020504UL];
+					int todolist[SOMEX_VNUMBER<=0x1020602UL];
 
 					switch(type[1])
 					{
@@ -2160,128 +2235,6 @@ static DWORD __cdecl som_state_42bca0() //42AE60
 	SOM::eventapped = 0;
 	SOM::eventype = 0; //2020
 
-	/*42BCC1 BE 60 44 A4 01   mov         esi,1A44460h 
-	0042BCC6 8A 46 19         mov         al,byte ptr [esi+19h] 
-	0042BCC9 84 C0            test        al,al 
-	0042BCCB 0F 84 60 01 00 00 je          0042BE31 
-	0042BCD1 8A 46 1A         mov         al,byte ptr [esi+1Ah] 
-	0042BCD4 84 C0            test        al,al 
-	0042BCD6 0F 84 55 01 00 00 je          0042BE31 
-	0042BCDC 8B 0E            mov         ecx,dword ptr [esi] 
-	0042BCDE 85 C9            test        ecx,ecx 
-	0042BCE0 75 0B            jne         0042BCED 
-	0042BCE2 8B 46 04         mov         eax,dword ptr [esi+4] 
-	0042BCE5 85 C0            test        eax,eax 
-	0042BCE7 0F 84 44 01 00 00 je          0042BE31 
-	0042BCED 33 C0            xor         eax,eax 
-	//mpx+260: ??? count?
-	0042BCEF 66 8B 46 A0      mov         ax,word ptr [esi-60h] 
-	0042BCF3 8D 14 C5 00 00 00 00 lea         edx,[eax*8] 
-	0042BCFA 2B D0            sub         edx,eax 
-	0042BCFC 33 C0            xor         eax,eax 
-	0042BCFE 66 8B 04 D5 24 64 A3 01 mov         ax,word ptr [edx*8+1A36424h] 
-	0042BD06 8D 56 E4         lea         edx,[esi-1Ch] 
-	0042BD09 8D 04 40         lea         eax,[eax+eax*2] 
-	0042BD0C 8D 04 C0         lea         eax,[eax+eax*8] 
-	0042BD0F 8D 3C 85 00 B4 A1 01 lea         edi,[eax*4+1A1B400h] 
-	0042BD16 8B 02            mov         eax,dword ptr [edx] 
-	0042BD18 89 44 24 14      mov         dword ptr [esp+14h],eax 
-	0042BD1C 8B 42 04         mov         eax,dword ptr [edx+4] 
-	0042BD1F 8B 52 08         mov         edx,dword ptr [edx+8] 
-	0042BD22 89 44 24 18      mov         dword ptr [esp+18h],eax 
-	0042BD26 33 C0            xor         eax,eax 
-	0042BD28 89 54 24 1C      mov         dword ptr [esp+1Ch],edx 
-	0042BD2C 66 8B 47 52      mov         ax,word ptr [edi+52h] 
-	0042BD30 83 C0 F5         add         eax,0FFFFFFF5h 
-	0042BD33 83 F8 03         cmp         eax,3 
-	0042BD36 77 67            ja          0042BD9F 
-	0042BD38 FF 24 85 58 BE 42 00 jmp         dword ptr [eax*4+42BE58h] 
-	0042BD3F 8D 44 24 2C      lea         eax,[esp+2Ch] 
-	0042BD43 50               push        eax  
-	0042BD44 6A 00            push        0    
-	0042BD46 51               push        ecx  
-	0042BD47 E8 B4 58 01 00   call        00441600 
-	0042BD4C 8B 16            mov         edx,dword ptr [esi] 
-	0042BD4E 8D 4C 24 2C      lea         ecx,[esp+2Ch] 
-	0042BD52 51               push        ecx  
-	0042BD53 6A 02            push        2    
-	0042BD55 52               push        edx  
-	0042BD56 E8 A5 58 01 00   call        00441600 
-	0042BD5B D9 44 24 38      fld         dword ptr [esp+38h] 
-	0042BD5F D8 44 24 44      fadd        dword ptr [esp+44h] 
-	0042BD63 83 C4 18         add         esp,18h 
-	0042BD66 D8 0D 90 82 45 00 fmul        dword ptr ds:[458290h] 
-	0042BD6C D9 5C 24 14      fstp        dword ptr [esp+14h] 
-	0042BD70 D9 44 24 28      fld         dword ptr [esp+28h] 
-	0042BD74 D8 44 24 34      fadd        dword ptr [esp+34h] 
-	0042BD78 D8 0D 90 82 45 00 fmul        dword ptr ds:[458290h] 
-	0042BD7E D9 5C 24 1C      fstp        dword ptr [esp+1Ch] 
-	0042BD82 EB 1B            jmp         0042BD9F 
-	0042BD84 8D 44 24 14      lea         eax,[esp+14h] 
-	0042BD88 50               push        eax  
-	0042BD89 6A 1F            push        1Fh  
-	0042BD8B 51               push        ecx  
-	0042BD8C E8 6F 58 01 00   call        00441600 
-	0042BD91 83 C4 0C         add         esp,0Ch 
-	0042BD94 84 C0            test        al,al 
-	0042BD96 74 07            je          0042BD9F 
-	0042BD98 8B 4E E8         mov         ecx,dword ptr [esi-18h] 
-	0042BD9B 89 4C 24 18      mov         dword ptr [esp+18h],ecx 
-	0042BD9F 8B 54 24 1C      mov         edx,dword ptr [esp+1Ch] 
-	0042BDA3 8B 44 24 14      mov         eax,dword ptr [esp+14h] 
-	0042BDA7 52               push        edx  
-	0042BDA8 50               push        eax  
-	0042BDA9 E8 62 C0 FF FF   call        00427E10 
-	0042BDAE 83 C4 08         add         esp,8 
-	0042BDB1 84 C0            test        al,al 
-	0042BDB3 74 7C            je          0042BE31 
-	0042BDB5 66 8B 47 52      mov         ax,word ptr [edi+52h] 
-	0042BDB9 66 3D 0B 00      cmp         ax,0Bh 
-	0042BDBD 72 06            jb          0042BDC5 
-	0042BDBF 66 3D 0E 00      cmp         ax,0Eh 
-	0042BDC3 76 1E            jbe         0042BDE3 
-	0042BDC5 66 3D 14 00      cmp         ax,14h 
-	0042BDC9 74 18            je          0042BDE3 
-	0042BDCB 66 3D 15 00      cmp         ax,15h 
-	0042BDCF 74 12            je          0042BDE3 
-	0042BDD1 66 3D 16 00      cmp         ax,16h 
-	0042BDD5 74 0C            je          0042BDE3 
-	0042BDD7 66 3D 28 00      cmp         ax,28h 
-	0042BDDB 74 06            je          0042BDE3 
-	0042BDDD 66 3D 29 00      cmp         ax,29h 
-	0042BDE1 75 4E            jne         0042BE31 
-	0042BDE3 8B 4C 24 1C      mov         ecx,dword ptr [esp+1Ch] 
-	0042BDE7 8B 54 24 14      mov         edx,dword ptr [esp+14h] 
-	0042BDEB A1 A0 1D 9C 01   mov         eax,dword ptr ds:[019C1DA0h] 
-	0042BDF0 51               push        ecx  
-	0042BDF1 8B 0D 98 1D 9C 01 mov         ecx,dword ptr ds:[19C1D98h] 
-	0042BDF7 52               push        edx  
-	0042BDF8 50               push        eax  
-	0042BDF9 51               push        ecx  
-	0042BDFA E8 E1 0F 02 00   call        0044CDE0 
-	0042BDFF D9 05 74 85 45 00 fld         dword ptr ds:[458574h] (1.5 radius hit test?) 
-	0042BE05 D8 46 14         fadd        dword ptr [esi+14h] 
-	0042BE08 83 C4 10         add         esp,10h 
-	0042BE0B D8 05 70 85 45 00 fadd        dword ptr ds:[458570h] 
-	0042BE11 D9 C1            fld         st(1) 
-	0042BE13 DE D9            fcompp           
-	0042BE15 DF E0            fnstsw      ax   
-	0042BE17 F6 C4 01         test        ah,1 
-	0042BE1A 74 13            je          0042BE2F 
-	0042BE1C D8 54 24 10      fcom        dword ptr [esp+10h] 
-	0042BE20 DF E0            fnstsw      ax   
-	0042BE22 F6 C4 01         test        ah,1 
-	0042BE25 74 08            je          0042BE2F 
-	0042BE27 D9 5C 24 10      fstp        dword ptr [esp+10h] 
-	0042BE2B 8B EB            mov         ebp,ebx 
-	0042BE2D EB 02            jmp         0042BE31 
-	0042BE2F DD D8            fstp        st(0) 
-	0042BE31 A1 FC B3 A1 01   mov         eax,dword ptr ds:[01A1B3FCh] 
-	0042BE36 43               inc         ebx  
-	0042BE37 81 C6 B8 00 00 00 add         esi,0B8h 
-	0042BE3D 3B D8            cmp         ebx,eax 
-	0042BE3F 0F 8C 81 FE FF FF jl          0042BCC6
-	*/			
 	return 0xFFFFFFFF;
 }
 
@@ -2336,7 +2289,7 @@ static void __cdecl som_state_4051F0_intro(char *a)
 	case 0x45a11c: case 0x45a380: case 0x45a38c: case 0x45a398:
 	case 0x45a374: case 0x45e57c:
 	}*/
-	bool movie = (DWORD)a>0x450000;
+	bool movie = (DWORD)a>0x45ffff;
 
 	som_state_viewing_show = 1+movie; //true
 	((void(__cdecl*)(char*))0x4051F0)(a);
@@ -3135,14 +3088,6 @@ static BYTE __cdecl som_state_automap4487F0(DWORD h,DWORD i, DWORD x,DWORD y,DWO
 	return 0; //failure? automap ignores the result
 }
 
-extern int SOM::se_looping = 0; //2023
-extern int SOM::se_volume = 0; /*//unnecessary. Keeping around
-static void som_state_43F5B0(DWORD snd, LONG pitch, FLOAT x, FLOAT y, FLOAT z)
-{
-	SOM::se_pitch = (char)pitch; //passed as unsigned value???
-	((void(__cdecl*)(DWORD,DWORD,float,float,float))0x43F5B0)(snd,pitch,x,y,z);	
-}*/
-
 //EXPERIMENTAL (PlayStation VR)
 static void __cdecl som_state_403BB0()
 {
@@ -3296,10 +3241,10 @@ extern void SOM::warp(FLOAT dst[6], FLOAT src[6])
 				auto &se = SOM::L.snd_bank[i];
 
 				//emulating 44c100
-				if(!se.i[6]||!se.i[8]) continue;
+				if(!se.unknown6||!se.sb3d) continue;
 
 				DSOUND::IDirectSoundBuffer*(*p)[5];
-				(void*&)p = (void*)se.i[7];
+				(void*&)p = (void*)se.sb;
 
 				enum{ j=0 };
 				//for(int j=n;j-->0;)
@@ -3966,7 +3911,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	//TODO: these could change dynamically so
 	//that they should be reset on the event
 	//cycle
-	int todolist[SOMEX_VNUMBER<=0x1020504UL];
+	int todolist[SOMEX_VNUMBER<=0x1020602UL];
 	SOM::L.shape = pc->player_character_shape; //0.25			
 	SOM::L.hitbox = pc->player_character_shape2; //0.25
 	SOM::L.hitbox2 = pc->player_character_shape3; //0.25
@@ -4313,7 +4258,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	{
 		*range = pc->player_character_radius-1.5f;
 		//44ce30 does event test (return to this)
-		int todolist[SOMEX_VNUMBER<=0x1020504UL];
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		//2020: it's possible this is doing nothing
 		//since I changed do_fix_boxed_events after
 		//learning 42bca0 tests from  the center of
@@ -4552,34 +4497,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 		//00419586 E8 65 F2 02 00   call        004487F0
 		*(DWORD*)0x419587 = (DWORD)som_state_automap4487F0-0x41958B;
 	}
-
-	//turns out the pitch shifting works, but keeping here
-	/*if(image__db2) //restore 3D pitch shifting feature
-	{	
-		//weapons and screen based spells are not 3D sounds
-
-		//DWORD pitches[256], pitchtest = 0;
-		//for(int i=0;i<256;i++) pitches[i] = 
-		//((DWORD(_cdecl*)(DWORD,DWORD))0x43FA30)(44100,pitchtest++);
-		//http://www.swordofmoonlight.net/bbs2/index.php?topic=239.msg2144#msg2144
-
-		//door
-		//0042BA60 E8 4B 3B 01 00       call        0043F5B0
-		*(DWORD*)0x42BA61 = (DWORD)som_state_43F5B0-0x42BA65;
-		//objects? (non-door???)
-		//004299FB E8 B0 5B 01 00       call        0043F5B0
-		*(DWORD*)0x4299FC = (DWORD)som_state_43F5B0-0x429A00;
-		//NPCs and or enemies?
-		//00407FCA E8 E1 75 03 00       call        0043F5B0 
-		*(DWORD*)0x407fcb = (DWORD)som_state_43F5B0-0x407fcf;
-		//enemies? (not sure. atmospheric otherwise)
-		//0042BC63 E8 48 39 01 00       call        0043F5B0
-		*(DWORD*)0x42BC64 = (DWORD)som_state_43F5B0-0x42BC68;
-		//magic
-		//0042EAE9 E8 C2 0A 01 00       call        0043F5B0
-		*(DWORD*)0x42EAEA = (DWORD)som_state_43F5B0-0x42EAEE;		
-	}*/
-
+	
 	if(image__db2)
 	{
 		//start sequence. returns save game or FF?

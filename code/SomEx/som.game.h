@@ -34,6 +34,8 @@ static const auto som_game_ftell = *(int(__cdecl*)(FILE*))0x44fbfb;
 //basic math support?
 static const auto som_game_dist2 = *(FLOAT(__cdecl*)(FLOAT,FLOAT,FLOAT,FLOAT))0x44cde0;
 
+extern int som_MPX_operator_new_lock;
+
 namespace SOM
 {		
 	extern const struct Game	
@@ -58,6 +60,18 @@ namespace SOM
 		struct item_lock_section : EX::section //RAII
 		{
 			item_lock_section(int=0); ~item_lock_section();
+		};
+
+		struct operator_new_lock_raii
+		{
+			operator_new_lock_raii()
+			{
+				som_MPX_operator_new_lock++;
+			}
+			~operator_new_lock_raii()
+			{
+				som_MPX_operator_new_lock--;
+			}
 		};
 
 		//ext must be one of 0 or '.ini'
@@ -161,9 +175,6 @@ namespace SOM
 
 		HWND (WINAPI *CreateWindowExA)(DWORD,LPCSTR,LPCSTR,DWORD,int,int,int,int,HWND,HMENU,HINSTANCE,LPVOID);
 
-		//TESTING/OBSERVING
-		HBITMAP (WINAPI *CreateDIBSection)(HDC hdc, const BITMAPINFO *pbmi, UINT iUsage, VOID **ppvBits, HANDLE hSection, DWORD dwOffset);
-
 		//http://www.swordofmoonlight.net/bbs2/index.php?topic=320.0
 		VOID (WINAPI *OutputDebugStringA)(LPCSTR lpOutputString);
 
@@ -174,6 +185,9 @@ namespace SOM
 		//routines new allocate 2 string buffers for absolute no reason and it's
 		//a problem for som_MPX_new other than just being absurdly wasteful
 		BYTE(__cdecl*_ext_401300)(char*,char*),(__cdecl*_ext_401410)(char*,char*,char*);
+
+		//2023: ext.speed support
+		BYTE(__cdecl*_ext_441510_advance_MDL)(void*),(__cdecl*_ext_4414c0_set_MDL)(void*,int);
 
 		void *_detour_end;
 
@@ -258,7 +272,7 @@ typedef struct som_scene_element //104B
 	//this enables skinning and consolidating MDO chunks
 	//see som_MDL_447fc0_cpp	
 	//2022: sort is to not overload transparency sorting
-	DWORD mode:4,unused1:2,sort:1,tnl:1,vs:8,npc:2,unused2:3,ai:9,batch:1,lit:1;
+	DWORD fmode:4,unused1:2,sort:1,tnl:1,vs:8,npc:2,kage:1,ai:11,batch:1,lit:1;
 	union //a mess of flags
 	{
 		DWORD flags; struct

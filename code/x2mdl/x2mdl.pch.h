@@ -41,6 +41,7 @@
 
 //REMOVE US
 #define X2MDL_TEXTURE_MAX 256
+#define X2MDL_SHADOWS_MAX 512 //2024
 #define X2MDL_TEXTURE_TPF 0x02 //16bit
 
 extern const aiScene *X,*Y;

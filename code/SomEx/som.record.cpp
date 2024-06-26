@@ -259,13 +259,19 @@ extern bool SOM::record_ini()
 {
 	static bool one_off = false; if(one_off++) return false; //??? 
 	if(som_record.type==-1) return true;
-	const wchar_t f[] = 
+	const wchar_t f[] =
 	L"dirName=%ls%lc"
-	L"fileName=%ls%lc"L"time=%d%lc"
+	L"fileName=%ls%lc"
+	L"time=%d%lc"
 	L"type=%d%lc"	
-	L"fOverlay=%d%lc"L"recMaster=%d%lc"
-	L"title=%d%lc"L"titleName=%ls%lc"L"titleFont=%ls%lc"L"titleHeight=%d%lc"
-	L"titleWeight=%d%lc"L"titleItalic=%d%lc" //required
+	L"fOverlay=%d%lc"
+	L"recMaster=%d%lc"
+	L"title=%d%lc"
+	L"titleName=%ls%lc"
+	L"titleFont=%ls%lc"
+	L"titleHeight=%d%lc"
+	L"titleWeight=%d%lc"
+	L"titleItalic=%d%lc" //required 
 	L"aniGIF=%d%lc";	
 	wchar_t record[3*MAX_PATH+32+8*33+EX_ARRAYSIZEOF(f)] = L"\0";
 	swprintf_s(record,f,

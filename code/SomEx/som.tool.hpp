@@ -35,7 +35,11 @@ struct SOM_CCmdTarget //7/28B
 {
 	//class CObject
 
-	void*(*_vtable)[50];
+	union
+	{
+		void **_vtable;
+		char c[1]; //variable-length
+	};
 
 	//class CCmdTarget
 
@@ -256,11 +260,6 @@ static struct SOM_MAP_app : SOM_CWinApp //196B header? CWinApp is 192B?
 		return ((SOM_CWnd*(__stdcall*)(HWND))0x468468)(win);
 		//return ((SOM_CWnd*(__stdcall*)(HWND))0x468441)(win);
 	}
-	static void ***CWnd_stack_ptr(SOM_CWnd *cw) //vtable?
-	{
-		//SOM_MAP.exe 466fed
-		return ((void***(__cdecl*)(DWORD,void*))0x46aec2)(0x480568,cw);
-	}
 
 //NOTE: historically 4921ac came first
 }&SOM_MAP_4920e8 = *(SOM_MAP_app*)0x4920E8; //CONTIGUOUS...
@@ -292,7 +291,10 @@ static struct SOM_MAP_4921ac
 
 	struct Part //59*4B //236B
 	{
-		WORD part_number, unknown;
+		WORD part_number;
+		
+		//WORD unused; //high 16-bits (0)
+		BYTE angle,rot;
 
 		Icon *icon;
 
@@ -301,7 +303,7 @@ static struct SOM_MAP_4921ac
 		//HACK: std::swap was working in debug builds
 		struct{ char file[32]; }msm,mhm;
 		
-		DWORD unknown3;
+		DWORD bytes; //same as PRT file (byte fields)
 		
 		char icon_bmp[32], description[128];
 
@@ -319,7 +321,7 @@ static struct SOM_MAP_4921ac
 	struct Tile //8B //0x4921ac+72=0x4921F4
 	{
 		WORD part;
-		BYTE spin,ev; //'e' or 'v'		   
+		BYTE spin,ev; //'e' or 'v' (2023: E or V for BSP pin)
 		//
 		//NOTE: this value is not truncated
 		//
@@ -633,7 +635,10 @@ static struct SOM_PRM_47a708 : SOM_CWinApp
 		//NOTE: SOM_PRM_this has some methods and
 		//container data members of these objects
 		SOM_CDialog *pages[6];
-		SOM_CDialog &page(){ return *pages[tab]; }
+		SOM_CDialog &page()
+		{
+			return *pages[tab]; //breakpoint 
+		}
 	};
 	
 	//FYI: This is a stack object. 19fe30?
@@ -783,6 +788,8 @@ extern struct SOM_MAP_intellisense
 		WORD code, size; char *data[3];
 	};
 	static evt_instruction *evt_data(HWND,int=-1);
+
+	EX::critical *_cs; //undo
 
 }SOM_MAP;
 struct som_LYT //VARIABLE-LENGTH
@@ -1139,7 +1146,7 @@ static struct MapComp_43e638
 	WORD prt,mhm; //msm? what's what???
 	
 	float elevation; 
-	unsigned rotation:2,nonzero:14,icon:8,unknown2:7,msb:1;
+	unsigned rotation:2,nonzero:14,icon:8,msb:8;
 
 	DWORD zero_or_8; //0,8 (mostly 0)
 

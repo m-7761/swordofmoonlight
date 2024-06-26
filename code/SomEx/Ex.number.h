@@ -109,6 +109,10 @@ namespace EX
 		}						
 
 		//returns the result of evaluation with parameters
+		inline const Number &operator()(float _1, float _2, float _3, float _4)const
+		{
+			EX::evaluating_number(_result,4,_1,_2,_3,_4); return *this;
+		}	
 		inline const Number &operator()(float _1, float _2, float _3)const
 		{
 			EX::evaluating_number(_result,3,_1,_2,_3); return *this;

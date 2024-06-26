@@ -556,7 +556,8 @@ extern BYTE __cdecl som_MHM_414f20(FLOAT _1[3], FLOAT _2, FLOAT _3[3], FLOAT _4[
 										}
 										//using _2 wasn't working before but it does now?
 										//if(cmp>0) break; 
-										if(cmp>fix) break; //_2
+									//	if(cmp>fix) break; //_2
+										if(cmp>0.025f) break; //2023
 									}
 									v1 = v2;
 								}
@@ -1295,7 +1296,7 @@ static BYTE __cdecl som_MHM_416860(som_MHM *edi, DWORD _2, FLOAT *_3, FLOAT _4, 
 
 		if(d<r)
 		{	
-			float test = cos(asin(d/r));
+			float test = cosf(asinf(d/r));
 			assert(test>0&&_finite(d));
 			r*=test;
 			r+=0.0001f; //2021 (TESTING: worry too precise?)
@@ -1390,7 +1391,7 @@ static BYTE __cdecl som_MHM_416860(som_MHM *edi, DWORD _2, FLOAT *_3, FLOAT _4, 
 		float t = xmax<0?-xmax:xmin>0?xmin:_5;
 		if(t<_5)
 		{
-			t = sin(acos(t/_5));
+			t = sinf(acosf(t/_5));
 
 			/*if(0) //TODO: should move _6 instead?
 			{
@@ -1695,19 +1696,8 @@ extern void som_MHM_reprogram() //som.state.cpp
 	memset((void*)0x416E84,0x90,6);
 }
 
-extern som_MHM *som_MHM_417630(FILE *f, bool mpx)
+extern som_MHM *som_MHM_417630(char *buf, DWORD sz)
 {
-	DWORD sz; if(!mpx) //2022: object MHM extension
-	{
-		fseek(f,0,SEEK_END); sz = (size_t)ftell(f);
-		fseek(f,0,SEEK_SET);
-	}
-	else fread(&sz,4,1,f);
-
-	char _buf[4096];
-	char *buf = sz<=sizeof(buf)?_buf:new char[sz];
-	fread(buf,sz,1,f); 
-
 	namespace mhm = SWORDOFMOONLIGHT::mhm;
 	mhm::image_t in;
 	mhm::maptorom(in,buf,sz);
@@ -1761,9 +1751,7 @@ extern som_MHM *som_MHM_417630(FILE *f, bool mpx)
 	{
 		memset(o,0x00,sizeof(*o)); assert(sz==24);
 	}
-	mhm::unmap(in);
-
-	if(buf!=_buf) delete[] buf; return o; 
+	mhm::unmap(in); return o; 
 }
 
 som_MHM::~som_MHM() //models_free
@@ -1806,7 +1794,7 @@ int som_MHM::clip(int cm, float in[5], float out[6], int restart)
 
 	case 0: //ball+all? //4165b0
 
-		for(float fix=in[3]*0.5f;i!=itt;i+=inc) //som_MHM_414f20
+		for(/*float fix=in[3]*0.5f*/;i!=itt;i+=inc) //som_MHM_414f20
 		{
 			p = poliesptr+i;
 
@@ -1870,7 +1858,8 @@ int som_MHM::clip(int cm, float in[5], float out[6], int restart)
 						//assert(fabs(cmp-cmp2)<0.0001f);
 						cmp = cmp2;												
 					}
-					if(cmp>fix) break; 
+					//if(cmp>fix) break;
+					if(cmp>0.025f) break; //2023
 				}
 				v1 = v2;
 			}
@@ -2117,7 +2106,7 @@ bool SOM::Clipper::clip(som_MHM *h, som_MDO *o, som_MDL *l, float hit[3], float 
 						c.ceiling = polycoord[1]; c.ceilingarch = -1;
 					}
 				}
-				else if(!c.goingup||fabs(polycoord[1]-slopestop)>tol)
+				else if(!c.goingup||!sloped||fabs(polycoord[1]-slopestop)>tol)
 				{
 					c.pclipos[1] = polycoord[1]+tol;
 
@@ -2307,4 +2296,3 @@ bool SOM::Clipper::clip(som_MHM *h, som_MDO *o, som_MDL *l, float hit[3], float 
 	
 	return true;
 }
-

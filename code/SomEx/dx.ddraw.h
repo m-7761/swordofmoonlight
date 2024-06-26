@@ -326,7 +326,7 @@ namespace DDRAW
 	vsWorld[4], 
 	vsView[4], 
 	vsInvView[4], 
-	vsTexture0[4], 
+	vsTexMatrix[4], 
 	vsFogFactors, //1/(end-start)\end\density\enabled
 	vsColorFactors,	//color/alpha ops
 	vsMaterialAmbient,
@@ -368,15 +368,16 @@ namespace DDRAW
 	psConstants10 = psF+10, //2023: general purpose 10-19			
 	psFogFactors = psF+24, //1/(end-start)\end\density\enabled
 	psFogColor   = psF+25; //extern
-
+	
 	//NOTE: these aren't const so they can be zeroed
 	extern int
 	psColorkey; //psColorkey_def
 			   
 	extern int //psF+26 
 	psColorize, //receives fxColorize
-	psFarFrustum; //back right corner+1/zFar
-	//psTextureState; //w,h,1/w,1/h //UNUSED/EXPERIMENTAL
+	psFarFrustum, //back right corner+1/zFar
+	//psTextureState, //w,h,1/w,1/h //UNUSED/EXPERIMENTAL
+	psTexMatrix[4]; //2023
 	enum{ psTextureState=0 };
 	
 	//EXPERIMENTAL
@@ -1138,14 +1139,14 @@ DDRAW_INTERFACE(IDirectDraw) //public
 
 	static const int source = 'dxf';
 			
-	typedef struct:DDRAW::IDirectDraw__Query
+	typedef struct Query : DDRAW::IDirectDraw__Query
 	{
 		template<class T> inline void operator+=(T *in);
 		template<class T> inline bool operator-=(T *in);
 
-	}Query, Query6, Query7;
+	}Query6,Query7;
 
-	typedef struct : public Query //9
+	typedef struct QueryX : Query //9
 	{		
 		UINT adapter;
 	
@@ -1156,7 +1157,7 @@ DDRAW_INTERFACE(IDirectDraw) //public
 
 		inline void operator~();
 
-	}Query9,QueryX;
+	}Query9;
 
 	union
 	{
@@ -1551,7 +1552,7 @@ DDRAW_INTERFACE(IDirectDrawSurface) //public
 
 	static const int source = 'dxf';
 
-	typedef struct:IDirectDrawSurface__Query
+	struct Query : IDirectDrawSurface__Query
 	{	
 		template<class T> inline void operator+=(T *in);
 		template<class T> inline bool operator-=(T *in);
@@ -1575,10 +1576,9 @@ DDRAW_INTERFACE(IDirectDrawSurface) //public
 				clientdtor(clientdata); clientdata = 0;
 			}
 		}
-
-	}Query;
+	};
 	
-	typedef struct : public Query //6
+	struct Query6 : Query //6
 	{	
 		::IDirect3DTexture2 *texture; //in video memory
 
@@ -1586,11 +1586,11 @@ DDRAW_INTERFACE(IDirectDrawSurface) //public
 
 		inline void operator~(); 
 
-	}Query6;
+	};
 
 	typedef Query Query7;
 
-	typedef struct : public Query
+	typedef struct QueryX : Query
 	{			
 		//NOTE: MSVC2010 segfaulted on ?: operator with bitfield
 		//so keeping with bool to avoid trouble in existing code
@@ -1659,7 +1659,7 @@ DDRAW_INTERFACE(IDirectDrawSurface) //public
 
 		inline void operator~(); 
 
-	}Query9,QueryX;
+	}Query9;
 
 	union
 	{
@@ -2271,18 +2271,18 @@ public:
 
 	static const int source = 'dxf';
 			
-	typedef struct:DDRAW::IDirect3D__Query 
+	typedef struct Query : IDirect3D__Query 
 	{
 		template<class T> inline void operator+=(T *in);
 		template<class T> inline bool operator-=(T *in);
 
-	}Query, Query6, Query7;
+	}Query6,Query7;
 
-	typedef struct : public Query //9
+	typedef struct QueryX : Query //9
 	{		
 		UINT adapter; //could use ddraw->adapter instead
 
-	}Query9,QueryX;
+	}Query9;
 };}
 
 struct IDirect3D3;
@@ -2428,22 +2428,22 @@ public:
 
 	static const int source = 'dxf';
 			
-	typedef struct:DDRAW::IDirect3DDevice__Query
+	typedef struct Query : IDirect3DDevice__Query
 	{
 		template<class T> inline void operator+=(T *in);
 		template<class T> inline bool operator-=(T *in);
 
 		bool isSoftware;
 
-	}Query, Query6;
+	}Query6;
 
-	typedef struct : public Query //7
+	struct Query7 : Query //7
 	{	
 		//::IDirectDrawSurface7 *effects; //unused
 	
-	}Query7;
+	};
 
-	typedef struct : public Query //X
+	struct Query9X : Query //X
 	{
 		DX::D3DDEVICEDESC7 caps;
 
@@ -2452,10 +2452,9 @@ public:
 		int emulate; //if D3D9C::doEmulate: one of 'rgb' 'hal' 'tnl'
 
 		int effects_w,effects_h; //2022
+	};
 
-	}Query9X;
-
-	typedef struct : public Query9X //9 //DUPLICATE
+	struct Query9 : Query9X //9 //DUPLICATE
 	{
 		inline void operator~(); union
 		{IUnknown *rel_ease[13]; struct //DUPLICATE
@@ -2471,8 +2470,8 @@ public:
 		::IDirect3DSurface9 *multisample; //MSAA render target //UNUSED
 		::IDirect3DTexture9 *gamma[2]; //gamma9[DDRAW::inWindow] //UNUSED
 		};};
-	}Query9; //same layouts
-	typedef struct : public Query9X //GL //DUPLICATE
+	};
+	struct QueryGL : Query9X //GL //DUPLICATE
 	{
 		//FIRST
 		union{
@@ -2572,10 +2571,9 @@ public:
 			StateBlock(DWORD cp):dword(cp){}
 
 		}state;
+	};
 
-	}QueryGL;
-
-	typedef struct : public Query9X
+	struct QueryX : Query9X
 	{
 		void _delete_operatorGL();
 
@@ -2594,8 +2592,7 @@ public:
 
 		char _9x_pad[(int)sizeof(Query9)-(int)sizeof(Query9X)];
 		char _gl_pad[(int)sizeof(QueryGL)-(int)sizeof(Query9)];
-
-	}QueryX;
+	};
 
 };}
 
@@ -2826,14 +2823,14 @@ DDRAW_INTERFACE(IDirect3DVertexBuffer) //public
 
 	static const int source = 'dxf';
 
-	typedef struct:IDirect3DVertexBuffer__Query
+	typedef struct Query : IDirect3DVertexBuffer__Query
 	{	
 		template<class T> inline void operator+=(T *in);
 		template<class T> inline bool operator-=(T *in);
 
-	}Query, Query6, Query7;
+	}Query6,Query7;
 
-	typedef struct : public Query //9
+	typedef struct QueryX : Query //9
 	{	
 		void *upbuffer; //DrawIndexedPrimitivesUP
 
@@ -2847,7 +2844,7 @@ DDRAW_INTERFACE(IDirect3DVertexBuffer) //public
 
 		inline void operator~(); 
 
-	}Query9,QueryX;
+	}Query9;
 
 	union
 	{
