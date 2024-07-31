@@ -62,6 +62,7 @@ extern SOM::Kage *som_kage_ico(wchar_t *w, char *a)
 
 		int n = buf[2]; //0/1/n
 
+		//TODO? consolidate memory
 		if(n>1) v = new SOM::Kage;
 		if(v) v->reserve(n*4);
 

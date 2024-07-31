@@ -3774,7 +3774,7 @@ void som_MPX_swap::mpx::load_models_etc()
 				//also load sound files and subordinate models
 				//to improve this 43f420 needs to be rewritten
 
-				int mdl = SOM::L.SFX_dat_file[sfx].uc[1];
+				int mdl = SOM::L.SFX_dat_file[sfx].model;
 
 				fast = mdl==255||SOM::L.SFX_refs[mdl].ref_count;
 

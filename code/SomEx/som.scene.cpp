@@ -2860,8 +2860,8 @@ namespace som_scene_shadows
 			//	tx = 5*sx*bb[1]/(1+0.15); //X2ICO_SHADOW_EXPAND?
 				tx = 5*sx*bb[1];
 
-				sx*=bb[1];
-				sz*=bb[5];
+				bb[0]*=sx; sx*=bb[1];
+				bb[4]*=sz; sz*=bb[5];
 			}
 			else 
 			{
@@ -2872,7 +2872,8 @@ namespace som_scene_shadows
 		
 			float fade = color>>24; assert(color<<8==0xffffff00);
 		//	fade = powf(fade/255,0.55f)*255;
-			int alpha = sqrtf(ad->npc_shadows_modulation()*0.5f)*fade*sqrtf(tween);
+		//	int alpha = sqrtf(ad->npc_shadows_modulation()*0.5f)*fade*sqrtf(tween);
+			int alpha = ad->npc_shadows_modulation()*fade*sqrtf(tween);
 			//color = alpha<<24|(DWORD)ad->npc_shadows_saturation();
 			DWORD color2 = alpha<<24|(DWORD)ad->npc_shadows_saturation();
 		//	if(pass==1) color2|=0xff; 
@@ -2934,12 +2935,9 @@ namespace som_scene_shadows
 				for(int i=8;i-->0;) //center
 				{
 					(DWORD&)v[i][3] = color2;
-					//BLACK MAGIC (FIX ME)
-					//I have no clue why *m makes this helps :(
-					float m = 1/2.5f;
-					v[i][4] = worldxform[3][0]+(-bb[0]*m*-rx-bb[4]*m*-rz);				
+					v[i][4] = worldxform[3][0]+(-bb[0]*-rx-bb[4]*-rz);				
 					v[i][5] = worldxform[3][1]-som_scene_shadowdecal;
-					v[i][6] = worldxform[3][2]+(-bb[0]*m*rz-bb[4]*m*-rx);				
+					v[i][6] = worldxform[3][2]+(-bb[0]*rz-bb[4]*-rx);
 					v[i][7] = tx;
 					v[i][8] = rx;
 					v[i][9] = rz;
@@ -5365,7 +5363,8 @@ extern void som_MPY_4133E0_layers() //2023
 	auto &flags = mpx[SOM::MPX::flags];
 	int bsp1 = flags&1; 
 	bool bsp = bsp1==1;
-	if(som_MPY_nobsp||!EX::INI::Option()->do_bsp) //2023
+	//if(som_MPY_nobsp||!EX::INI::Option()->do_bsp) //2023
+	if(som_MPY_nobsp) //2024
 	bsp = false;
 	flags&=~1;
 	//if(!bsp)

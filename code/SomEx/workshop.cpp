@@ -1838,7 +1838,7 @@ static bool workshop_ReadFile_obj(workshop_cpp::object_prf &obj, size_t obj_s)
 	CheckDlgButton(som_tool,1032,id!=2031?0:!obj.trapSFX_visible);
 
 	SetDlgItemText(som_tool,1040,workshop_default(w,obj.flameSFX,-1));
-	SetDlgItemText(som_tool,1041,workshop_default(w,obj.flameSFX_periodicty));
+	SetDlgItemText(som_tool,1041,workshop_default(w,obj.flameSFX_periodicity));
 
 	CheckDlgButton(som_tool,1050,obj.loopable);
 	CheckDlgButton(som_tool,1051,obj.sixDOF);
@@ -3074,11 +3074,13 @@ static HWND SfxEdit_INITDIALOG_right(HWND hw=som_tool)
 		SetWindowExStyle(cbi.hwndList,WS_EX_RIGHT);
 		if(pass==1&&hw==som_tool)
 		{
-			BYTE r[] = {0,15, 30,35, 40,46, 100,102, 128,134};
+			//BYTE r[] = {0,15, 30,35, 40,46, 100,102, 128,134};
+			BYTE r[] = {0,15, 20,22, 30,34, 40,43, 45,46, 100,102, 128,134 }; //2024
 			for(int i=0;i<sizeof(r);i+=2)
 			{
 				wchar_t w[32];
-				if(r[i]==100||r[i]==128)
+				//if(r[i]==100||r[i]==128) //???
+				if(i) //2024
 				ComboBox_AddString(cb,L"---");
 				while(r[i]<=r[i+1])			
 				ComboBox_AddString(cb,_itow(r[i]++,w,10));
@@ -4608,6 +4610,10 @@ extern INT_PTR CALLBACK workshop_102c_ext(HWND hwndDlg, UINT uMsg, WPARAM wParam
 			OffsetRect(&rc,0,bt-rc.bottom);
 			SetWindowPos(hwndDlg,som_tool,rc.left,rc.top,0,0,SWP_NOSIZE);
 			SfxEdit_INITDIALOG_right(hwndDlg);
+
+			//woops, I accidentally disabled this before
+			//creating the template dialogs!
+			windowsex_enable<1000>(hwndDlg);
 		}
 		HWND a = lParam?som_tool:hwndDlg;
 		HWND b = lParam?hwndDlg:som_tool;
@@ -4908,14 +4914,41 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 				  
 			//TODO: change to X_102C_2 and X_102C_3 according
 			//to i, falling back on X_102C_1 if doesn't exist
-			char rsrc[] = "X_102C_1";
+			char rsrc[16] = "X_102C_U"; //Unknown
+			int n = 'U'; switch(i)
+			{
+			case 0: case 1: n = 1; break; //needle
+			case 2:	case 3: n = 2; break; //water bullet
+			case 4: n = 3; break; //fireball
+			case 5: case 9: n = 4; break; //missle
+			case 20: n = 5; break; //earthwave
+			case 21: n = 6; break; //firewall
+			case 22: n = 5; break; //explosion
+			case 30: n = 7; break; //haze
+			case 31: case 32: n = 8; break; //vortex/dragon
+			case 40: n = 10; break; //lightning
+			case 45: n = 11; break; //moonlight
+			case 46: n = 12; break; //triplefang
+			case 132: n = 'C'; break; //candle
+			}
+			if(isalpha(n)) rsrc[7] = n;
+			else itoa(n,rsrc+7,10);
+
 			if(DLGTEMPLATE*locked=(DLGTEMPLATE*)LockResource
 			(LoadResource(0,FindResourceA(0,rsrc,(char*)RT_DIALOG))))
 			{
 				//som_tool_CreateDialogIndirectParamA
-				CreateDialogIndirectParamA(0,locked,som_tool,workshop_102c_ext,rsrc[7]);
+				CreateDialogIndirectParamA(0,locked,som_tool,workshop_102c_ext,n);
 				return 0;			
 			}
+			else if(DLGTEMPLATE*locked=(DLGTEMPLATE*)LockResource
+			(LoadResource(0,FindResourceA(0,"X_102C_1",(char*)RT_DIALOG))))
+			{
+				//som_tool_CreateDialogIndirectParamA
+				CreateDialogIndirectParamA(0,locked,som_tool,workshop_102c_ext,1);
+				return 0;			
+			}
+			else
 			break;
 		}
 		case MAKEWPARAM(1041,EN_KILLFOCUS): //inclination 
@@ -5389,7 +5422,7 @@ static int workshop_103_104_INITDIALOG_chkstk(HWND hw, LPARAM lp)
 		if(*flame>0||etc[0]) 
 		SetDlgItemInt(hw,1042,etc[0],0); //flameSFX_greenofRGB
 		if(etc[1]) 
-		SetDlgItemInt(hw,1041,etc[1],0); //flameSFX_periodicty
+		SetDlgItemInt(hw,1041,etc[1],0); //flameSFX_periodicity
 		return 0;
 	}
 
@@ -6317,7 +6350,7 @@ static void workshop_WriteFile_obj()
 	//have 0 here, so saving them triggers SVN changes
 	obj.trapSFX_visible = obj.trapSFX?!IsDlgButtonChecked(som_tool,1032):0;
 	obj.flameSFX = workshop_WriteFile_int(1040,-1);
-	obj.flameSFX_periodicty = workshop_WriteFile_int(1041);
+	obj.flameSFX_periodicity = workshop_WriteFile_int(1041);
 	obj.loopable = IsDlgButtonChecked(som_tool,1050);
 	obj.sixDOF = IsDlgButtonChecked(som_tool,1010);
 	obj.invisible = IsDlgButtonChecked(som_tool,1052);
@@ -7284,14 +7317,14 @@ template<class T>
 static void som_game_60fps_flame_132(T *p)
 {
 	if(p->flameSFX>=0&&p->flameSFX<1024)	
-	switch((BYTE)SOM::L.SFX_dat_file[p->flameSFX].c[0])
+	switch((BYTE)SOM::L.SFX_dat_file[p->flameSFX].procedure)
 	{
-	case 132: p->flameSFX_periodicty*=workshop_fps2; break;
+	case 132: p->flameSFX_periodicity*=workshop_fps2; break;
 	}
 }
 extern void som_game_60fps()
 {
-	bool fix = EX::INI::Bugfix()->do_fix_animation_sample_rate;
+	auto &fix = EX::INI::Bugfix()->do_fix_animation_sample_rate;
 
 	BYTE *o = SOM::L.obj_pr2_file->uc;
 
@@ -7299,6 +7332,7 @@ extern void som_game_60fps()
 	
 	if(fix) for(int i=1024;i-->0;o+=108)
 	{
+		if(fix.obj)
 		if(auto p=(workshop_cpp::object_prf*)o)
 		{
 			som_game_60fps_flame_132(p);
@@ -7316,8 +7350,10 @@ extern void som_game_60fps()
 		{
 			//REMOVED
 		}*/
+		if(fix.enemy)
 		SOM::L.enemy_prm_file[i].c[318]*=workshop_fps2; //post_attack_vulnerability
 
+		if(fix.sfx)
 		if(auto p=(workshop_cpp::sfx_record*)&SOM::L.SFX_dat_file[i])
 		{
 			//extend life of particle so som_MDL_43a350 can restore
@@ -7374,7 +7410,13 @@ extern void som_game_60fps()
 
 	//2021: som.files.cpp needs this for item.arm
 	extern void som_game_60fps_move(SOM::Struct<22>[250],int);
-	som_game_60fps_move(SOM::L.item_pr2_file,250);	
+	if(fix.item) som_game_60fps_move(SOM::L.item_pr2_file,250);
+
+	fix.obj = 1;
+	fix.magic = 0;
+	fix.item = 0;
+	fix.arm = 0;
+	fix.sfx = 0;
 }
 extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 {	
@@ -7465,7 +7507,11 @@ extern void som_game_60fps_npc_etc(std::vector<BYTE*> &v)
 {
 	bool enemy = !SOM::L.NPC_pr2_file;
 
-	bool upscale = EX::INI::Bugfix()->do_fix_animation_sample_rate;
+	auto &fix = EX::INI::Bugfix()->do_fix_animation_sample_rate;
+
+	bool upscale = fix;
+
+	if(enemy?!fix.enemy:!fix.npc) return;
 
 	std::sort(v.begin(),v.end()); for(size_t i=v.size()-1;i-->0;)
 	{
@@ -7513,4 +7559,7 @@ extern void som_game_60fps_npc_etc(std::vector<BYTE*> &v)
 			}
 		}
 	}
+
+	if(enemy) fix.enemy = 0;
+	if(!enemy) fix.npc = 0;
 }

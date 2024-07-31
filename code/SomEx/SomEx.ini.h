@@ -371,7 +371,7 @@ EX_INI_SECTION(Adjust)
 	//would like to use SomEx_npc with these, except
 	//it's unknown what shadows belong to which NPCs
 	EX_INI_NUMBER( 0, 1,  2) npc_shadows_multiplier;
-	EX_INI_NUMBER( 0, 1,  2) npc_shadows_modulation;
+	EX_INI_NUMBER( 0, 1,  1) npc_shadows_modulation;
 	EX_INI_NUMBER( 0, 0,INF) npc_shadows_saturation;
 
 	//DOCUMENT ME
@@ -605,7 +605,7 @@ EX_INI_SECTION(Bugfix)
 	EX_INI_OPTION(1) 
 	//do_fix_any_experimental //REMOVE ME
 	//do_fix_frustum_in_memory //obsolete
-	do_fix_animation_sample_rate, //preliminary //DOCUMENT ME
+//	do_fix_animation_sample_rate, //preliminary //DOCUMENT ME //below
 	//TODO
 	// som_hacks_CreateSurface4 needs to support this
 	//
@@ -616,6 +616,26 @@ EX_INI_SECTION(Bugfix)
 		do_fix_any_trivial();
 		do_fix_any_nontrivial();
 	}
+
+	union dfasr //som.files.cpp
+	{
+		unsigned bits;
+
+		struct
+		{
+			unsigned fix:1;
+			unsigned enemy:1;
+			unsigned npc:1;
+			unsigned obj:1;
+			unsigned magic:1;
+			unsigned item:1;
+			unsigned arm:1;
+			unsigned sfx:1;
+		};
+
+		inline operator bool()const{ return fix; }
+	};
+	static dfasr do_fix_animation_sample_rate;
 };
 EX_INI_SECTION(Button)
 {		
@@ -972,7 +992,14 @@ EX_INI_SECTION(Launch)
 	launch_title_to_use,
 	launch_image_to_use;
 
+	//2024: do_ask_to_attach_debugger
+	//can't be put in Output because
+	//it's needed before Ex::log is
+	//needed which is filled out by
+	//Output
+
 	EX_INI_OPTION(0)
+	do_ask_to_attach_debugger,
 	do_without_the_extension_library;
 };
 EX_INI_SECTION(Number)
@@ -1059,12 +1086,16 @@ EX_INI_SECTION(Option)
 	//TODO: kf2_hud?
 	do_kf2,do_nwse,do_reverb, //DOCUMENT US
 
-	do_alphasort, //2023 (UNDOCUMENTED)
+	do_alphasort; //2023 (UNDOCUMENTED)
 
-	do_bsp; //2023 (UNDOCUMENTED)
+	//probably best to NOT document these
+	EX_INI_OPTION(1)		
+	do_sfx,
+	do_sixaxis,
+	do_rumble;
 
 	//do_shadow, //2023 (UNDOCUMENTED)
-	enum{ do_shadow=1 }; //OpenGL requires GL_RED
+	enum{ do_shadow=1 }; //TODO: OpenGL requires GL_RED
 };
 EX_INI_SECTION(Output)
 {
@@ -1140,6 +1171,7 @@ EX_INI_SECTION(Player)
 	EX_INI_NUMBER(0,  0.2, INF) player_character_shape3; //DOCUMENT ME
 	EX_INI_NUMBER(0,  1.6, INF) player_character_height;
 	EX_INI_NUMBER(0, 1.25, INF) player_character_height2;
+	EX_INI_NUMBER(0, 1.25, INF) player_character_height3;
 	//RULE-OF-THUMB? 50 happens to be the value later 
 	//used by SOM_PRM at 100% Strength/Magic
 	EX_INI_NUMBER(0,   50, INF) player_character_weight;	

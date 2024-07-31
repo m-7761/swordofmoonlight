@@ -1426,8 +1426,11 @@ typedef struct _swordofmoonlight_prm_enemy /*488B*/
 	//344: begin of attacks?
 	//345+24*6: indirect/direct attacks
 	//489: end of indirect attacks (overboard?)
-	*/
-	uint8_t unknown1[332];
+	*/	
+	ule16_t uknown0;
+	lefp_t scale;
+	cint8_t name[31];
+	uint8_t unknown1[295];
 	uint8_t item;
 	uint8_t unknown2[153];
 
@@ -1435,7 +1438,7 @@ typedef struct _swordofmoonlight_prm_enemy /*488B*/
 swordofmoonlight_prm_enemy_t;
 typedef struct _swordofmoonlight_prm_npc /*320B*/
 {
-	ule16_t profile;
+	ule16_t profile;	
 	/*
 	//2+2: max HP word
 	//4+2: max MP word? (maybe)
@@ -1443,9 +1446,16 @@ typedef struct _swordofmoonlight_prm_npc /*320B*/
 	//59+1: invincibility (1) flag
 	//302+4: extension? str/mag/?
 	*/
-	uint8_t unknown1[42];
+	ule16_t uknown0;
+	lefp_t scale;
+	cint8_t name[31];
+	uint8_t unknown1[5];
 	uint8_t item;
-	uint8_t unknown2[275];
+	uint8_t unknown2; 
+	/*name+38*/
+	uint8_t unknown3[12];
+	uint8_t posture;
+	uint8_t unknown4[274-13];
 
 }SWORDOFMOONLIGHT_PACK
 swordofmoonlight_prm_npc_t;
@@ -1698,7 +1708,7 @@ typedef struct _swordofmoonlight_prf_object
 	/*SOMETHING... crashes if 0x80,40,20 not 0x10,f,1,1f*/
 	uint8_t _unknown3; /*0? 0~31?*/
 
-	uint8_t flameSFX_periodicty; /*0~255 frames*/
+	uint8_t flameSFX_periodicity; /*0~255 frames*/
 
 	le16_t loopingSND; /*-1=none*/
 	le16_t openingSND; /*-1=none*/
@@ -1803,7 +1813,7 @@ typedef struct _swordofmoonlight_prf_enemy
 
 	le16_t flameSFX; /*-1=none*/
 	uint8_t flameSFX_greenofRGB; /*CP selection*/
-	uint8_t flameSFX_periodicty; /*0~255 frames*/
+	uint8_t flameSFX_periodicity; /*0~255 frames*/
 
 	uint8_t direct,indirect;
 	cint8_t descriptions[6][21]; /*byte 84*/
@@ -1844,7 +1854,7 @@ typedef struct _swordofmoonlight_prf_npc
 
 	le16_t flameSFX; /*-1=none*/	
 	uint8_t flameSFX_greenofRGB; /*CP selection*/
-	uint8_t flameSFX_periodicty; /*0~255 frames*/
+	uint8_t flameSFX_periodicity; /*0~255 frames*/
 
 	le16_t _unknown3; /*0?*/
 
@@ -2743,7 +2753,7 @@ namespace msm /*SWORDOFMOONLIGHT::*/
 
 	typedef swordofmoonlight_msm_polystack_t polystack_t;
 
-	static msm::polystack_t polystack = {-1,0,0}; /*shared stack (per translation unit)*/
+	static msm::polystack_t polystack = {-1u,0,0}; /*shared stack (per translation unit)*/
 
 	/*triangulate_t: custom callback signature for triangulatepolygons (below)
 	//Note: the way this is setup you can safely cast anything to msm::triple_t* for arg t*/
@@ -3058,7 +3068,7 @@ namespace mdl /*SWORDOFMOONLIGHT::*/
 	/*NEW: always returns nonzero if not a bad file*/
 	mdl::uvparts_t &quadprimscomplement(mdl::image_t&);
 
-	typedef struct //swordofmoonlight_mdl_primtable_t
+	struct primtable_t //swordofmoonlight_mdl_primtable_t
 	{
 	const prims00_t *prims00; //00: flat-lit RGB triangles
 	const prims01_t *prims01; //01: flat-lit UVs triangles
@@ -3075,7 +3085,7 @@ namespace mdl /*SWORDOFMOONLIGHT::*/
 	const void *_prims0E, *_prims0F, *_prims10;
 	const prims11_t *prims11; //11: unlit UVs/RGB quadrangles
 	const void *operator[](int i)const{ return ((void**)this)[i]; }
-	}primtable_t;
+	};
 	template<class prims> inline int primwords(const prims *p)
 	{
 		return p?sizeof(prims::_item)/4*p->count:0; 

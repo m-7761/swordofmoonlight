@@ -156,7 +156,7 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE,LPCDLGTEMPLATE,
 static HWND WINAPI som_tool_CreateWindowExA(DWORD,LPCSTR,LPCSTR,DWORD,int,int,int,int,HWND,HMENU,HINSTANCE,LPVOID);
 static int WINAPI som_tool_DrawTextA(HDC,LPCSTR,int,LPRECT,UINT);
 static BOOL WINAPI som_tool_TextOutA(HDC,int,int,LPCSTR,int);
-extern BOOL WINAPI som_map_FrameRgn(HDC,HRGN,HBRUSH,int,int);
+extern BOOL WINAPI SOM_MAP_FrameRgn(HDC,HRGN,HBRUSH,int,int);
 
 //monitoring
 static BOOL WINAPI som_tool_SetCurrentDirectoryA(LPCSTR); 
@@ -927,7 +927,7 @@ SOM::Tool::Tool()
 		if(SOM::tool==SOM_MAP.exe)
 		{
 		WriteFile = SOM_MAP_WriteFile;		
-		FrameRgn = som_map_FrameRgn;
+		FrameRgn = SOM_MAP_FrameRgn;
 		LoadImageA = som_map_LoadImageA;
 		ImageList_LoadImageA = som_map_ImageList_LoadImageA;
 		}
@@ -7380,6 +7380,13 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		//time the keyboard highlights an item
 		case CBN_SELENDOK: case C8N_SELCHANGE:
 			
+			//2024: posture doesn't register change
+			//(change is tested only at item change)
+			//NOTE: spoofing on 1004's change notice
+			if(1006==som_prm_tab&&1003==LOWORD(wParam))			
+			if(HIWORD(wParam)==CBN_SELENDOK)
+			SendMessage(hWnd,uMsg,MAKEWPARAM(1004,CBN_SELENDOK),(LPARAM)GetDlgItem(hWnd,1004));
+
 			//REMINDER: LBN_SELCHANGE==CBN_SELCHANGE
 			//prevent SELCHANGE when not accompanied by ENDOK
 			//note: SOM isn't generally concerned about ENDOK
@@ -7830,14 +7837,23 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				wParam = 1014;
 				break;
 
-			case 1213:
+			case 1213: //Copy
 
 				if(~GetKeyState(VK_SHIFT)>>15)
 				{
+					//NOTE: Can use D key for this now
+					//NOTE: did Ctrl+C always do this?
+
 					GetDlgItemText(hWnd,1008,som_tool_text,MAX_PATH);
 					SetDlgItemText(hWnd,1000,som_tool_text);
 				}
-				break;
+				//break;
+			case 1046: //Delete
+			case 1047: //Paste
+
+				//these buttons have function pointers assigned
+				extern void SOM_MAP_xcv(WPARAM); SOM_MAP_xcv(wParam);
+				return 1;
 
 			case 1215: case 1216: case 1220: som_map_tab = wParam;
 
@@ -7849,7 +7865,9 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				extern void SOM_MAP_redo(); //2024
 				SOM_MAP_redo(); break;
 
-			case 1263: case 1264:
+			case 1269: wParam = 1265; //break //OFF
+
+			case 1263: case 1264: case 1265:
 			{
 				lParam = 2<<(wParam-1263);
 				if(SendDlgItemMessage(som_tool,wParam,BM_GETCHECK,0,0))
@@ -7858,9 +7876,9 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 				WritePrivateProfileStringW(L"editor",L"toggleSets",w,SOM::Game::title('.ini'));				
 				if(wParam==1264&&SOM_MAP_alpha[0]<20&&SOM_MAP_ini&4)
 				SendDlgItemMessage(som_tool,3001,TBM_SETPOS,1,SOM_MAP_alpha[0]=100);
-				InvalidateRect(SOM_MAP.painting,0,0);
 				if(wParam==1264)
 				InvalidateRect(SOM_MAP.palette,0,0);
+				InvalidateRect(SOM_MAP.painting,0,0);
 				return 0;
 			}
 			case 1071: //2023: playtest
@@ -8228,6 +8246,10 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 					case 61: //warp
 
 						ed->data[0][17] = SOM_MAP_z_index; break;
+
+					case 145: //terminate: default to current event?
+
+						*(WORD*)ed->data[0] = 0xffff; break; //works
 					}
 				}
 				if(som_tool_play) //comment???
@@ -9941,7 +9963,8 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 	case 42000: //tile editor
 		assert(som_map_tileview==hwndDlg);
 		if(!som_tool_classic) //NEW
-		som_map_tileviewport = GetWindow(ch0,GW_HWNDLAST); 
+		som_map_tileviewport = GetWindow(ch0,GW_HWNDLAST);
+		extern void SOM_MAP_backup_contents(); SOM_MAP_backup_contents();
 		//break;
 	case 44000: //map settings		
 		extern void SOM_MAP_42000_44000(HWND); SOM_MAP_42000_44000(hwndDlg);
@@ -10106,6 +10129,13 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 	case 47700: //Branch?
 
 		som_map_46100_etc(hwndDlg);
+		break;
+
+	case 47300: if(som_map_instruct!=27) break; //object?
+
+		SendDlgItemMessage(hwndDlg,1191,UDM_SETRANGE32,-360,360);
+		SendDlgItemMessage(hwndDlg,1137,UDM_SETRANGE32,-360,360);
+		SendDlgItemMessage(hwndDlg,1138,UDM_SETRANGE32,-360,360);
 		break;
 
 	case 49100: //skip prepare MPX window?
@@ -10277,6 +10307,9 @@ static bool som_tool_ok(HWND dlg)
 
 		//2021: prevent ghost image of tile viewer on MSM view?
 		DDRAW::fx2ndSceneBuffer = 0;
+
+		extern void SOM_MAP_tileview_commit(); //undo
+		SOM_MAP_tileview_commit();
 
 		break;
 
@@ -10957,7 +10990,8 @@ static BOOL WINAPI som_tool_SetWindowTextA(HWND A, LPCSTR C)
 	static WCHAR x[1024]; *x = '\0';
 	HWND parent = GetParent(A);
 	int control = GetDlgCtrlID(A), hlp =
-	GetWindowContextHelpId(control?parent:A);
+	//YUCK: som_tool_help isn't yet set :(
+	som_tool_help?som_tool_help:GetWindowContextHelpId(control?parent:A);
 	
 	//if(!EX::debug)
 	if(som_tool_find) //specialized common dialogs
@@ -11073,6 +11107,9 @@ static BOOL WINAPI som_tool_SetWindowTextA(HWND A, LPCSTR C)
 			}
 			if(control==1010) //[Profile] Description
 			{
+				extern DWORD SOM_MAP_eraser;
+				SOM_MAP_eraser = ~0u;
+
 				short i = atoi(C+1);
 				assert(i>=0);					
 				const wchar_t *p = som_map_profile(i);
@@ -11220,6 +11257,19 @@ static BOOL WINAPI som_tool_SetWindowTextA(HWND A, LPCSTR C)
 				return SetWindowTextW(A,som_tool_bar(x,GetWindowTextW(A,x,x_s),npc,x));
 			}
 			break;
+
+		case 47300: //Object+Move instruction
+
+			switch(control)
+			{
+			case 1055: case 1056: case 1057:
+
+				int i = atoi(C); if(i>360)
+				{
+					i = (SHORT)(WORD)i; itoa(i,(char*)C,10);
+				}
+				break;
+			}
 		}
 		break;
 

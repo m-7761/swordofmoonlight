@@ -6,7 +6,7 @@ EX_TRANSLATION_UNIT //(C)
 
 static size_t Ex_log_top = 1;
 
-static const size_t Ex_log_max = 64;
+static const size_t Ex_log_max = 128;
 
 static struct
 {
@@ -47,6 +47,9 @@ int debug[1], int error[1], int panic[1], int alert[1], int hello[1], int sorry[
 	{
 		Ex_log_top++; return &Ex_log_master_switch;
 	}
+
+	//2024: now includes full path (it seems)
+	object = PathFindFileName(object);
 
 	//strip out any leading ./ like notation
 	for(int paranoia=0;paranoia<MAX_PATH;paranoia++,object++)
@@ -139,7 +142,7 @@ extern const wchar_t *EX::is_log_object(const wchar_t *in, bool partial)
 		if(!Ex_log[i].of||*in!=*Ex_log[i].of) continue;
 
 		//must be as good as best candidate to continue
-		if(best&&wcsncmp(Ex_log[i].of,best,out-in)) continue;
+		if(best&&wcsnicmp(Ex_log[i].of,best,out-in)) continue;
 
 		for(int j=out-in;Ex_log[i].of[j]&&in[j];j++)
 		{
@@ -149,8 +152,8 @@ extern const wchar_t *EX::is_log_object(const wchar_t *in, bool partial)
 
 				//any non-alphanumeric characters match
 				if(in[j]>='a'&&in[j]<='z'||_>='a'&&_<='z'
-				  ||in[j]>='A'&&in[j]<='Z'||_>='A'&&_<='Z'
-				   ||in[j]>='0'&&in[j]<='9'||_>='0'&&_<='9') 
+				 ||in[j]>='A'&&in[j]<='Z'||_>='A'&&_<='Z'
+				 ||in[j]>='0'&&in[j]<='9'||_>='0'&&_<='9') 
 				{
 				   break; //one or the other was alphanumeric
 				}

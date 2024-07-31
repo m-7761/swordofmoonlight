@@ -245,7 +245,7 @@ $(SomEx_PostBuild)
     </Link>
     <PostBuildEvent>
       <Command>copy /y "$(OutDir)SomEx.dll" "$(SOM_SVN)\tool\SomEx.dll"
-$(SomEx_PostBuild)
+rem $(SomEx_PostBuild)
 
 </Command>
     </PostBuildEvent>
@@ -419,6 +419,7 @@ $(SomEx_PostBuild)
     </ClCompile>
     <ClCompile Include="som.mocap.cpp" />
     <ClInclude Include="som.shader.hpp" />
+    <ClCompile Include="som.SFX.cpp" />
     <ClCompile Include="som.shader.cpp" />
     <ClCompile Include="som.state.cpp" />
     <ClCompile Include="som.status.cpp" />

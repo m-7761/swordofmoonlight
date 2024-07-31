@@ -39,6 +39,8 @@ namespace DDRAW
 	extern bool gl,inStereo,isPaused;
 	extern bool stereo_toggle_OpenXR(bool=true);
 
+	extern DWORD refreshrate;
+
 	extern float xyScaling[2],xyMapping[2];
 
 	extern unsigned noFlips,noTicks,noResets;
@@ -1381,6 +1383,7 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 								//SOM::se3D(SOM::xyz,snd,pitch,volume);
 								SOM::se3D(SOM::xyz,snd,pitch,muffle);
 							}
+							SOM::rumble();
 						}
 					}
 				}
@@ -1963,6 +1966,8 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 			//2017: poison, events, etc.
 			SOM::invincible = SOM::frame; //true
 		}
+
+		if(stun) SOM::rumble();
 	}
 }
 
@@ -2644,7 +2649,50 @@ static void __cdecl som_state_40a480(DWORD event, DWORD *stack) //Warp Object
 	//
 	// NOTE: 40a480 includes code to extend the animation
 	// to 60 frames-per-second (som_MDL_reprogram)
-	((void(__cdecl*)(DWORD,DWORD*))0x40a480)(event,stack);
+	//((void(__cdecl*)(DWORD,DWORD*))0x40a480)(event,stack);
+	{
+
+		//iVar1 = *param_2;
+		//*param_2 = (uint)*(ushort *)(iVar1 + 2) + iVar1;
+		*stack+=warp->x1c;
+
+		//if(((int)(uint)*(ushort *)(iVar1 + 4) < DAT_01a1b3fc_objects_size) &&
+		if(warp->object<SOM::L.ai3_size)
+		{		  
+			auto &ai = SOM::L.ai3[warp->object];			  
+			//if((DAT_01a44400_obj_instances[*(ushort *)(iVar1 + 4)].field_0x79_loaded? != '\0')) 
+			if(ai.uc[0x79])
+			{
+				//local_18 = (float)(uint)*(byte *)(iVar1 + 6) * 2.0 + *(float *)(iVar1 + 0x10);
+				//local_10 = (float)(uint)*(byte *)(iVar1 + 7) * 2.0 + *(float *)(iVar1 + 0x18);
+				float x = warp->setting[0]*2+warp->offsetting[0];
+				float z = warp->setting[1]*2+warp->offsetting[2];				
+				float y; //local_14
+				//FUN_00417540_transform_pos_to_tile_xy?_elevation?
+				((BYTE(__cdecl*)(FLOAT,FLOAT,FLOAT*))0x417540)(x,z,&y);
+				//local_14 = local_14 + *(float *)(iVar1 + 0x14);
+				y+=warp->offsetting[1];				
+				//here it's important to preserve the sign values
+				//local_c = (float)(uint)*(ushort *)(iVar1 + 8) * 0.01745329;
+				//local_8 = (float)(uint)*(ushort *)(iVar1 + 10) * 0.01745329;
+				//local_4 = (float)(uint)*(ushort *)(iVar1 + 0xc) * 0.01745329;
+				float u = warp->heading[0]*0.01745329;
+				float v = warp->heading[1]*0.01745329;
+				float w = warp->heading[2]*0.01745329;
+				float xyz[3] = {x,y,z};
+				float uvw[3] = {u,v,w};
+								/* 30 fps? */
+				//FUN_0042b5f0_Move_Object_evt?_sub?
+				((BYTE(__cdecl*)(int,FLOAT[3],float[3],int))0x42b5f0)
+					//2022: move object event frame count?
+					//NOTE: som_state_40a480 may already have made this obsolete
+					//0040a573 c1 ea 03        SHR        EDX,0x3
+		//			*(BYTE*)0x40a575 = 2; //shr edx,2
+		//		(warp->object,xyz,uvw,warp->deciseconds*30/10);
+				(warp->object,xyz,uvw,warp->deciseconds*30*(DDRAW::refreshrate/30)/10);
+			}
+		}
+	}
 
 	SOM::L.mpx->pointer = swap; swap2 = 0;
 }
@@ -4594,10 +4642,10 @@ extern void som_state_reprogram_image() //SomEx.cpp
 		extern void 
 		som_scene_reprogram(),som_MHM_reprogram(),
 		som_logic_reprogram(),som_MDL_reprogram(),som_MPX_reprogram(),
-		som_clipc_reprogram();
+		som_clipc_reprogram(),som_SFX_reprogram();
 		som_scene_reprogram();som_MHM_reprogram();
 		som_logic_reprogram();som_MDL_reprogram();som_MPX_reprogram();
-		som_clipc_reprogram();
+		som_clipc_reprogram();som_SFX_reprogram();
 	}
 
 /////////////////////////////////////////////////////////////////////////

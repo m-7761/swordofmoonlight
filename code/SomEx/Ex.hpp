@@ -29,6 +29,8 @@
 #define EX_BREAKPOINT(x) {}
 #endif 
 
+#include "../Exselector/JoyShockLibrary/JoyShockLibrary/JoyShockLibrary.h"
+
 //allow for overlapping enum types 
 //originally of the EXML namespace
 #define EX_ENUMSPACE(ctor,Type) e;\

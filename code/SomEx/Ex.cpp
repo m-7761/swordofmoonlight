@@ -5,6 +5,7 @@ EX_TRANSLATION_UNIT //(C)
 
 #include <deque>
 #include <vector>
+#include <cstdlib> //std::quick_exit
 
 #include "Ex.ini.h" 
 #include "Ex.output.h"
@@ -354,7 +355,8 @@ extern void EX::is_needed_to_shutdown_immediately(int code, const char *caller)
 	//atexit or destructors but it likely closes handles
 	Ex_log_terminating();
 
-	ExitProcess(0); //see if this won't do it
+	//ExitProcess(0); //see if this won't do it
+	std::quick_exit(0);
 
 	/*
 	EX::abandoning_cursor();

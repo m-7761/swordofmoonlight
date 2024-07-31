@@ -126,6 +126,7 @@ public: GUID instance;
 	GUID product; //NEW
 	int isXInputDevice;
 	int isDualShock;
+	int JslDeviceID;
 	EX::INI::Joypad ini;	
 
 	DX::IDirectInputDeviceW *dx;

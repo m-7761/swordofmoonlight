@@ -313,6 +313,7 @@
 
 #ifdef SOMEX_INI_LAUNCH_SECTION
 	LOOKUP(LAUNCH_INITIALIZATION_FAILURE,......,total_failures)
+	LOOKUP(DO_ASK_TO_ATTACH_DEBUGGER,..........,do_ask_to_attach_debugger)
 	LOOKUP(DO_WITHOUT_THE_EXTENSION_LIBRARY,...,do_without_the_extension_library)
 	LOOKUP(LAUNCH_IMAGE_TO_USE,................,launch_image_to_use)
 	LOOKUP(LAUNCH_TITLE_TO_USE,................,launch_title_to_use)
@@ -329,7 +330,6 @@
 	LOOKUP(DO_ANISOTROPY,......................,do_anisotropy)		
 	LOOKUP(DO_BLACK,...........................,do_black)
 	LOOKUP(DO_BPP,.............................,do_bpp)
-	LOOKUP(DO_BSP,.............................,do_bsp)
 	LOOKUP(DO_CURSOR,..........................,do_cursor)
 	LOOKUP(DO_DASH,............................,do_dash)
 	LOOKUP(DO_DISASM,..........................,do_disasm)
@@ -362,8 +362,11 @@
 	LOOKUP(DO_RANGEFOG,........................,do_rangefog)
 	LOOKUP(DO_RED,.............................,do_red)
 	LOOKUP(DO_REVERB,..........................,do_reverb)
+	LOOKUP(DO_RUMBLE,..........................,do_rumble)
 	LOOKUP(DO_SAVE,............................,do_save)
+	LOOKUP(DO_SFX,.............................,do_sfx)
 	LOOKUP(DO_SHADOW,..........................,do_shadow)
+	LOOKUP(DO_SIXAXIS,.........................,do_sixaxis)
 	LOOKUP(DO_SMOOTH,..........................,do_smooth)
 	LOOKUP(DO_SOUNDS,..........................,do_sounds)
 	LOOKUP(DO_SRGB,............................,do_srgb)

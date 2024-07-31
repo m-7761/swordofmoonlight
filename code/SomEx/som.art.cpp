@@ -18,7 +18,7 @@ namespace DDRAW
 #include "som.tool.hpp"
 #include "../lib/swordofmoonlight.h"
 #include "../x2mdl/x2mdl.h"
-#if SOMEX_VNUMBER!=0x1000108UL
+#if SOMEX_VNUMBER!=0x100010aUL
 #error need to copy Somimp/x2mdl.h into x2mdl/x2mdl.h
 #endif
 
@@ -274,7 +274,7 @@ extern int som_art(const wchar_t *path, HWND hwnd)
 					//Note: Windows generates an app icon, e.g. the moonlight sword for example
 					L"--appid", L"Ex runtime",
 					L"--audio-state",(mute&&now-mute<90000?L"1":L"0"),
-					L"--alarm-audio",L"1", //HACK: override Focus Assist
+				//	L"--alarm-audio",L"1", //HACK: override Focus Assist (doesn't work)
 					};
 					Ex_toast_wmain(EX_ARRAYSIZEOF(toast),toast);
 
@@ -302,6 +302,15 @@ extern int som_art(const wchar_t *path, HWND hwnd)
 			if(a) //chime/task completion message?
 			MessageBoxA(0,a,0,MB_ICONINFORMATION);
 			else assert(0);
+		}
+		else //2024: keep "app is not responding" away?
+		{
+			MSG keepalive;
+			while(PeekMessage(&keepalive,0,0,0,PM_REMOVE))
+			{
+				TranslateMessage(&keepalive);
+				DispatchMessage(&keepalive); 
+			}
 		}
 	}
 	//else exit_code = -2; 

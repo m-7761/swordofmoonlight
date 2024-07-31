@@ -754,11 +754,19 @@ namespace SOM
 	{
 		WORD strength, magic; 
 		
-		BYTE damage[8]; 
+		union //???
+		{		
+			struct
+			{
+				BYTE damage[8]; 
 		
-		BYTE side_effects, side_effects_potency;
+				BYTE side_effects, side_effects_potency;
 
-		WORD power_gauge; //5000
+				WORD power_gauge; //5000
+			};
+
+			float explosion_origin[3]; //437cd0
+		};
 		
 		//1 monster direct
 		//2 may implicate the player character
@@ -807,6 +815,9 @@ namespace SOM
 			//ALWAYS HIT
 			BYTE unknown_pc1;
 
+			//som_SFX_0a_42ed50_needle sets this to 3
+			DWORD unknown_sfx;
+
 				//NEEDS CONFIRMING!
 			som_Enemy *_dest_enemy; //sfx destination?
 			som_NPC *_dest_NPC;
@@ -831,10 +842,114 @@ namespace SOM
 			som_Enemy *target_enemy;
 		};
 	};
-
-	struct sfx_element : som_scene_element
+	
+	struct sfx_init_params //104B (26 dwords) 
 	{
-		DWORD extra[10];
+		WORD sfx,_unused; //I think?
+		float scale; //set to 1
+		union //???
+		{			
+			struct //som_SFX_128a_438b10
+			{
+				WORD cp,cp2;
+				som_MDL *mdl_cp;
+				som_MDO *mdo_cp;
+			};
+
+			float xyz[3]; //add 1.2 to y
+		};
+		float look_vec[3]; //computed
+		float duration; //magic_prm_file+0xe*4?
+		Attack dmg_src; //17
+	};
+
+	struct sfx_dat_rec //Struct<12>
+	{
+		BYTE procedure;
+		BYTE model;
+		BYTE unk2[6];
+		//-1,-1 disables explosions
+		float width;
+		float height;
+		float radius;
+		float speed;
+		float scale;
+		float scale2;
+		float unk5[2];
+		SHORT snd,chainfx;
+		char pitch,_pad2;
+		SHORT _;
+	};
+
+	struct SFX //SOM::Struct<126>
+	{
+			/*FUN_0042eeb0_sfx_shared_sub?_allocating?*/
+
+		union
+		{
+			char c[1]; //variable-array
+			BYTE uc[1];
+			BYTE on1; //1 if active? BYTE?			
+		};
+		BYTE inst; //allocated inst number?
+		WORD sfx; //copied from 1st word in sfx.dat
+		float scale; //2nd DWORD in sfx.dat data (may be heterogeneous)
+		void(*func2)(int); //2 //PTR_FUN_0042efe0_sfx_proc_0_func2_0045e64c
+		SOM::MDL *mdl; //3 //DAT_01cdcd44_sfx_ref_table?_16_mdl_instances
+		WORD txr,_pad; //4 //DAT_01cdcd40_sfx_ref_table?_mdl_or_txr_field
+
+		float xyz[3]; //5-7
+
+		union //8-10
+		{
+			float pitch;
+
+			struct
+			{
+				float incline; //-y component of look vector
+				float yaw; //atan computed from look vector
+				float roll; //set to 0???
+			};
+			
+			float uvw[3]; //w is set to 0
+
+			float look_vec[3]; //unused
+		};
+		
+		//43a297 sets this (4B) to a single byte om the sfx.dat record
+		DWORD duration; //11 //snd
+
+		int unk1; //magic_something; //12 //???
+
+		Attack dmg_src; //13-29
+		
+		   /*43a243 does this and copies cp1 into xyz*/
+
+		  //WARNING: this may be general purpose memory//
+
+		union //30-32
+		{
+			struct //candle type
+			{
+				float (*cp1)[3]; //candles get a (green) CP from somewhere
+				float (*cp2)[3]; //candles get a (green) CP from somewhere
+			//	float (*cp3)[3];
+			};
+
+			float const_vel[3]; //needle type
+
+			BYTE uc30[12]; float f30[3];
+		};
+
+		float unk33[18]; //33-50
+
+		float offset[3]; //51-53 //subtracted
+
+		float unk54[24]; //54-77
+
+		float randomizer; //78
+		float explode_sz[2]; //79-80
+		float unk3[45]; //81-125
 	};
 
 	////////////////////////////////////////////////
@@ -917,7 +1032,7 @@ namespace SOM
 		State<0x4582d0,DWORD[17]> animation_id_table;
 		//State<0x458318,FLOAT> //pi/180
 		//safe to modify? (som.MDL.cpp does so)
-		State<0x45831C,FLOAT> rate; //1/30 (frame rate?) 
+		State<0x45831C,FLOAT> rate; //1/30 (frame rate?) 0.0333
 		State<0x458324,FLOAT> fade; //0.0166666675 (1/60s)
 		//this is typically used to multiply/divide but 406ab0
 		//adds it to the activation radius suggesting it's the
@@ -929,6 +1044,7 @@ namespace SOM
 		//this is height but also lower if crouched
 		State<0x45837C,FLOAT> duck; //1.8
 		State<0x458380,FLOAT> hitbox; //0.25
+		State<0x458448,FLOAT> fps; //30
 		//I think SomEx treats this as constant WRT [Number]
 		State<0x4584FC,FLOAT> height; //1.8
 		State<0x458500,FLOAT> shape; //0.25
@@ -937,7 +1053,7 @@ namespace SOM
 		State<0x458528,FLOAT> abyss; //-10
 		State<0x45852C,FLOAT> bob2;   //0.0075 //2024 //pi/420
 		State<0x458554,FLOAT> fence; //0.51	
-
+		State<0x4585d4,FLOAT> rate2; //0.666667 1/15
 		//rdata?
 		State<0x45A10C,DWORD> fill; //D3DRENDERSTATE_FILLMODE
 
@@ -1155,7 +1271,16 @@ namespace SOM
 		// NPC candidates... player hit is stored in the front... projectile hits
 		// may be stored separately too
 		// 
-		//State<0x556250 //hit buffer? (40bf80)
+		State<0x556250,FLOAT[]> hit_buf_pos; //(40bf80)
+		State<0x55625c,FLOAT[]> hit_buf_look_vec;
+		//I guess 40b600 sets this global?
+		State<0x55626c,DWORD> target_type; //state from 1 2 4 8 16
+		State<0x556270,void*> target;
+		State<0x556274,BYTE> hit_buf_pc_hit;
+		State<0x556294,DWORD> hit_buf_enemies_hit;
+		State<0x556298,SOM::Struct<8>[]> hit_buf_enemies;
+		State<0x556398,DWORD> hit_buf_NPCs_hit;
+		State<0x55639c,SOM::Struct<8>[]> hit_buf_NPCs;
 
 		State<0X5565c4,WORD> keyboard16; //16 keys
 		State<0X5565C8,BYTE[]> controls; //8 buttons (assignments?)
@@ -1346,10 +1471,9 @@ namespace SOM
 
 		State<0x1a193fc,BYTE*[1024]> obj_MDL_files;
 		State<0x1a1a3fc,BYTE*[1024]> obj_MDO_files; //don't match mdl3???
-		State<0x1A1B3FC,DWORD> ai3_size;
-		
+		State<0x1A1B3FC,DWORD> ai3_size;		
+		//State<0x1A1B3FC,DWORD> obj_pr2_size; //ai3_size???
 		State<0x1A1B400,SOM::Struct<27>[1024]> obj_pr2_file; //108B
-		//scale is at 32
 		State<0x1A36400,SOM::Struct<14>[1024]> obj_prm_file; //56B
 		State<0x1A44400,SOM::Struct<46>[512]> ai3; //512?
 
@@ -1393,11 +1517,11 @@ namespace SOM
 		// transparency buffer and are probably using a
 		// data structure identical to the MDL sections
 		//
-		State<0x1c45d70,sfx_element[512]> SFX_images; //512?
+		State<0x1c45d70,som_scene_picture[512]> SFX_images; //512?
 		//these are MDL data pointers
 		State<0x1c8dd70,SOM::Struct<622>*[512]> SFX_models; //512?
 		//workshop.cpp has sfx_record
-		State<0x1C91D30,Struct<12>[1024]> SFX_dat_file; //48B apiece (1024)
+		State<0x1C91D30,sfx_dat_rec[1024]> SFX_dat_file; //48B apiece (1024)
 		State<0x1c9dd30,DWORD> SFX_images_size;
 		State<0x1c9dd34,DWORD> SFX_models_size;
 		//
@@ -1418,7 +1542,7 @@ namespace SOM
 		// it adds models to 1c8dd70 without bound checking 
 		// it clears 1c8dd70 before its loop
 		//
-		State<0x1c9dd38,SOM::Struct<126>[512]> SFX_instances; //512		
+		State<0x1c9dd38,SOM::SFX[512]> SFX_instances; //512		
 		//byte 4~8 is counter 
 		// 
 		// 2020: these are instances. 42ebe0 iterates over them
@@ -1819,18 +1943,18 @@ namespace SOM
 			xyzuvw3 = 17,
 			xyzuvw = 18,
 			xyz = 18, y = 19,
-			//_xyz=15, //2020			
+			//_xyz=15, //2020
 
 			//v is about vertical axis
 			//(u/w may not be anything)
 			uvw = 21,
 
 			//f24 = 24, //turn speed?
-			turning_rate=24,
+			turning_rate = 24,
 
-			scale2=23, //2023
-			scale3=23, //2021
-			scale=25, //2020
+			scale2 = 23, //2023
+			scale3 = 23, //2021
+			scale = 25, //2020
 
 			//NPC shape
 			//todo: confirm what's what
@@ -1841,8 +1965,7 @@ namespace SOM
 			shadow2 = 27,
 			diameter2 = 28, radius2 = 29,			
 
-			//40a564 multiplies by 30 fps (60 fps?)
-			//obj_move_evt_t = 33, //1
+			//40a564 multiplies by 30 fps (60 fps?)			
 			obj_move_evt_goal_xyzuvw = 34, //6
 			obj_move_evt_step_xyzuvw = 40, //6
 
@@ -2043,6 +2166,7 @@ namespace SOM
 		
 		bool cling; float ceiling; //inputs
 
+		int floor_instance;
 		float floor_object,ceiling_object; //for sound effects
 
 		unsigned swung_tick,swung_id; //arm_ms_windup2
@@ -2065,7 +2189,9 @@ namespace SOM
 
 		float dash; //0~1 for pc constant
 
-		float cornering; //EXPERIMENTAL		
+		float cornering; //EXPERIMENTAL
+
+		MOTION_STATE sixaxis_calibration;
 
 	}motions; //singleton
 
@@ -2172,6 +2298,8 @@ namespace SOM
 	static LONG rng(){ return ((LONG(__cdecl*)())0x44F713)(); }
 
 	extern void rotate(float[3], float x, float y);
+
+	extern void rumble();
 
 	extern void subtitle(const char*);
 }  

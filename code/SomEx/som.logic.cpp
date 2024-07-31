@@ -5,6 +5,7 @@ EX_TRANSLATION_UNIT //(C)
 #include <hash_map> //Windows XP
 
 #include "Ex.ini.h"
+#include "Ex.input.h"
 #include "Ex.output.h"
 
 #include "SomEx.h" //SOMEX_VNUMBER
@@ -19,7 +20,7 @@ EX_TRANSLATION_UNIT //(C)
 
 namespace DDRAW
 {
-	unsigned refreshrate;
+	extern DWORD refreshrate;
 }
 
 extern int SomEx_pc,SomEx_npc;
@@ -884,28 +885,6 @@ static BYTE __declspec(naked) som_logic_42e5c0_b(DWORD _sfx)
 	_ret: ret
 	}
 }*/
-static void __cdecl som_logic_42f1f0(DWORD *sfx, DWORD _2, DWORD _3, DWORD _4)
-{
-	((void(__cdecl*)(DWORD*,DWORD,DWORD,DWORD))0x42f1f0)(sfx,_2,_3,_4);
-
-	if(sfx[28]==2||sfx[28]==4) //guesses/testing
-	{
-		auto &dat = SOM::L.SFX_dat_file[((WORD*)sfx)[1]];
-
-		//TODO??? interpret a silent/recursive SFX this way???
-				
-		if(-1==dat.f[2]&&-1==dat.f[3]) //meaningful to procedure 5?
-		{
-			//HACK: I don't know if any orginal SFX entries use -1,-1
-			//for their explosions... (I've seen some use 65535,65535)
-			//but I chose this to represent a windcutter behavior until
-			//I can figure out a better system
-			return;
-		}
-	}
-
-	sfx[11] = 1; //NOTE: the caller does this when it's not knocked out
-}
 #pragma optimize("",on) 
 
 void SOM::rotate(float vec[3], float x, float y)
@@ -1630,6 +1609,18 @@ static void __cdecl som_logic_429410(DWORD _1) //2024: NPC state
 				SomEx_npc = swap;
 			}
 		}	
+	}
+}
+extern SHORT som_logic_rumble[2] = {};
+
+extern void SOM::rumble()
+{
+	if(!som_logic_rumble[1]) 
+	{
+		som_logic_rumble[1] = 16;
+
+		if(int did=EX::Joypads[0].JslDeviceID)
+		JslSetRumble(~did,abs(som_logic_rumble[0]),abs(som_logic_rumble[1]));
 	}
 }
 
@@ -2555,25 +2546,31 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 		//counter-attack?
 		//NOTE: radius being larger than the hitbox requires
 		//players close the distance
-		if(st>=6&&st<=9) 
-		if(2&SOM::motions.swing_move)
-		if(auto*mv=SOM::shield_or_glove(0))
-		if(_2-radius<mv->f[20]+SOM::L.hitbox2) 
+		if(st>=6&&st<=8)
 		{
-			auto cmp = atan2(xyzuvw[2]-SOM::xyz[2],xyzuvw[0]-SOM::xyz[0]);
-			cmp = ((FLOAT(__cdecl*)(FLOAT))0x44cc20)(cmp-(SOM::uvw[1]+M_PI_2));
+			if(!som_logic_rumble[0])
+			if(int did=EX::Joypads[0].JslDeviceID)
+			JslSetRumble(~did,som_logic_rumble[0]=16,abs(som_logic_rumble[1]));
 
-			//FIX ME? THIS MAY BE VERY NARROW
-			//BECAUSE IT'S ALSO THE HIT RADIUS
-			//float arc = mv->s[39]*0.008726645f; //pi/180/2
-			//arc*=1.5f; //FUDGING
-			//float arc = mv->s[39]*0.01745329; //pi/180
-			float arc = M_PI_4;
-
-			if(cmp>-arc&&cmp<arc) //attack.pie?
+			if(2&SOM::motions.swing_move)
+			if(auto*mv=SOM::shield_or_glove(0))
+			if(_2-radius<mv->f[20]+SOM::L.hitbox2) 
 			{
-				extern void som_mocap_counter_attack();
-				som_mocap_counter_attack();
+				auto cmp = atan2(xyzuvw[2]-SOM::xyz[2],xyzuvw[0]-SOM::xyz[0]);
+				cmp = ((FLOAT(__cdecl*)(FLOAT))0x44cc20)(cmp-(SOM::uvw[1]+M_PI_2));
+
+				//FIX ME? THIS MAY BE VERY NARROW
+				//BECAUSE IT'S ALSO THE HIT RADIUS
+				//float arc = mv->s[39]*0.008726645f; //pi/180/2
+				//arc*=1.5f; //FUDGING
+				//float arc = mv->s[39]*0.01745329; //pi/180
+				float arc = M_PI_4;
+
+				if(cmp>-arc&&cmp<arc) //attack.pie?
+				{
+					extern void som_mocap_counter_attack();
+					som_mocap_counter_attack();
+				}
 			}
 		}
 
@@ -3045,8 +3042,9 @@ extern void som_logic_reprogram()
 		//try two?
 		//00430308 E8 E3 EE FF FF       call        0042F1F0  
 		//0043030D 83 C4 14             add         esp,14h  
-		//00430310 C7 46 2C 01 00 00 00 mov         dword ptr [esi+2Ch],1 
-		*(DWORD*)0x430309 = (DWORD)som_logic_42f1f0-0x43030d;
+		//00430310 C7 46 2C 01 00 00 00 mov         dword ptr [esi+2Ch],1
+		extern void __cdecl som_SFX_42f1f0(SOM::SFX*,float[3],float[3],DWORD);
+		*(DWORD*)0x430309 = (DWORD)som_SFX_42f1f0-0x43030d;
 		memset((void*)0x430310,0x90,7);
 	}
 	

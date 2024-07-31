@@ -361,12 +361,14 @@ static struct SOM_MAP_4921ac
 		SHORT uwv[3],_pad;
 	};
 
+		/*beginning SOM_MAP_contents_cmp_t*/
+
 	//80100
 	struct Object : Start //40 bytes
 	{
 		FLOAT size; WORD props;
 
-		BYTE on, shown, profsetup[8];
+		BYTE layer, shown, profsetup[8];
 
 	}objects[512]; //20480
 	
@@ -443,6 +445,8 @@ static struct SOM_MAP_4921ac
 		BYTE instances, available,_pad0,_pad1;
 
 	}items[256]; //8192
+
+		/*ending SOM_MAP_contents_cmp_t*/
 					   
 	//118000  
 	BYTE masking;

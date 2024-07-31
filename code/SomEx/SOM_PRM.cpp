@@ -240,8 +240,8 @@ extern LRESULT CALLBACK SOM_PRM_strengthproc(HWND hWnd, UINT uMsg, WPARAM wParam
 	extern void *SOM_PRM_strength;
 	bool *st = (bool*)SOM_PRM_strength; assert(1==sizeof(bool));
 
-	//FYI: This procedure tries to make the Strength trackbar move 
-	//the Magic parameter if Strength and Magic are the same value.
+	//FYI: this procedure tries to make the Strength trackbar move 
+	//the Magic parameter if Strength and Magic are the same value
 	int pos; switch(uMsg)
 	{
 	case TBM_SETPOS: case TBM_SETPOSNOTIFY: 
@@ -295,8 +295,8 @@ extern LRESULT CALLBACK SOM_PRM_strengthproc(HWND hWnd, UINT uMsg, WPARAM wParam
 
 	case WM_KEYDOWN:
 			
-		//HACK: Ensure edit routed
-		//keys are uplifted.
+		//HACK: ensure edit routed
+		//keys are uplifted
 		SetTimer(hWnd,'str',1000,0);
 	
 		//Arrow keys always repeat???
@@ -536,7 +536,10 @@ extern void SOM_PRM_extend(int rec)
 	/*2024: reprogram now does this and the 8 ratings
 	//were not saved either (note, this plays the sfx
 	//effect longer and could be done by changing the
-	//profile
+	//profile*/
+	//(NOT SO!)
+	//UPDATE: the Radius field isn't
+	//being updated without this bit
 	if(1003==som_prm_tab&&rec==1013) //magic? //saving?
 	{
 		//BUGFIX: it seems SOM_PRM has never saved
@@ -545,7 +548,7 @@ extern void SOM_PRM_extend(int rec)
 		BYTE *p = SOM_PRM_47a708.data();
 		p+=320*SOM_PRM_47a708.item();
 		(FLOAT&)p[56] = GetDlgItemFloat(hw1,1061);
-	}*/
+	}
 
 	//object, enemy, NPC?
 	WORD *strength,*magic; 
@@ -950,6 +953,10 @@ extern void SOM_PRM_reprogram()
 
 	//2024: enable support magic radius and shield ratings
 	{
+		//NOTE: this is inadequate. SOM_PRM_extend still
+		//does something to 1061 to make this work. it
+		//might be adequate for Duration, but not Radius
+		
 		//0042057D 74 1D                je          0042059C
 		//0042059A EB 18                jmp         004205B4
 		*(WORD*)0x42057D = *(WORD*)0x42059A = 0x9090;

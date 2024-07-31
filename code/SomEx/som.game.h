@@ -23,6 +23,8 @@ extern struct som_rt //deprecated
 GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,0,0
 
 //som.MDL.cpp
+static const auto som_game_fopen = *(FILE*(__cdecl*)(const char*,const char*))0x44f59e;
+static const auto som_game_fclose = *(int(__cdecl*)(FILE*))0x44f5b1;
 static const auto som_game_fgetc = *(int(__cdecl*)(FILE*))0x451822;
 static const auto som_game_fgets = *(char*(__cdecl*)(char*,int,FILE*))0x44fabc;
 static const auto som_game_fread = *(int(__cdecl*)(void*,int,int,FILE*))0x44fb13;
@@ -338,6 +340,33 @@ typedef struct som_scene_element //104B
 	};
 	v *vdata; WORD *idata;
 
-}*som_scene_elements[1024]; //256+512+128+128?	
+}*som_scene_elements[1024]; //256+512+128+128?
+
+struct som_scene_picture //144B //sfx_element?
+{			
+	//som_scene_element (draw subroutine compatible)
+	DWORD fmode:4,unused1:2,sort:1,tnl:1,vs:8,npc:2,kage:1,ai:11,batch:1,lit:1;
+	union 
+	{
+		DWORD flags; struct
+		{
+		unsigned primtype:4, 
+		sblend:4,dblend:4,cop:4,u12:4,u16:7,fe:1,zwe:1,abe:1,cke:1,
+		u31:1; 
+		};
+	};
+	FLOAT depth_44D5A0; //???
+	WORD texture, material; //material?
+
+	struct vertex //D3DFVF_LVERTEX or D3DFVF_TLVERTEX
+	{
+		float x,y,z,w; //w is not used by LVERTEX but is reserved space
+
+		DWORD diffuse,specular;
+
+		float s,t;
+
+	}vdata[4];
+};
 
 #endif //SOM_GAME_INCLUDED

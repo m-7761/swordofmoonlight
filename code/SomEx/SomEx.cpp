@@ -119,7 +119,7 @@ extern const wchar_t *EX::exe()
 extern const wchar_t *EX::log()
 {	
 	enum{ w=8 };
-	static wchar_t out[w] = {}; 
+	static wchar_t out[w] = {};
 	if(*out) return out;		
 	const wchar_t *exe = EX::exe();
 	if(!wcsnicmp(exe,L"SOM_",4))
@@ -806,6 +806,7 @@ static void SomEx_assert_IsDebuggerPresent()
 	//if(EX::debug&&!IsDebuggerPresent()) 
 	//#ifdef _DEBUG //RelWithDebInfo //2021
 	#if 0 || !defined(NDEBUG) || defined(RELWITHDEBINFO) //2022
+	if(EX::INI::Launch()->do_ask_to_attach_debugger) //2024
 	if(!IsDebuggerPresent())
 	{
 		//memos: CreateThread and DebugBreak are
@@ -1446,6 +1447,12 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
 	case DLL_PROCESS_ATTACH:
 
 				_set_error_mode(_OUT_TO_MSGBOX);
+				//2024: 7/11: today on Alt+F4 I'm getting a popup that says
+				//"abort has been called" and I don't know why it just started 
+				//doing this today
+				//https://stackoverflow.com/questions/56281643/how-to-prevent-windows-from-presenting-dialog-with-debug-error-abort-has-bee
+				//someone recommends "std::quick_exit" to use instead
+				_set_abort_behavior(0,_WRITE_ABORT_MSG|_CALL_REPORTFAULT);
 
 #ifdef _DEBUG //compiler
 

@@ -145,8 +145,15 @@ extern void som_game_field_init()
 extern int som_game_hp_2021 = 0;
 extern bool som_mocap_attacks3();
 extern bool som_game_reset_model_speeds = false; //2023
+static void som_game_reload_enemy_npc_pr2_files(); //2024
 static void som_game_once_per_frame() //STAGE 1
 {
+	//2024: som.files.cpp signals these
+	EX::INI::Bugfix bf;
+	auto fasr = bf->do_fix_animation_sample_rate;
+	if(fasr.enemy||fasr.npc)
+	som_game_reload_enemy_npc_pr2_files();
+
 	//2022: unloads standby maps
 	extern void som_MPX_once_per_frame();
 	som_MPX_once_per_frame();
@@ -262,6 +269,18 @@ static void __cdecl som_game_4023c0() //2020
 		som_game_4023c0_ms = 33; som_game_interframe = 0;
 	}
 
+	//EXPERIMENTAL (2024)
+	//I think maybe this messes up animations some
+	//maybe just around looping at variable speeds
+	float fps = 30.0f/DDRAW::refreshrate;
+	SOM::L.fade = 0.01666667*fps;
+	SOM::L.rate = 0.03333334*fps;
+    SOM::L.rate2 = 0.06666667*fps;
+
+	//NEW: this helps with subtitles
+//	menu name position on some screens :(
+//	SOM::L.fps = DDRAW::refreshrate;
+
 	//note: the animations are rough because they don't update
 	//every frame. they'll have to be overhauled at some point
 
@@ -286,8 +305,6 @@ static void __cdecl som_game_4023c0() //2020
 
 					DWORD cmp[5]; //easier here than spot fix
 					memcpy(cmp,&SOM::L.status_timers,sizeof(cmp));
-
-					SOM::L.fade = 0.01666667*(30.0f/DDRAW::refreshrate);
 
 					//4023c0 is the top world step subroutine
 					((void(__cdecl*)())0x4023c0)(); 
@@ -5534,6 +5551,12 @@ static void __cdecl som_game_410830(DWORD _1, DWORD _2)
 		//004108BC A3 60 60 58 00       mov         dword ptr ds:[00586060h],eax 
 		if(auto*ecx=*(SOM::MDO**)0x586060) //SOM::L.take_MDO
 		{
+			if(int did=EX::Joypads[0].JslDeviceID) //EXPERIMENTAL
+			{
+				//JslResetContinuousCalibration(~did);
+				SOM::motions.sixaxis_calibration = JslGetMotionState(~did);
+			}
+
 			//rotation
 			//004109FC C7 40 50 C2 B8 32 3E mov         dword ptr [eax+50h],3E32B8C2h
 			//ecx[14] //rotation
@@ -5608,6 +5631,12 @@ static BYTE __cdecl som_game_4230C0(DWORD _1, FLOAT _2, FLOAT _3, FLOAT _4, DWOR
 		//FLOAT *ecx = *(SOM::MDO**)(_5+0x3c);
 		if(auto*ecx=*(SOM::MDO**)(_5+0x3c))
 		{
+			if(int did=EX::Joypads[0].JslDeviceID) //EXPERIMENTAL
+			{
+				//JslResetContinuousCalibration(~did);
+				SOM::motions.sixaxis_calibration = JslGetMotionState(~did);
+			}
+
 			//50 is y axis?
 			//004231EA D9 59 54             fstp        dword ptr [ecx+54h]  
 			//004231ED 8B 56 3C             mov         edx,dword ptr [esi+3Ch]  
@@ -5958,8 +5987,12 @@ static DWORD __cdecl som_game_44fb13_60fps_etc(DWORD *p, DWORD s, DWORD, FILE *f
 			EX::is_needed_to_shutdown_immediately(1);
 		}
 	}
+
+	BYTE **edata = SOM::L.enemy_pr2_data; //2024
+	BYTE **ndata = SOM::L.NPC_pr2_data;
+	BYTE **data = enemy?edata:ndata; 
 	
-	std::vector<BYTE*> v; 
+	std::vector<BYTE*> v; //REMOVE ME (IN FAVOR OF data) (2024)
 	
 	v.push_back(e); e-=enemy?564:384;
 	
@@ -5967,18 +6000,44 @@ static DWORD __cdecl som_game_44fb13_60fps_etc(DWORD *p, DWORD s, DWORD, FILE *f
 	{
 		BYTE *q = (BYTE*)p+p[i];
 
-		if(q>=e) //todo: log errors
+		if(q>e) //todo: log errors
 		{
 			p[i] = 0; continue;
 		}
 
 		v.push_back(q);
+
+		data[i] = q; //2024: saving for som_game_reload_enemy_npc_pr2_files 
 	}
+	else data[i] = 0;
 	
 	//NOTE: do this unconditionally
 	extern void som_game_60fps_npc_etc(std::vector<BYTE*>&); //workshop.cpp
 	som_game_60fps_npc_etc(v);
 	return 1;
+}
+static void som_game_reload_enemy_npc_pr2_files()
+{
+	//HACK: som_game_60fps_npc_etc assumes these are done in order
+	delete[] (BYTE*)SOM::L.enemy_pr2_file; SOM::L.enemy_pr2_file = 0;	
+	delete[] (BYTE*)SOM::L.NPC_pr2_file; SOM::L.NPC_pr2_file = 0;
+	if(FILE *f=som_game_fopen(SOMEX_(B)"\\param\\enemy.pr2","rb"))
+	{
+		som_game_fseek(f,0,SEEK_END); int sz = som_game_ftell(f);
+		som_game_fseek(f,0,SEEK_SET);
+		SOM::L.enemy_pr2_file = new BYTE[sz];
+		som_game_44fb13_60fps_etc((DWORD*)(BYTE*)SOM::L.enemy_pr2_file,sz,1,f);
+		som_game_fclose(f);
+	}
+	if(FILE *f=som_game_fopen(SOMEX_(B)"\\param\\npc.pr2","rb"))
+	{
+		som_game_fseek(f,0,SEEK_END); int sz = som_game_ftell(f);
+		som_game_fseek(f,0,SEEK_SET);
+
+		SOM::L.NPC_pr2_file = new BYTE[sz];
+		som_game_44fb13_60fps_etc((DWORD*)(BYTE*)SOM::L.NPC_pr2_file,sz,1,f);
+		som_game_fclose(f);
+	}
 }
 
 //2020: this code extends the enemy limit and opens the door to future

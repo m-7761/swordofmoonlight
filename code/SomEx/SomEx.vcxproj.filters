@@ -228,6 +228,9 @@
     <ClCompile Include="Ex.toast.cpp">
       <Filter>Ex sources</Filter>
     </ClCompile>
+    <ClCompile Include="som.SFX.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ex.cursor.h">

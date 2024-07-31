@@ -31,7 +31,6 @@ typedef struct _XINPUT_STATE
 } XINPUT_STATE, *PXINPUT_STATE;
 static DWORD(WINAPI*Ex_input_XInputGetState)(DWORD,XINPUT_STATE*) = 0;
 
-
 #include "dx.dinput.h"
 
 #include "Ex.ini.h"
@@ -624,6 +623,16 @@ bool EX::Joypad::activate(EX::INI::Joypad in, const GUID &guid, const GUID &XIid
 		setpropw.dwData = 10000;
 		if(dx->SetProperty(DIPROP_SATURATION,&setpropw.diph)) assert(0);		
 		*/
+
+		if(isDualShock) //EXPERIMENTAL
+		{
+			JslDisconnectAndDisposeAll();
+			int n = JslConnectDevices(); //2024: soft load Exselector.dll?
+			JslDeviceID = ~0;
+			JslGetConnectedDeviceHandles(&JslDeviceID,1);
+			JslDeviceID = ~JslDeviceID;
+			n = n;
+		}
 	}
 
 	if(dx&&ini!=EX::universal_mouse)

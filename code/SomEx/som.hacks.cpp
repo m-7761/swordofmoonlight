@@ -40,6 +40,9 @@ som.game.cpp divided w/ som.tool.cpp
 #include "som.files.h" 
 #include "som.extra.h" 
 
+#define SOMVECTOR_MATH
+#include "../Somplayer/Somvector.h" //SIXAXIS
+
 static int som_hacks_ = 0; //margin
 
 //static bool som_hacks_keygen = true;
@@ -502,7 +505,8 @@ static DWORD WINAPI som_hacks_thread_main(void* attachtid)
 
 	MSG keepalive; //NEW
 	//just keep from going "Not Responding"
-	while(PeekMessageW(&keepalive,0,0,0,0))
+	//while(PeekMessageW(&keepalive,0,0,0,0))	
+	for(;;) //2024
 	{
 	loop: counter++; //2022
 
@@ -532,6 +536,23 @@ static DWORD WINAPI som_hacks_thread_main(void* attachtid)
 			EX::sleep(200); continue;
 		}
 		else EX::sleep(time_slice); //20					
+
+		extern SHORT som_logic_rumble[2];
+		SHORT *r = som_logic_rumble;
+		if(r[0]||r[1])
+		{
+			if(r[0])
+			{
+				r[0]+=4; if(r[0]==32) r[0] = -32;
+			}
+			if(r[1])
+			{
+				r[1]+=4; if(r[1]==32) r[1] = -32;
+			}
+
+			if(int did=EX::Joypads[0].JslDeviceID)
+			JslSetRumble(~did,abs(r[0]),abs(r[1]));
+		}
 
 		DWORD fpsclk = EX::tick();
 
@@ -5449,8 +5470,37 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 			in->SetTextureStageState(0,DX::D3DTSS_MINFILTER,DX::D3DTFG_POINT);
 			in->SetTextureStageState(0,DX::D3DTSS_MAGFILTER,DX::D3DTFG_POINT);
 		}
+		
+		if(EX::INI::Option()->do_sixaxis)
+		if(int did=EX::Joypads[0].JslDeviceID) //EXPERIMENTAL
+		{
+			did = ~did;
 
-		in->SetTransform(DX::D3DTRANSFORMSTATE_VIEW,(DX::D3DMATRIX*)som_hacks_inventory);						
+			//hidwrite blocks/never returns?
+		//	if(SOM::frame%16==0)
+		//	JOY_SHOCK_STATE js = JslGetSimpleState(did);
+		//	IMU_STATE is = JslGetIMUState(did);
+			MOTION_STATE ms = JslGetMotionState(did);
+			MOTION_STATE &ms2 = SOM::motions.sixaxis_calibration;
+		//	TOUCH_STATE ts = JslGetTouchState(did);
+		//	JslSetRumble(did,sm,0); //FREEZES
+		//	EX::dbgmsg("ms %f %f %f %f",ms.quatX,ms.quatY,ms.quatZ,ms.quatW);
+		//	EX::dbgmsg("is %f %f %f",is.accelX,is.accelY,is.accelZ);
+
+			float swap[16];
+			memcpy(swap,som_hacks_inventory,16*sizeof(float));
+
+			float m[4][4];			
+			float q[4] = {ms2.quatX,-ms2.quatY,-ms2.quatZ,ms2.quatW};
+			Somvector::map(m).copy_quaternion<4,4>(q);
+			Somvector::map(som_hacks_inventory).postmultiply<4,4>(m);
+			float q2[4] = {ms.quatX,ms.quatY,-ms.quatZ,-ms.quatW};
+			Somvector::map(m).copy_quaternion<4,4>(q2);
+			Somvector::map(som_hacks_inventory).postmultiply<4,4>(m);
+			in->SetTransform(DX::D3DTRANSFORMSTATE_VIEW,(DX::D3DMATRIX*)som_hacks_inventory);
+			memcpy(som_hacks_inventory,swap,16*sizeof(float));
+		}
+		else in->SetTransform(DX::D3DTRANSFORMSTATE_VIEW,(DX::D3DMATRIX*)som_hacks_inventory);
 	}
 
 	//2017: trying to simplify clamping of menu elements
@@ -7469,10 +7519,10 @@ static bool som_hacks_fix
 
 	const DWORD lockflags = D3DLOCK_NO_DIRTY_UPDATE|D3DLOCK_READONLY|D3DLOCK_NOSYSLOCK; //D3DLOCK_DISCARD
 
-	DWORD U = D3DX_FILTER_MIRROR_U, V = D3DX_FILTER_MIRROR_V;
+	DWORD U = D3DX_FILTER_MIRROR_U, V = D3DX_FILTER_MIRROR_V; //???
 	
-	if(!image||!image->addressu||image->addressu==D3DTADDRESS_WRAP) U = 0;
-	if(!image||!image->addressv||image->addressv==D3DTADDRESS_WRAP) V = 0;
+	if(!image||!image->addressu||image->addressu==D3DTADDRESS_WRAP) U = 1;
+	if(!image||!image->addressv||image->addressv==D3DTADDRESS_WRAP) V = 1;
 
 	HRESULT ok = !D3D_OK; IDirect3DTexture9 *out9 = 0;
 

@@ -34,6 +34,26 @@ extern void som_clipc_reset()
 	som_clipc_haircut2[0] = 0;
 	som_clipc_haircut2[1] = 0;	
 }
+static void som_clipc_platform(int obj, float step[6])
+{	
+	float *p = SOM::L.pcstate;
+	//if(step[3]||step[4]||step[5])
+	{
+		auto &ai = SOM::L.ai3[obj];
+
+		float dd[3],d[3],*c = &ai[SOM::AI::xyz3];
+
+		for(int i=3;i-->0;) dd[i] = d[i] = p[i]-c[i];
+
+		float q[4],(*Euler)[3];
+		(void*&)Euler = step+3;
+		Somvector::map(q).quaternion(*Euler);
+		Somvector::map(d).rotate<3>(q);
+
+		for(int i=3;i-->0;) p[i]+=d[i]-dd[i];
+	}
+	for(int i=3;i-->0;) p[i]+=step[i]; p[4]+=step[4];
+}
 static void __cdecl som_clipc_426D60(FLOAT _1) 
 {		
 	float *p = SOM::L.pcstate, *p2 = SOM::L.pcstate2;
@@ -46,6 +66,18 @@ static void __cdecl som_clipc_426D60(FLOAT _1)
 		memcpy(p,p2,6*sizeof(float));
 
 		return; //assert(*SOM::g>0.001f);		
+	}
+
+	if(!EX::isNaN(SOM::motions.floor_object))
+	{
+		int o = (int)SOM::motions.floor_instance;
+		if(o<(int)SOM::L.ai3_size)
+		{
+			auto &ai = SOM::L.ai3[o];
+			if(ai[SOM::AI::obj_move_evt])
+			if(ai[SOM::AI::obj_move_evt_frames])
+			som_clipc_platform(o,&ai[SOM::AI::obj_move_evt_step_xyzuvw]);
+		}
 	}
 	
 	const float ddx = p[0]-p2[0], xx = p[0];
@@ -94,8 +126,14 @@ static void __cdecl som_clipc_426D60(FLOAT _1)
 		SOM::L.pcstep = step;
 
 		som_clipc_426D60_1 = _1; //pseudo gravity constant
+		//2024: getting set to 0???
+//		https://developercommunity.visualstudio.com/t/C-ternary-operator-with-float-and-int/10694461?
+//		BYTE test1 = SOM::L.pcstep;
+//		float test2 = SOM::L.pcstepladder;
 		//grab beforehand in case running into the ceiling
-		som_clipc_climbing = SOM::L.pcstep?SOM::L.pcstepladder:0;		
+		som_clipc_climbing = SOM::L.pcstep?SOM::L.pcstepladder:0.0f;
+//		assert(!test1||som_clipc_climbing);
+//		float test3 = test1?test2:0;
 		((void(__cdecl*)(FLOAT))0x426D60)(_1);
 		if(SOM::L.pcstep) SOM::ladder = SOM::frame;
 		else SOM::L.pcstepladder = 0; //courtesy				
@@ -406,10 +444,6 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 			if(open) SOM::shoved = SOM::frame; //testing
 		}				
 
-		if(obj==63)
-		{
-			obj = obj; //breakpoint
-		}
 		if(!som_clipc_x40dff0
 		(_1,_2-som_clipc_haircut,_3,obj,_5,_6,_7))
 		return 0;
@@ -531,6 +565,7 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 		{
 			som_clipc_slipping = false;
 			SOM::motions.floor_object = ai[SOM::AI::object];
+			SOM::motions.floor_instance = obj; //2024
 		}
 
 		/*REFERENCE (epilog?)
@@ -1069,7 +1104,24 @@ static BYTE __cdecl som_clipc_4159A0_w_40dff0 //2022
 					////_5[1] = SOM::clipper.pclipos[1];
 					if(!out){ out = 1; _5[0] = x; _5[2] = z; }
 				}
-				else som_clipc_climb.y = SOM::clipper.ceiling-_1[1]; //climb
+				else //som_clipc_climb.y = SOM::clipper.ceiling-_1[1]; //climb 
+				{
+					//2024: _1[1] here is standing on the platform
+				//	som_clipc_climb.y = SOM::clipper.ceiling-_1[1]; //climb
+					//I think this was a mistake because I never saw this 
+					//at an elevation other than 0.0. it doesn't look good
+					//this way:
+				//	som_clipc_climb.y = SOM::clipper.ceiling;
+					//this isn't correct for the above code:
+				//	som_clipc_climb.y = SOM::clipper.ceiling-y;
+					//this tries to figure out how much space your body needs
+					//to crouch into the platform, and it's an artistic value
+
+					extern float som_mocap_climb_y(float);
+				//maybe set it to _1[1] instead???
+			//	som_clipc_climb.y = SOM::clipper.ceiling-1.0f; //this requires more thought
+					som_clipc_climb.y = som_mocap_climb_y(_1[1]);
+				}
 			}
 		
 			if(attempt==2) //prevent climbing (any further)

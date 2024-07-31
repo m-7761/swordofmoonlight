@@ -2202,8 +2202,12 @@ extern int Ex_toast_wmain(int argc, LPWSTR *argv)
 	}
 
 	//TODO: choose audio type
-	//NOTE: this is to override Focus Assist
-	if(alarm) templ.setScenario(WinToastTemplate::Scenario::Alarm);
+	//NOTE: this is to override Focus Assist (doesn't seem to work)
+	if(alarm) 
+	{
+		templ.setScenario(WinToastTemplate::Scenario::Alarm);
+	//	templ.setAudioPath(WinToastTemplate::AudioSystemFile::Alarm); //1 off alarm clock
+	}
 
 	if(WinToast::instance()->showToast(templ,new CustomHandler())<0)
 	{
@@ -2214,5 +2218,5 @@ extern int Ex_toast_wmain(int argc, LPWSTR *argv)
 	// Give the handler a chance for 15 seconds (or the expiration plus 1 second)
 //	Sleep(expiration?(DWORD)expiration+1000:15000);
 
-	_NO_exit_(2);
+	_NO_exit_(2); return 0;
 }

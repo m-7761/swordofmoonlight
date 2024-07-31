@@ -2373,6 +2373,7 @@ static const char *som_shader_classic_ps = //HLSL
 		float4 s1 = tex2D(sam0,st.xy+0.0,dd.xy,dd.zw);
 		float4 s2 = tex2D(sam0,1.15*(st.xy-0.5)+0.5,dd.xy,dd.zw);
 		Out.col.a*=(s1.a+s2.a)*0.5;
+	//Out.col.a+=0.2;
 
 		Out.col.a-=st.z;
 

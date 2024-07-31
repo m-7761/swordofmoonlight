@@ -1327,6 +1327,14 @@ static void som_mocap_ceiling2(BYTE *kb)
 		som_mocap.inverter = 1; //hack: edge cases
 	}
 }
+extern float som_mocap_climb_y(float platform)				
+{
+	struct som_mocap &mc = ::som_mocap.mc;
+	float inv = mc.inverting-mc.inverting*mc.reverting;
+
+	//this is trying to climb stealthily when inverted
+	return mc.lerp(SOM::clipper.ceiling-1,platform+0.25f,inv);
+}
 static void som_mocap_surmount(BYTE *kb)
 {
 	struct som_mocap &mc = ::som_mocap.mc; 
@@ -2374,7 +2382,10 @@ void som_mocap::engine::operator()(float step, BYTE *kb)
 	{
 		//if(SOM::L.duck&&SOM::L.height) //clearance
 		{
-			SOM::L.height = pc->player_character_height;			
+			SOM::L.height = pc->player_character_height;
+
+			//2024: I can't believe I've never worked on this!?!
+			SOM::L.height-=pc->player_character_stature-SOM::eye[1];
 
 			if(mc.ducking>1&&!SOM::emu) //hit detection
 			{
@@ -2392,6 +2403,8 @@ void som_mocap::engine::operator()(float step, BYTE *kb)
 			if(SOM::L.duck>SOM::L.height) //paranoia? 
 			SOM::L.duck = SOM::L.height; 
 			SOM::L.height+=0.01f;
+
+			EX::dbgmsg("duck: %f (%f)",(float)SOM::L.duck,(float)SOM::L.height);
 		}
 	}
 	//if(SOM::L.fence) //scaling?
@@ -4169,6 +4182,11 @@ void som_mocap::engine::prolog::operator()(float step)
 				SOM::motions.fallheight = astride-alighting; //WORD
 			}
 			else SOM::motions.fallimpact = 0; //HACK: just undoing work
+
+			if(SOM::motions.fallimpact>3||SOM::motions.fallheight>1)
+			{
+				SOM::rumble();
+			}
 		}
 
 		if(mc.jumping>=1) mc.jumping = mc.resting = 0;
@@ -7412,7 +7430,8 @@ float som_mocap::camera::operator()
 	if(!swing) return out;
 	
 	memcpy(swing,SOM::xyz,sizeof(float)*3);
-	if(!SOM::emu&&pc->player_character_arm) 
+	if(!SOM::emu&&pc->player_character_arm
+	 &&SOM::L.f4) //2024: there's a bug
 	{
 		//2021: apply motion to shield?
 		float l = SOM::motions.swing;

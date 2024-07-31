@@ -3260,17 +3260,16 @@ extern BYTE __cdecl som_MDL_4418b0(SOM::MDL &mdl, float *cp, DWORD _)
 
 	return 1;
 }
-static void __cdecl som_MDL_43a350(SOM::Struct<126> *sfx) //1c9dd38 table
+static void __cdecl som_MDL_43a350_sfx_fixes(SOM::Struct<126> *sfx) //1c9dd38 table
 {
 	auto &dat = SOM::L.SFX_dat_file[sfx->s[1]];
 
 	int &c = sfx->i[0x2c/4], swap = c;
 
 	//som_game_60fps doubles the lifespan so that c/2 is able to work
-	//if(swap>1) c = c/2*2; else c = 2;
 	if(swap>1) c = c/2; //else assert(c);
 
-	DWORD f; switch((BYTE)dat.c[0])
+	DWORD f; switch(dat.procedure)
 	{
 	case 132: f = 0x43a350; break; //flame
 	case 41: f = 0x4370e0; break; //lightning strike
@@ -3352,11 +3351,12 @@ static void __cdecl som_MDL_445cd0_init(SOM::MDO *o) //initialize MDO
 	
 	som_MDL_445cd0(o);
 }
-static void *__cdecl som_MDL_42f7a0(DWORD _1, DWORD _2) //initialize SFX
+extern som_scene_picture *som_MDL_42f7a0_se = 0; //debugging
+extern som_scene_picture *__cdecl som_MDL_42f7a0(int _1, int _2) //initialize SFX
 {
-	void *ret = ((void*(__cdecl*)(DWORD,DWORD))0x42f7a0)(_1,_2);
+	som_scene_picture *ret = ((som_scene_picture*(__cdecl*)(int,int))0x42f7a0)(_1,_2);
 
-	((SOM::sfx_element*)ret)->sort = 1; return ret;
+	if(ret) ret->sort = 1; return som_MDL_42f7a0_se = ret;
 }
 
 //2023: these retain model viewer point-of-view
@@ -3906,7 +3906,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		// constant, so this is pretty unsafe (pretty much all of them
 		// look like SFX procedures)
 		//
-		*(FLOAT*)0x45831C/=2; //som_MDL::fps; //SOM::L.rate
+		SOM::L.rate/=2; //som_MDL::fps;
 
 		//testing a theory
 		//00440F69 C7 45 3C FF FF FF FF mov         dword ptr [ebp+3Ch],0FFFFFFFFh
@@ -3947,9 +3947,9 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//
 		//som_game_60fps (workshop.cpp) extends flames
 		//41 is hardcoded, extended directly below...
-		*(void**)0x45EA6C = som_MDL_43a350;
+		*(void**)0x45EA6C = som_MDL_43a350_sfx_fixes;
 		//lightning strike (41)
-		*(void**)0x45E794 = som_MDL_43a350; //004370e0
+		*(void**)0x45E794 = som_MDL_43a350_sfx_fixes; //004370e0
 		//
 		// hard coded timing??? (fix me)
 		//
@@ -4159,6 +4159,10 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//00445ab1 e8 1a 02 00 00       call        00445CD0
 		*(DWORD*)0x445ab2 = (DWORD)som_MDL_445cd0_init-0x445ab6;
 
+		#ifdef NDEBUG
+//		#error this is just for the candle flame... there's more
+		#endif
+		int todolist[SOMEX_VNUMBER<=0x1020602UL];
 		//2023: yuck
 		//0043A432 E8 69 53 FF FF       call        0042F7A0
 		*(DWORD*)0x43A433 = (DWORD)som_MDL_42f7a0-0x43A437;

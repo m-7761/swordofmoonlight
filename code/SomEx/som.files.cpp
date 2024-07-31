@@ -790,26 +790,100 @@ static VOID CALLBACK som_files_wrote_db2(HWND win, UINT, UINT_PTR idEvent, DWORD
 	}
 	else //PARAM?
 	{
-		SOM::PARAM::Item.arm->clear();
-		extern void som_game_equip(); som_game_equip();
-
 		//FUN_0043ce10_load_PARAM_shop_dat();
-		
+				
 		//EXPERIMENTAL
 		#define _(x) delete x; x = nullptr;
-		if(0)
+		auto &fix = EX::INI::Bugfix()->do_fix_animation_sample_rate;
+		if(1)
 		{
 			//TODO: reload tables in memory? mpx?
 			_(SOM::PARAM::Sys.dat)
+			if(FILE*f=SOM_FILES_FOPEN("param\\sys.dat","rb"))
+			{
+				fread(SOM::L.sys_dat,1,33760,f);
+				fclose(f);
+			}
 			_(SOM::PARAM::Item.prm)
-			//FUN_0040fa10_init_items_data_various();
-		//	_(SOM::PARAM::Item.pr2)
-			_(SOM::PARAM::Magic.prm)
+			//FUN_0040fa10_init_items_data_various()
+			if(FILE*f=SOM_FILES_FOPEN("param\\item.prm","rb"))
+			{
+				fread(SOM::L.item_prm_file,1,250*84*4,f);
+				fclose(f);
+
+				if(f=SOM_FILES_FOPEN("param\\item.pr2","rb"))
+				{
+					int n = fread(&SOM::L.item_pr2_size,4,1,f);
+					int rd = fread(SOM::L.item_pr2_file,4*22,256,f);
+					assert(rd==SOM::L.item_pr2_size);
+					fclose(f);
+				}
+				
+				fix.item = 1;
+			}
+			_(SOM::PARAM::Magic.prm)			
+			//FUN_004260f0_load_magic_param_files()
+			if(FILE*f=SOM_FILES_FOPEN("param\\magic.prm","rb"))
+			{
+				fread(SOM::L.magic_prm_file,1,250*80*4,f);
+				fclose(f);
+
+				if(f=SOM_FILES_FOPEN("param\\magic.pr2","rb"))
+				{
+					int n = fread(&SOM::L.magic_pr2_size,4,1,f);
+					int rd = fread(SOM::L.magic_pr2_file,4*10,256,f);
+					assert(rd==SOM::L.magic_pr2_size);
+					fclose(f);
+				}
+
+				fix.magic = 1;
+			}
+			//FUN_0042a430_load_object_param_data()
+			if(FILE*f=SOM_FILES_FOPEN("param\\obj.prm","rb"))
+			{
+				fread(SOM::L.obj_prm_file,1,1024*14*4,f);
+				fclose(f);
+
+				if(f=SOM_FILES_FOPEN("param\\obj.pr2","rb"))
+				{
+				//	int m = SOM::L.obj_pr2_size; //not kept???
+				//	DWORD n = fread(&SOM::L.obj_pr2_size,4,1,f);
+					DWORD sz,n = fread(&sz,4,1,f);
+					DWORD rd = fread(SOM::L.obj_pr2_file,4*27,1024,f);
+					assert(rd==sz);
+					fclose(f);
+				}
+
+				fix.obj = 1;
+			}
 			_(SOM::PARAM::Enemy.prm)
+			//FUN_00405bb0_load_enemy_param_data()
+			if(FILE*f=SOM_FILES_FOPEN("\param\\enemy.prm","rb"))
+			{
+				fread(SOM::L.enemy_prm_file,1,1024*122*4,f);
+				fclose(f);
+
+				  /*see som_game_reload_enemy_npc_pr2_files*/
+
+				fix.enemy = 1; //som.game.cpp synchronizes these
+			}
 			_(SOM::PARAM::NPC.prm)  
-			//FUN_0042a430_load_object_param_data();
-			//FUN_00405bb0_load_enemy_param_data();
-			//FUN_00428780_load_npc_param_data();
+			//FUN_00428780_load_npc_param_data()
+			if(FILE*f=SOM_FILES_FOPEN("\param\\npc.prm","rb"))
+			{
+				fread(SOM::L.NPC_prm_file,1,1024*80*4,f);
+				fclose(f);
+
+				  /*see som_game_reload_enemy_npc_pr2_files*/
+
+				fix.npc = 1; //som.game.cpp synchronizes these
+			}
+			SOM::PARAM::Item.arm->clear();
+
+			extern void som_game_60fps(),som_game_equip();
+			som_game_60fps();			
+			som_game_equip();
+
 		}
 		#undef _
 	}

@@ -1208,7 +1208,7 @@ void EX::INI::Bugfix::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 	case DO_FIX_ANIMATION_SAMPLE_RATE:
 
-		nc->do_fix_animation_sample_rate = yes; break;
+		nc->do_fix_animation_sample_rate.fix = yes; break;
 
 	case DO_FIX_COLORKEY:
 
@@ -1221,6 +1221,9 @@ void EX::INI::Bugfix::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 		nc->do_try_to_fix_exit_from_menus = yes; break; //UNUSED
 	}
 }
+
+EX::INI::Bugfix::Section::dfasr
+EX::INI::Bugfix::Section::do_fix_animation_sample_rate = {-1};
 
 #undef SOMEX_INI_BUGFIX_SECTION
 
@@ -2458,6 +2461,10 @@ void EX::INI::Launch::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	case LAUNCH_IMAGE_TO_USE:
 
 		wcscpy_s(nc->launch_image_to_use,MAX_PATH,q); break;
+
+	case DO_ASK_TO_ATTACH_DEBUGGER: //2024
+
+		nc->do_ask_to_attach_debugger = Ex_ini_xlat_bin_val(q); break;
 	}
 }
 
@@ -2742,7 +2749,11 @@ void EX::INI::Option::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 //	case DO_SHADOW: nc->do_shadow = yes; break; //constant?
 
-	case DO_BSP: nc->do_bsp = yes; break;
+	case DO_SFX: nc->do_sfx = yes; break;
+
+	case DO_SIXAXIS: nc->do_sixaxis = yes; break;
+
+	case DO_RUMBLE: nc->do_rumble = yes; break;
 	}
 }
 
@@ -2816,8 +2827,8 @@ void EX::INI::Output::operator+=(Ex_ini_e in)
 }
 void EX::INI::Output::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
-	Section *nc = _section; nc->total_mentions++;
-								 
+	Section *nc = _section; nc->total_mentions++; assert(!nc->log); //2024
+	
 	bool (*log)(const wchar_t*,const wchar_t*) = nc->log?nc->log:Ex_ini_output_log;
 		
 	if(log(p,q)) return Ex_ini_output_loglog(p,q);
@@ -2962,22 +2973,22 @@ static bool Ex_ini_output_log(const wchar_t *key, const wchar_t *val)
 
 	if(level>=65535||level<=-65535) return false;
 
-	if(wcsncmp(key,L"log_",4))
+	if(wcsnicmp(key,L"log_",4))
 	{
 		static const wchar_t *x = EX::log(); 
 
 		static size_t x_s = x?wcslen(x):0;
 
-		if(wcsncmp(key,x,x_s)||key[x_s]!='_') return false;
+		if(wcsnicmp(key,x,x_s)||key[x_s]!='_') return false;
 
-		if(wcsncmp(key+=x_s+1,L"log_",4)) return false;
+		if(wcsnicmp(key+=x_s+1,L"log_",4)) return false;
 	}
-	
+
 	const wchar_t *d = wcsrchr(key+=4,'=');
 
 	int keylen = d?d-key:wcslen(key); 
 
-	if(keylen<3||wcsncmp(key+keylen-4,L"_bar",4)) return false;
+	if(keylen<3||wcsnicmp(key+keylen-4,L"_bar",4)) return false;
 
 	wchar_t ns[8] = L"", obj[32] = L"";
 
@@ -3011,17 +3022,17 @@ static bool Ex_ini_output_log(const wchar_t *key, const wchar_t *val)
 		switch(*key)
 		{
 		case 'd': logs = EX::debug_log; 
-		if(wcsncmp(key,L"debug_",6)) return false; break;
+		if(wcsnicmp(key,L"debug_",6)) return false; break;
 		case 'e': logs = EX::error_log; 
-		if(wcsncmp(key,L"error_",6)) return false; break;
+		if(wcsnicmp(key,L"error_",6)) return false; break;
 		case 'p': logs = EX::panic_log; 
-		if(wcsncmp(key,L"panic_",6)) return false; break;
+		if(wcsnicmp(key,L"panic_",6)) return false; break;
 		case 'a': logs = EX::alert_log; 
-		if(wcsncmp(key,L"alert_",6)) return false; break;
+		if(wcsnicmp(key,L"alert_",6)) return false; break;
 		case 'h': logs = EX::hello_log; 
-		if(wcsncmp(key,L"hello_",6)) return false; break;
+		if(wcsnicmp(key,L"hello_",6)) return false; break;
 		case 'i': logs = EX::hello_log; 
-		if(wcsncmp(key,L"input_",6)) return false; break;
+		if(wcsnicmp(key,L"input_",6)) return false; break;
 
 		default: return false;
 		}

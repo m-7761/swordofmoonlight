@@ -1723,13 +1723,15 @@ extern void som_bsp_sort_and_draw(bool item)
 			
 				if(mat!=se->material) 
 				{
-					auto &mm = SOM::L.materials[mat]; assert(mat==~0||mat<msz);
+					bool _0 = mat==~0;
+
+					auto &mm = SOM::L.materials[mat]; assert(_0||mat<msz);
 
 					mat = se->material; sss::material = mat;					
 
 					auto &m = SOM::L.materials[mat]; assert(mat<msz);
 
-					if(memcmp(&m,&mm,sizeof(m)))
+					if(_0||memcmp(&m,&mm,sizeof(m)))
 					{
 						flush(); //lambda
 
