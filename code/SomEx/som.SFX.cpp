@@ -2,6 +2,8 @@
 #include "Ex.h" 
 EX_TRANSLATION_UNIT //(C)
 
+#include <map>
+
 #include "Ex.output.h"
 
 #include "SomEx.ini.h"
@@ -33,9 +35,153 @@ static auto &sfx_dat = SOM::L.SFX_dat_file.operator&();
 
 extern som_scene_picture *__cdecl som_MDL_42f7a0(int,int);
 
+extern SOM::sfx_pro_rec *som_SFX_pro = 0;
+
+extern char* *som_SFX_models = 0; //256;
+extern char* *som_SFX_sounds = 0; //1024;
+
+static WORD *som_SFX_SNDs_reverse = 0;
+static std::map<std::string,size_t> som_SFX_SNDs;
+
+enum{ som_SND=1 };
+
+extern WORD som_SFX_SND_to_sound(WORD snd)
+{
+	if(snd>=1008) return snd; //HACK
+
+	if(snd<1024&&som_SFX_SNDs_reverse)
+	{
+		return som_SFX_SNDs_reverse[snd];
+	}
+
+	return 0xFFFF;
+}
+
+WORD SOM::SND(WORD snd)
+{
+	if(!som_SND) return snd;
+
+	if(snd>=1008) return snd;
+
+	char a[8]; sprintf(a,"%04d",snd);
+
+	return SOM::SND(a);
+}
+WORD SOM::SND(char *snd)
+{
+	if(!som_SND) return atoi(snd);
+
+	assert(som_SFX_sounds);
+	assert(!strchr(snd,'.'));
+	auto ins = som_SFX_SNDs.insert(std::make_pair(snd,som_SFX_SNDs.size()));
+	WORD s = min(1023,(WORD)ins.first->second);
+	if(s!=ins.first->second)
+	EX::is_needed_to_shutdown_immediately(-1,"more than 1024 sfx.dat sounds");
+	som_SFX_sounds[s] = (char*)ins.first->first.c_str();	
+
+	if(isdigit(*snd)) //HACK: extensions need the reverse mapping
+	{
+		int i = atoi(snd); if(i<1024) som_SFX_SNDs_reverse[s] = i;
+	}
+
+	return s;
+}
+WORD SOM::SND(const wchar_t *snd)
+{
+	int i = 0;
+	char a[32];
+	while(*snd&&i<sizeof(a)-1&&*snd!='.') 
+	a[i++] = (char)*snd++;
+	a[i] = '\0';
+	return i<32?SND(a):0xFFFF;
+}
+
+struct som_SFX_less
+{
+	bool operator()(char *a, char *b)const
+	{
+		return strcmp(a,b)<0;
+	}
+};
+
+extern void som_SFX_init_SFX_pro(SOM::sfx_dat_rec *sfx_dat)
+{		
+	std::map<char*,size_t,som_SFX_less> models;
+
+	wchar_t w[MAX_PATH];
+	swprintf(w,L"%s\\PARAM\\SFX.PRO",EX::cd());
+	if(FILE*f=_wfopen(w,L"rb"))
+	{
+		som_SFX_pro = new SOM::sfx_pro_rec[1024]();
+		fread(som_SFX_pro,64*1024,1,f);
+		fclose(f);
+
+		for(int i=0;i<1024;i++)
+		if(sfx_dat[i].procedure!=255)
+		{
+			if(!*som_SFX_pro[i].model)			
+			sprintf(som_SFX_pro[i].model,"%04d.mdl",sfx_dat[i].model);
+			if(!*som_SFX_pro[i].sound)
+			if(sfx_dat[i].snd&&sfx_dat[i].snd!=0xffff)
+			sprintf(som_SFX_pro[i].sound,"%04d.snd",sfx_dat[i].snd);
+
+			*PathFindExtensionA(som_SFX_pro[i].model) = '\0';
+			*PathFindExtensionA(som_SFX_pro[i].sound) = '\0';
+
+			if(*som_SFX_pro[i].model)
+			{
+				auto ins = 
+				models.insert(std::make_pair(som_SFX_pro[i].model,models.size()));
+				sfx_dat[i].model = (BYTE)ins.first->second;
+				if(sfx_dat[i].model!=ins.first->second)
+				EX::is_needed_to_shutdown_immediately(-1,"more than 255 sfx.dat models");
+				som_SFX_models[sfx_dat[i].model] = ins.first->first;
+			}
+			if(*som_SFX_pro[i].sound)
+			{
+				sfx_dat[i].snd = SOM::SND(som_SFX_pro[i].sound);
+			}
+						
+			if(0==((DWORD(*)(DWORD))0x42ed10)(i)) //subordinate?
+			{
+				WORD snd = (int)sfx_dat[i].height;
+				sfx_dat[i].height = SOM::SND(snd); //42e65c
+			}
+		}
+	}
+}
+
 void som_SFX_42e460_init_SFX_dat()
 {
-	((void(*)())0x42e460)();
+	som_SFX_SNDs_reverse = new WORD[1024]();
+
+	BYTE ret = ((BYTE(*)())0x42e460)(); if(!ret) //HACK
+	{
+		//for some reason this is contingent on reading SFX.dat?
+		//FUN_0044d4d0_bit_encode_scene_element_flags(&DAT_01ce1ce8_mdo_rop_0?,0,2,1,2,1,0,1,1);
+		//FUN_0044d4d0_bit_encode_scene_element_flags(&DAT_01ce1cec_mdo_rop_1?,0,5,6,2,0,1,1,1);
+		//FUN_0044d4d0_bit_encode_scene_element_flags(&DAT_01ce1cf0_mdo_rop_2?,0,5,2,2,0,1,1,0);
+		((void(*)(int,int,int,int,int,int,int,int,int))0x44d4d0)(0x1ce1ce8,0,2,1,2,1,0,1,1);
+		((void(*)(int,int,int,int,int,int,int,int,int))0x44d4d0)(0x1ce1cec,0,5,6,2,0,1,1,1);
+		((void(*)(int,int,int,int,int,int,int,int,int))0x44d4d0)(0x1ce1cf0,0,5,2,2,0,1,1,0);
+	}
+
+	wchar_t w[MAX_PATH];
+	swprintf(w,L"%s\\PARAM\\SFX.DAT",EX::cd());
+	if(FILE*f=_wfopen(w,L"rb"))
+	{
+		fread(sfx_dat,48*1024,1,f);
+		fclose(f);
+	}
+	else if(!ret)
+	{
+		memset(sfx_dat,0x00,sizeof(sfx_dat));
+		for(int i=1024;i-->0;) 
+		sfx_dat[i].procedure = 255;
+	}
+
+	//this messes up som_SFX_write_new_fx_prf below
+	//som_SFX_init_SFX_pro(sfx_dat);
 
 	EXLOG_LEVEL(3) << "SFX.DAT table...\n";
 
@@ -43,7 +189,14 @@ void som_SFX_42e460_init_SFX_dat()
 	for(int i=0;i<1024;i++)
 	{
 		auto &d = sfx_dat[i];
-		if(255!=d.procedure)
+		if(255==d.procedure) continue;
+				
+		if(0) //EXPERIMENTAL
+		{
+			extern void som_SFX_write_new_fx_prf(int,void*);
+			som_SFX_write_new_fx_prf(i,&d);
+		}
+
 		EXLOG_LEVEL(3) <<
 		"sfx:" << std::setw(4) << i << ' ' <<
 		"p:" << std::setw(3) << (int)d.procedure << ' ' <<
@@ -215,6 +368,16 @@ void som_SFX_42e460_init_SFX_dat()
 	sfx:1022 p: 21 m:   0 b0-2:   24  10   5 b3-5:    1 200   0 w: 65535 h: 65535 r:  0.75 s:     1 x:   1.5 X      0 u:   1.5 X      2 snd:   -1(0) chain:0
 	sfx:1023 p: 20 m:  82 b0-2:   24  25   5 b3-5:   24  25   0 w:   497 h:     1 r:     1 s:    10 x:    10 X      0 u:     1 X      0 snd:   -1(0) chain:0
 	*/
+
+	assert(!som_SFX_models);
+
+	som_SFX_models = new char*[256]();
+	som_SFX_sounds = new char*[1024]();
+
+	for(int i=16;i-->0;) //PIGGYBACKING 	
+	SOM::L.sys_dat_16_sound_effects[i] = SOM::SND(SOM::L.sys_dat_16_sound_effects[i]);
+
+	som_SFX_init_SFX_pro(sfx_dat);
 }
 
 extern void __cdecl som_SFX_42f1f0(sfx *fx, float xyz[3], float look_vec[3], DWORD tt)
@@ -230,7 +393,8 @@ extern void __cdecl som_SFX_42f1f0(sfx *fx, float xyz[3], float look_vec[3], DWO
 
 		//TODO??? interpret a silent/recursive SFX this way???
 				
-		if(-1==dat.width&&-1==dat.height) //meaningful to procedure 5?
+		if(-1==dat.width||65535==dat.width)
+		if(-1==dat.height||65535==dat.height) //meaningful to procedure 5?
 		{
 			//HACK: I don't know if any orginal SFX entries use -1,-1
 			//for their explosions... (I've seen some use 65535,65535)
@@ -3255,7 +3419,7 @@ extern void som_SFX_reprogram()
 	//NOTE: THIS CODE DOESN'T ACCOMPLISH ANYTHING//
 	//IT'S TO SEE IF THE SFX SYSTEM IS UNDERSTOOD//
 
-		f[0][0] = som_SFX_0a_42ed50_needle; //1
+		f[0][0] = som_SFX_0a_42ed50_needle; //1	//501 is arrow
 		f[0][1] = som_SFX_0b_42efe0_needle; //1
 		f[1][0] = som_SFX_1a_42f2e0_spinner; //UNUSED //1
 		f[1][1] = som_SFX_1b_42f300_spinner; //UNUSED //1
@@ -3346,4 +3510,140 @@ extern void som_SFX_reprogram()
 		
 	//00401976 e8 e5 ca 02 00	CALL	FUN_0042e460_init_SFX_dat                 
 	*(DWORD*)0x401977 = (DWORD)som_SFX_42e460_init_SFX_dat-0x40197b;
+	//call these even if SFX.dat doesn't open (it isn't available)
+	//FUN_0044d4d0_bit_encode_scene_element_flags(&DAT_01ce1ce8_mdo_rop_0?,0,2,1,2,1,0,1,1);
+    //FUN_0044d4d0_bit_encode_scene_element_flags(&DAT_01ce1cec_mdo_rop_1?,0,5,6,2,0,1,1,1);
+    //FUN_0044d4d0_bit_encode_scene_element_flags(&DAT_01ce1cf0_mdo_rop_2?,0,5,2,2,0,1,1,0);
+	//0042e519 74 78           JZ         LAB_0042e593
+	//*(BYTE*)0x42e51a = 24;
+}
+
+extern void som_SFX_write_new_fx_prf(int i, void *dat) //8/11/2024
+{
+	namespace prf = SWORDOFMOONLIGHT::prf;
+
+	char buf[MAX_PATH];
+	//sprintf(buf,SOMEX_(A)"\\data\\sfx\\prof\\%04d.prf",i);
+	sprintf(buf,"C:\\Users\\Michael\\Sword of Moonlight\\data\\sfx\\new-prof\\%04d.prf",i);
+	FILE *f = som_game_fopen(buf,"wb");
+	if(!f) return;
+
+	memset(buf,0x00,32);
+	sprintf(buf,"SFX #%d",i);
+	som_game_fwrite(buf,31,1,f);
+
+	prf::magic2_t m2 = {};
+	m2.type = 2;
+	m2.SFX = (WORD)i;
+	auto &d = m2.SFX_dat;
+	memcpy(&d,dat,sizeof(d));
+
+	sprintf(buf,SOMEX_(A)"\\data\\sfx\\model\\%04d.%bmp",d.model);	
+	FILE *g = som_game_fopen(buf,"rb");
+	if(g) som_game_fclose(g); 
+
+	sprintf(m2.model,"%04d.%s",d.model,g?"bmp":"mdl");	
+
+	if(d.snd&&d.snd!=0xffff)
+	{
+		sprintf(m2.sound,"%04d.wav",d.snd);
+	}
+		
+	som_game_fwrite(&m2,sizeof(m2),1,f);
+
+	prf::history_t note = {};
+	//strcpy(note,"auto-generated 8/11/2024");	
+	int len = sprintf(buf,
+	"a%d\nb%d\nc%d\nd%d\ne%d\nf%d\ng%d\nh%d\n"
+	"i%g\nj%g\nk%g\nl%g\nm%g\nn%g\no%g\np%g\n"
+	"q%d\nr%d\ns%d\nt%d\nu%d\n",
+	d.procedure,d.model,d.unk2[0],d.unk2[1],d.unk2[2],d.unk2[3],d.unk2[4],d.unk2[5],
+	d.width,d.height,d.radius,d.speed,d.scale,d.scale2,d.unk5[0],d.unk5[1],
+	d.snd,d.chainfx,(int)d.pitch,(int)d._pad2,d._unk6);
+	memcpy(note,buf,min(len,sizeof(note)-1));
+
+	som_game_fwrite(&note,sizeof(note),1,f);
+
+	som_game_fwrite("fx",2,1,f);
+
+	som_game_fclose(f);
+}
+
+extern void som_SFX_write_PARAM_SFX_dat()
+{
+	SOM::sfx_dat_rec sfx_dat[1024] = {}; //SHADOWING
+	for(int i=1024;i-->0;)
+	{
+		sfx_dat[i].procedure = 255; //IMPORTANT
+		sfx_dat[i].model = 255;
+	}
+
+	SOM::sfx_pro_rec sfx_pro[1024] = {};
+
+	//start with anything in the data/sfx/sfx.dat
+	wchar_t w[MAX_PATH];
+	if(EX::data(L"Sfx\\Sfx.dat",w))
+	{
+		if(FILE*f=_wfopen(w,L"rb"))
+		{
+			fread(sfx_dat,sizeof(sfx_dat),1,f);
+			fclose(f);
+		}
+		else assert(0);
+	}
+
+	int i = 0;
+	while(*EX::data(i)) 
+	i++;
+	while(i-->0)
+	{
+		int w_s = swprintf(w,L"%s\\sfx\\prof\\*.prf",EX::data(i))-5;
+
+		WIN32_FIND_DATAW data; 
+		HANDLE find = FindFirstFileW(w,&data);
+		if(find!=INVALID_HANDLE_VALUE) do		
+		{
+			wcscpy_s(w+w_s,MAX_PATH-w_s,data.cFileName);
+			BYTE m2[243];
+			FILE *f = _wfopen(w,L"rb"); if(!f)
+			{
+				assert(0); continue; 
+			}				
+			if(243==fread(m2,1,sizeof(m2),f))
+			{
+				WORD fx = *(WORD*)(m2+32);
+				if(fx<1024)
+				{
+					memcpy(&sfx_dat[fx],m2+34,48);
+
+					sfx_pro[fx].slot = fx;
+					memcpy(sfx_pro[fx].model,m2+34+48,31);
+					memcpy(sfx_pro[fx].sound,m2+34+48+31,31);
+				}
+				else assert(0);
+			}
+			fclose(f);
+
+		}while(FindNextFileW(find,&data));
+	}
+
+	swprintf(w,L"%s\\PARAM\\SFX.DAT",EX::cd());
+	if(FILE*f=_wfopen(w,L"wb"))
+	{
+		fwrite(sfx_dat,sizeof(sfx_dat),1,f);
+		fclose(f);
+	}
+	else assert(0);
+
+	swprintf(w,L"%s\\PARAM\\SFX.PRO",EX::cd());
+	if(FILE*f=_wfopen(w,L"wb"))
+	{
+		/*the generated files have model fields
+		for(int i=1;i<1024;i++) if(sfx_pro[i].slot)		
+		fwrite(&sfx_pro[i],sizeof(sfx_pro[i]),1,f);
+		*/
+		fwrite(sfx_pro,sizeof(sfx_pro),1,f);
+		fclose(f);
+	}
+	else assert(0);
 }

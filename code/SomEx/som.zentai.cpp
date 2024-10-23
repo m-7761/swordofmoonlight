@@ -4,6 +4,8 @@ EX_TRANSLATION_UNIT //(C)
 
 #include "som.extra.h"
 
+#pragma optimize("",off) //2024
+
 //31/34: class/protocol bytes
 //classes       protocols
 //0:NPC		    0:0~9 (SYSTEM)

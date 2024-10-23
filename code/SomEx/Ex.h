@@ -130,6 +130,9 @@ EX::including_log(__WOBJECT__,L#NS,\
 #define EX_TRANSLATION_UNIT \
 static const wchar_t *__WOBJECT__ = (__COPYRIGHT__,__WFILE__);
 
+#include "../Exselector/Exselector.h" //OpenGL font?
+extern class Exselector *Exselector; //add_watch
+
 namespace EX
 { 
 extern HMODULE module;

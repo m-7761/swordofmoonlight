@@ -472,7 +472,7 @@ public:
 
 	bool wasPlayed;
 
-	float frequency; //average //DSOUND::Piano only???
+	float avg_freq; //average //DSOUND::Piano only???
 
 	int duplicates;
 	int forwarding;
@@ -481,6 +481,8 @@ public:
 	::IDirectSound3DBuffer **forward3D7;	
 
 	char *pausefwds; //pauserefs per forward 
+
+	size_t bytes; //2024
 
 	void playfwd7(IDirectSoundBuffer*dup,bool loop);
 	void stopfwd7(IDirectSoundBuffer*dup);
@@ -508,7 +510,7 @@ public:
 		}
 	}
 
-	IDirectSoundMaster(int t):IDirectSoundBuffer(t)
+	IDirectSoundMaster(int t):IDirectSoundBuffer(t),bytes()
 	{
 		//overwrite vtable
 		*(void**)this=IDirectSoundBuffer::vtables[DSOUND::v(t)];
@@ -520,7 +522,7 @@ public:
 		
 		wasPlayed = false;
 
-		frequency = 0.0f;
+		avg_freq = 0.0f;
 	
 		duplicates = 1;
 

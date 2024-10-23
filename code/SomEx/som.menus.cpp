@@ -198,6 +198,8 @@ static void som_menus_onsaving_callback(int ns, int code)
 
 namespace som_menus_x
 {
+	const SOM::Menu::Text *text; //2024
+
 	static char out[64];
 	namespace x = som_menus_x;
 	static const char *ko(const char*,int)
@@ -225,6 +227,58 @@ namespace som_menus_x
 	static cb_f classnames,nonequipment,shadow_tower,mode,sellout;
 	const char *mode0(const char*_,int){ return mode(_,0); }
 	const char *mode1(const char*_,int){ return mode(_,1); }
+	static const char *sound(const char*, int) //FIX ME
+	{	
+		//NOTE: I think this is needed because of enabling
+		//optimizations in the compiler???
+		assert(SOM::L.snd_volume==SOM::seVol);
+
+		//2024: today SOM is printing 0 on entering the menu??
+		sprintf(x::out,"%d",(SOM::seVol+1)/16); return x::out;
+	}		
+
+	namespace eq //2024
+	{
+		struct equip //36B
+		{		
+			//+300
+			BYTE hp[8],fx,fx2,sm;
+			//EXTENDED
+			BYTE assist[5];
+			BYTE attack2[4];
+			union
+			{
+				BYTE attack34[2][4];
+				BYTE attack1[8];
+			};
+			BYTE shield[8]; //328		
+		};
+
+		extern int &item;		
+		extern bool info = false;
+		extern int kind = 0;
+		extern int pages[8] = {};
+
+		static cb_f weapon;
+		static cb_f arm,armor,shield;
+		static cb_f edge,area,point;
+		static cb_f fire,earth,wind,water,holy;
+		static cb_f menu;
+
+		BYTE *any_page(bool);
+		BYTE *armor_page(bool);
+		BYTE *weapon_page(bool),*weapon_page2(int pg);
+		BYTE *shield_page(bool);
+
+		int page(int total)
+		{
+			int &pg = pages[kind];
+			while(pg<0) pg = total+pg; pg%=total;
+			return pg;
+		}
+
+		WORD equip_break(WORD);
+	}
 }
 
 static const char *som_menus_white(const char*,const char*,int);
@@ -429,6 +483,31 @@ void SOM::initialize_som_menus_cpp() //initialization
 
 	SOM::INFO::Free.cb = x::ko;
 
+	//NOTE: I think this is needed because of enabling
+	//"optimizations" in the compiler? (black magic??)
+	SOM::OPTION::_Sound.cb = x::sound;
+
+	#define __(X) \
+	SOM::X::_Edge.cb = x::eq::edge;\
+	SOM::X::_Area.cb = x::eq::area;\
+	SOM::X::_Point.cb = x::eq::point;\
+	SOM::X::_Fire.cb = x::eq::fire;\
+	SOM::X::_Earth.cb = x::eq::earth;\
+	SOM::X::_Wind.cb = x::eq::wind;\
+	SOM::X::_Water.cb = x::eq::water;\
+	SOM::X::_Holy.cb = x::eq::holy;
+	__(EQUIP)
+	__(WEAPON)
+	SOM::WEAPON::Weapon->cb = x::eq::weapon;	
+	SOM::WEAPON::Attack.cb = x::eq::arm;
+	__(SHIELD)
+	SOM::SHIELD::Defense.cb = x::eq::shield;	
+	#define _(X) __(X)\
+	SOM::X::Defense.cb = x::eq::armor;\
+	_(HEAD)_(BODY)_(HANDS)_(FEET)_(ACC)
+	#undef _
+	#undef __
+
 	som_menus_initializing = false; //paranoia
 
 }//SOM::initialize_the_menu_model()
@@ -595,7 +674,26 @@ const char *SOM::Menu::Text::translate(const char *in, int in_s)const
 {
 	if(!id||!*id) return id; //paranioa?
 
+	if(in_s<=0) in_s = strlen(in); //2024
+
+	som_menus_x::text = this; //2024
+
 	const char *x = cb?cb(in,in_s):0; if(x) return x; //callback
+
+	return translate2(in,in_s);
+}
+const char *SOM::Menu::Text::translate2(const char *in, int in_s)const
+{
+	if(!id||!*id) return id; //paranioa?
+
+	if(in_s<=0) in_s = strlen(in); //2024
+
+	//same as above/translate but without cb
+
+//	som_menus_x::text = this; //2024
+
+//	const char *x = cb?cb(in,in_s):0; if(x) return x; //callback
+	const char *x = 0;
 
 	if(*id=='*') 
 	{
@@ -1226,6 +1324,219 @@ static const char *som_menus_x::sellout(const char *in, int in_s)
 	was = now; assert(!SOM::SELL::Amount.pf);
 	x::out[0] = '\0'; sprintf_s(out,SOM::gettext("x%3d"),now);
 	return out;
+}
+
+BYTE *som_menus_x::eq::weapon_page2(int pg)
+{
+	auto &i = (equip&)SOM::L.item_prm_file[item].uc[300];
+	BYTE *p = i.hp;
+	switch(pg)
+	{
+	case 1: p = i.attack2; break;
+	case 2: p = i.attack34[0]; break;
+	case 3: p = i.attack34[1]; break;
+	case 4: p = i.shield; break;
+	case 5: p = i.assist-3; break;
+	}
+	return pg>=4||p[0]||p[1]||p[2]?p:nullptr;
+}
+BYTE *som_menus_x::eq::weapon_page(bool five)
+{
+	if(item>=250) return (BYTE*)memset(x::out,0x00,8);
+
+	auto &i = (equip&)SOM::L.item_prm_file[item].uc[300];
+
+	int pg = page(6);
+
+	BYTE *p = weapon_page2(pg);
+
+	if(pg<4) //attack
+	{
+		if(five) return i.hp;
+	
+		if(!p) p = weapon_page2(0);
+		if(!p) p = weapon_page2(1);
+		if(!p) p = weapon_page2(2);
+		if(!p) p = weapon_page2(3);
+		if(!p) p = weapon_page2(0);
+	}
+	else if(pg==5) //assist
+	{
+		if(!five) return (BYTE*)memset(x::out,0x00,8);
+	}
+
+	return p?p:i.hp;
+}
+BYTE *som_menus_x::eq::armor_page(bool five)
+{
+	if(item>=250) return (BYTE*)memset(x::out,0x00,8);
+
+	int pg = page(2);
+
+	auto &it = SOM::L.item_prm_file[item];
+	auto &i = (equip&)it.uc[300];
+	BYTE *p = i.hp;
+	
+	if(pg==1) //assist (only for now)
+	{
+		if(!five) return (BYTE*)memset(x::out,0x00,8);
+
+		p = i.assist-3;
+	}
+
+	return p;
+}
+BYTE *som_menus_x::eq::shield_page(bool five)
+{
+	if(item>=250) return (BYTE*)memset(x::out,0x00,8);
+
+	int pg = page(4);
+
+	auto &it = SOM::L.item_prm_file[item];
+	auto &i = (equip&)it.uc[300];
+	BYTE *p = i.hp;
+	
+	if(pg==1)
+	{
+		p = i.shield;
+	}
+	else if(pg==2)
+	{
+		p = i.attack1;
+	}
+	else if(pg==3)
+	{
+		if(!five) return (BYTE*)memset(x::out,0x00,8);
+
+		p = i.assist-3;
+	}
+
+	return p;
+}
+BYTE *som_menus_x::eq::any_page(bool five)
+{
+	if(!eq::kind) return weapon_page(five);
+	if(eq::kind==5) return shield_page(five);
+	else return armor_page(five);
+}
+static const char *som_menus_x::eq::weapon(const char *s, int)
+{
+	if(!eq::info) return nullptr;
+
+	int pg = eq::page(6);
+
+	s = text->translate2(s);
+
+	const char *t = nullptr;
+
+	if(pg==0) t = SOM::transl8(som_932_Diagonal,"Diagonal");
+	if(pg==1) t = SOM::transl8(som_932_Lateral,"Lateral");
+	if(pg==2) t = SOM::transl8(som_932_Powerful,"Powerful");
+	if(pg==3) t = SOM::transl8(som_932_Straight,"Straight");
+	if(pg>=4) t = SOM::transl8(som_932_Defense,"Defense");
+
+	sprintf(x::out,"%s / %s",s,t); return x::out;
+}
+static const char *som_menus_x::eq::arm(const char *s, int)
+{
+	if(!eq::info) return nullptr;
+
+	int pg = eq::page(6);
+
+	if(pg==4) return SOM::transl8(som_932_Shield_katakana,">Shield");
+	if(pg==5) return SOM::transl8(som_932_Assist_katakana,">Assist");
+
+	return nullptr;
+}
+static const char *som_menus_x::eq::armor(const char *s, int)
+{
+	if(!eq::info) return nullptr;
+
+	int pg = eq::page(2);
+
+	if(pg==1) return SOM::transl8(som_932_Assist_katakana,">Assist");
+
+	return nullptr;
+}
+static const char *som_menus_x::eq::shield(const char *s, int)
+{
+	if(!eq::info) return nullptr;
+
+	int pg = eq::page(4);
+
+	if(pg==1) return SOM::transl8(som_932_Shield_katakana,">Shield");
+	if(pg==2) return SOM::transl8(som_932_Attack,">Attack");
+	if(pg==3) return SOM::transl8(som_932_Assist_katakana,">Assist");
+
+	return nullptr;
+}
+WORD som_menus_x::eq::equip_break(WORD i)
+{
+	//HACK: calculate break bonus
+	WORD st = SOM::L.pcstore[item]>>8;
+	if(st>1&&!EX::INI::Damage()->do_not_harm_equipment)
+	{
+		float x = st/250.0f;
+		x = 1-powf(x,0.25f); //sqrt //DUPLICATE
+		i*=1+x;
+	}
+	return i;
+}
+static const char *som_menus_x::eq::edge(const char *s, int)
+{
+	BYTE *p = eq::any_page(0);
+	WORD p0 = eq::equip_break(p[0]);
+
+	sprintf(x::out,text->translate2(s),p0); return x::out;
+}
+static const char *som_menus_x::eq::area(const char *s, int)
+{
+	BYTE *p = eq::any_page(0); 
+	WORD p1 = eq::equip_break(p[1]);
+
+	sprintf(x::out,text->translate2(s),p1); return x::out;
+}
+static const char *som_menus_x::eq::point(const char *s, int)
+{
+	BYTE *p = eq::any_page(0); 
+	WORD p2 = eq::equip_break(p[2]);
+
+	sprintf(x::out,text->translate2(s),p2); return x::out;
+}
+static const char *som_menus_x::eq::fire(const char *s, int)
+{
+	BYTE *p = eq::any_page(1); 
+	WORD p3 = eq::equip_break(p[3]);
+
+	sprintf(x::out,text->translate2(s),p3); return x::out;
+}
+static const char *som_menus_x::eq::earth(const char *s, int)
+{
+	BYTE *p = eq::any_page(1);
+	WORD p4 = eq::equip_break(p[4]);
+
+	sprintf(x::out,text->translate2(s),p4); return x::out;
+}
+static const char *som_menus_x::eq::wind(const char *s, int)
+{
+	BYTE *p = eq::any_page(1);
+	WORD p5 = eq::equip_break(p[5]);
+
+	sprintf(x::out,text->translate2(s),p5); return x::out;
+}
+static const char *som_menus_x::eq::water(const char *s, int)
+{
+	BYTE *p = eq::any_page(1); 
+	WORD p6 = eq::equip_break(p[6]);
+
+	sprintf(x::out,text->translate2(s),p6); return x::out;
+}
+static const char *som_menus_x::eq::holy(const char *s, int)
+{
+	BYTE *p = eq::any_page(1); 
+	WORD p7 = eq::equip_break(p[7]);
+
+	sprintf(x::out,text->translate2(s),p7); return x::out;
 }
 
 bool som_menus_h::validator::operator()(void *procA, const char *in, int in_s)

@@ -176,6 +176,7 @@ namespace SOM
 		//// Is there no way to remove WS_EX_TOPMOST??? /////////////
 
 		HWND (WINAPI *CreateWindowExA)(DWORD,LPCSTR,LPCSTR,DWORD,int,int,int,int,HWND,HMENU,HINSTANCE,LPVOID);
+		HWND (WINAPI *CreateWindowExW)(DWORD,LPCWSTR,LPCWSTR,DWORD,int,int,int,int,HWND,HMENU,HINSTANCE,LPVOID);
 
 		//http://www.swordofmoonlight.net/bbs2/index.php?topic=320.0
 		VOID (WINAPI *OutputDebugStringA)(LPCSTR lpOutputString);

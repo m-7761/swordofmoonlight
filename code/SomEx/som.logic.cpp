@@ -32,6 +32,21 @@ enum{ som_logic_soft_impedance=6 }; //8
 //CONVERT ME TO float* (DEBUGGING)
 static std::vector<float> som_logic_soft;
 
+static float som_logic_O_to_2pi(float a) //0_to_2pi
+{
+	return fmodf(a+M_PI*4,M_PI*2); //4 is arbitrary
+}
+static float som_logic_spin(float a, float b)
+{
+	return fabsf(b-a)<M_PI?b:b-M_PI*(b>a?2:-2);
+}
+static float som_logic_slerp(float &a, float &b, float s)
+{
+	a = som_logic_O_to_2pi(a); b = som_logic_O_to_2pi(b);
+
+	return a+(som_logic_spin(a,b)-a)*s; //lerp
+}
+
 static float *som_logic_408cc0_yh(som_EVT *event) //2021
 {
 	auto e = (swordofmoonlight_evt_header_t::_item*)event;
@@ -155,14 +170,14 @@ static BYTE __cdecl som_logic_409080(DWORD event) //square
 	//if(~e->ext_zr_flags&2)
 	//return ((BYTE(__cdecl*)(DWORD))0x409080)(event);
 
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	float d[3]; memcpy(d,SOM::xyz,sizeof(d));
 	for(int i=3;i-->0;) d[i]-=p[i];
 
 	//TODO: lateral rotation? PC width?	
 	if(e->ext_zr_flags&2) SOM::rotate(d,0,-p[4]);
 
-	//2x is because the square units are end to end
+	//2x is because the square units are end to end (like a diameter)
 	//0.5 is presumably twice the PC's width
 	//004091A7 D8 25 40 83 45 00    fsub        dword ptr ds:[458340h]
 	d[0] = fabsf(d[0])*2-0.5f;
@@ -346,18 +361,30 @@ static void __cdecl som_logic_4041d0(SOM::Attack *atk)
 	{
 		auto *item_arm = SOM::PARAM::Item.arm->records; 
 		atk->radius*=item_arm[som_logic_4041d0_move]._scale; //2023
+
+		int mv = SOM::move; //2024
+		if(SOM::motions.swing_move)
+		{
+			mv = 2; //breakpoint
+		}
+		if(auto*rt=SOM::move_damage_ratings(mv))
+		{
+			atk->damage[0] = rt[0];
+			atk->damage[1] = rt[1];
+			atk->damage[2] = rt[2];
+		}
 	}
 	((void(__cdecl*)(void*))0x4041d0)(atk);
 }
 
-#pragma optimize("",on) 
+#pragma optimize("",off) 
 static BYTE __declspec(naked) som_logic_40c2e0 //disc vs disc
 (FLOAT xyz[3], float h, float r, float cmp[3], float hh, float rr, DWORD mode, float[3], float[3])
 {
 	__asm mov eax,40c2e0h; 
 	__asm jmp eax; 
 }
-#pragma optimize("",off) 
+#pragma optimize("",on) 
 
 static int som_logic_40dff0 //2021
 (FLOAT _1[3], FLOAT _2, FLOAT _3, DWORD _4, DWORD _5, FLOAT _6[3], FLOAT _7[3])
@@ -856,35 +883,6 @@ static BYTE __declspec(naked) som_logic_40B1D0()
 	jmp eax
 	}
 }
-//#pragma optimize("",on) 
-//#pragma optimize("",off) 
-//REMOVE ME?
-/*crashes on unload... the SFX is absorbed into the target anyway
-static BYTE __declspec(naked) som_logic_42e5c0_a(DWORD _sfx)
-{
-	__asm //10 arguments is a lot to forward (trying something new)
-	{
-	mov eax,dword ptr[esp+4]
-	cmp eax,dword ptr[esp+284] //_sfx
-	je _ret
-	mov eax,42e5c0h
-	jmp eax
-	_ret: ret
-	}
-}
-static BYTE __declspec(naked) som_logic_42e5c0_b(DWORD _sfx)
-{
-	__asm //10 arguments is a lot to forward (trying something new)
-	{
-	mov eax,dword ptr[esp+4]
-	#error 284 is not right
-	cmp eax,dword ptr[esp+284] //_sfx
-	je _ret
-	mov eax,42e5c0h
-	jmp eax
-	_ret: ret
-	}
-}*/
 #pragma optimize("",on) 
 
 void SOM::rotate(float vec[3], float x, float y)
@@ -907,9 +905,103 @@ void SOM::rotate(float vec[3], float x, float y)
 	}
 }
 
+static void som_logic_feelers(int &f, float h, float r, float xyzuvw[6])
+{		
+	float cast = 2.5f;
+	
+	float v[3] = {0,0,-r*cast}; 
+	float v2[3] = {0,0,-r*cast}; 
+	
+	//NOTE: if these are too wide monsters 
+	//won't walk onto fairly narrow bridges
+	float narrow = 0.35f;
+	SOM::rotate(v,0,xyzuvw[4]+1.570796f*(0.5f+narrow)); //0.5
+	SOM::rotate(v2,0,xyzuvw[4]+1.570796f*(1.5f-narrow)); //1.5
+
+	for(int i=3;i-->0;) v[i]+=xyzuvw[i]; v[1]-=0.35f;
+	for(int i=3;i-->0;) v2[i]+=xyzuvw[i]; v2[1]-=0.35f;
+
+	float rr = r*0.3;
+	f = SOM::clipper.clip(v,0.35f,rr,14,0.01f)?0:1;
+
+	float _[3]; if(f)
+	{
+		for(int sz=SOM::L.ai3_size,i=0;i<sz;i++)
+		if(som_logic_40dff0(v,0.35f,rr,i,1,_,_))
+		{
+			f = 0; break;
+		}
+	}
+
+	f|=SOM::clipper.clip(v2,0.35f,rr,14,0.01f)?0:2;
+
+	if(f&2)
+	{
+		for(int sz=SOM::L.ai3_size,i=0;i<sz;i++)
+		if(som_logic_40dff0(v,0.35f,rr,i,1,_,_))
+		{
+			f&=~2; break;
+		}
+	}
+
+	if(1&&f) //stairs?
+	{
+		float footprint = 0.25f;
+
+		int stairs = r/footprint; 
+		
+		if(!stairs) stairs = 1; stairs*=cast;
+
+		float step[3] = {0,-0.2525f,-footprint}; 
+
+		//without some bias they'll edge closer and
+		//closer to the ledge on an oblique approach
+		float x = f==3?1:f==1?0.5f+narrow:1.5f-narrow;
+		SOM::rotate(step,0,xyzuvw[4]+1.570796f*x);
+
+		float o[3]; memcpy(v,xyzuvw,sizeof(v));
+
+		for(int i=stairs;i-->0;)
+		{
+			//trying to ricochet off of walls
+			//(large monsters get stuck in corridors)
+			if(SOM::clipper.clip(v,h,footprint,1,0,o))
+			{
+				f = 0; return;
+			}
+			for(int sz=SOM::L.ai3_size,i=0;i<sz;i++)
+			if(som_logic_40dff0(v,h,footprint,i,0,o,_))
+			{
+				f = 0; return;
+			}
+
+			for(int j=3;j-->0;) v[j]+=step[j];
+
+			if(SOM::clipper.clip(v,0.5125f,footprint,14,0,o))
+			{
+				stairs--; v[1] = o[1];
+			}
+			else 
+			{
+				int ss = stairs;
+
+				for(int sz=SOM::L.ai3_size,i=0;i<sz;i++)
+				if(som_logic_40dff0(v,0.5125f,footprint,i,1,o,_))
+				{
+					stairs--; v[1] = o[1]; break;
+				}
+
+				if(ss==stairs) break;
+			}
+		}
+
+		if(stairs==0) f = 0;
+	}
+}
+
 //2021: this is combined clipping for enemies/NPCs
 static bool som_logic_4079d0_42a0c0(SOM::MDL &mdl, float cp[3], 
-const float *sdr, const float height, float xyzuvw[3], bool flying)
+const float *sdr, const float height, float xyzuvw[6], bool flying)
 {
 	assert(-1!=SomEx_npc);
 
@@ -927,7 +1019,6 @@ const float *sdr, const float height, float xyzuvw[3], bool flying)
 	&ad->npc_fence?ad->npc_fence():ad->npc_fence.o() //0.25
 	:	0.5f; //0.25 can push through the ground
 	float h = f+0.01f;
-
 	
 	//NOTE: this was originally done differently
 	//float *xyzuvw = &ai[SOM::AI::xyzuvw];
@@ -965,7 +1056,7 @@ const float *sdr, const float height, float xyzuvw[3], bool flying)
 		//add enough to clear the MHM
 		//tolerance, assuming gravity
 		//is Earth like
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		float t = clip.falling+0.02f;
 		float d1 = 0.5f*g*(t*t); 
 		t+=step;
@@ -982,7 +1073,11 @@ const float *sdr, const float height, float xyzuvw[3], bool flying)
 	{
 		//NOTE: originally flying monsters keep the fixed 0.701 height
 		cp[1]-=g; h+=g; 
+
+	//	if(!clip.falling)		
+		som_logic_feelers(clip.feelers,height,r,xyzuvw);		
 	}	
+	else clip.feelers = 0;
 
 	//LEAKY: som_MHM_layers is quick/dirty only tests center of
 	//objects (on the fly) within vertical bounds of MHM... THE
@@ -1624,6 +1719,218 @@ extern void SOM::rumble()
 	}
 }
 
+static void som_logic_407490(som_Enemy &ai) //reevaluate
+{
+	auto &mdl = *(SOM::MDL*)ai[SOM::AI::mdl];
+	auto prm = (BYTE*)SOM::L.enemy_prm_file[ai[SOM::AI::enemy]].c;
+	auto pr2 = SOM::L.enemy_pr2_data[*(WORD*)prm];
+	auto prf = (swordofmoonlight_prf_enemy_t*)(pr2+62);	
+
+	auto &st = ai[SOM::AI::ai_state]; 
+
+	float *xyzuvw = &ai[SOM::AI::xyzuvw];
+
+	float dx = SOM::xyz[0]-xyzuvw[0];
+	float dz = SOM::xyz[2]-xyzuvw[2];
+	float len = sqrtf(dx*dx+dz*dz);
+	float dir = atan2f(dz,dx);
+	float dir2 = ((float(*)(float))0x44cc20)(dir-xyzuvw[4]); //fmod_pi
+		
+	if(int f=3&mdl.ext.clip.feelers) //EXTENSION: try to turn backward?
+	{
+		st = 3;
+
+		ai[SOM::AI::ai_bits]&=~4;
+
+		dir = f==3?(SOM::rng()%2?1:-1)*M_PI*0.9f:f==1?M_PI_2/3:-M_PI_2/3;
+		ai[SOM::AI::turning_rate_goal] = ai[SOM::AI::turning_rate]*(f==3?2.0f:1.5f);
+		ai[SOM::AI::turning_rads_goal] = ((float(*)(float))0x44cc20)(xyzuvw[4]+dir); //fmod_pi
+
+		return ((void(*)(void*,int,bool))0x407950)(&ai,1,0); //set_animation
+	}
+
+	// Looks like counter-attack?
+	if(prm[324]==3)
+	if((st==14||st==15)&&SOM::rng()%100<prm[325])
+	{
+		st = prm[327]+6;
+
+		int id = SOM::L.animation_id_table[st];
+		return ((void(*)(void*,int,bool))0x407950)(&ai,id,0); //set_animation
+	}
+
+	int local_4c;
+	BYTE *local_40;
+	DWORD local_30[6];
+	int aiStack_18[6];
+
+	float scale = ai[SOM::AI::scale];
+
+	int sighted = ai[SOM::AI::ai_bits]&4;
+
+	if(sighted)
+	{
+		int bVar1 = prf->direct;
+		int iVar6 = 0;
+		int iVar13 = 0;
+		int local_4c = 0; if(bVar1!=0)
+		{
+			//prm file? direct attacks?
+			local_40 = prm+344;
+
+			//float *pfVar10 = &prf->attack_radii;
+			float *pfVar10 = prf->larger_radii;
+			WORD *psVar11 = prf->pies;
+			do
+			{
+				BYTE bVar2 = *local_40; if(bVar2)
+				{
+					float fVar4 = psVar11[0]*0.5f*0.01745329f;
+
+					if(len<=scale*pfVar10[0])
+					{
+						if(-fVar4<=dir2&&dir2<=fVar4)
+						{
+							aiStack_18[iVar13] = iVar6+6;
+							local_4c+=bVar2;
+							local_30[iVar13] = bVar2;
+							iVar13++;
+						}
+					}
+				}
+
+				local_40 = local_40+0x18;
+
+				iVar6++; psVar11++; pfVar10++;
+
+			}while(iVar6<bVar1);
+		}
+
+		iVar6 = 0;
+		bVar1 = prf->indirect; if(bVar1!=0)
+		{
+			//prm file? indirect attacks?
+			float *pfVar10 = (float*)&prm[420]; 
+			do
+			{
+				BYTE bVar2 = *(BYTE*)(pfVar10-1); if(bVar2)
+				{				
+					float fVar4 = *(WORD*)((int)pfVar10-2)*0.5f*0.01745329f;
+
+					if(pfVar10[0]*scale<=len)
+					if(len<=pfVar10[1]*scale)
+					{
+						if(-fVar4<=dir2&&dir2<=fVar4)
+						{
+							aiStack_18[iVar13] = iVar6+9;
+							local_4c+=bVar2;
+							local_30[iVar13] = bVar2;
+							iVar13++;
+						}
+					}
+				}
+
+				iVar6++; pfVar10+=6;
+
+			}while(iVar6<bVar1);
+		}
+		if(0<iVar13&&SOM::rng()%100<prm[319])
+		{
+			iVar6 = SOM::rng()%local_4c;
+
+			int iVar7 = 0;			
+			DWORD *puVar12 = local_30; 
+			do
+			{
+				if(iVar6<(int)puVar12[0])
+				break;
+
+				iVar6-=puVar12[0];
+				iVar7++;
+				puVar12++;
+
+			}while(iVar7<iVar13);
+
+			iVar6 = aiStack_18[iVar7];
+			
+			st = iVar6;
+			
+			ai[SOM::AI::attack_recovery] = prm[318];
+
+			int id = SOM::L.animation_id_table[iVar6];
+			return ((void(*)(void*,int,bool))0x407950)(&ai,id,1); //set_animation
+		}
+	}
+
+	// Walk? 3?
+	//	This is walking+turning stalking mode, but it had disabled movement by
+	//	ignoring the CP so it just turns, but SomEx restores movement in the calling
+	//	routine.
+	if(0.0<(float&)prm[320]) //prm+320 is turning speed
+	{
+		if(!sighted) //Half turning speed? 
+		{
+			//EXTENSION: don't walk into walls?
+			bool turnback = mdl.ext.clip.clinging>0.9f;
+			if(ai[SOM::AI::ai_bits]&(4|8))
+			bool turnback = false;
+
+			if(turnback||SOM::rng()%100<15)
+			{
+				st = 3;
+				//Note: I'm made SomEx to double the speed instead of halve it. Otherwise it's
+				//trivial to stay behind monsters on all but SOM_PRM's fastest turn option 
+				ai[SOM::AI::turning_rate_goal] = ai[SOM::AI::turning_rate]*0.5f;				
+				ai[SOM::AI::turning_rads_goal] = 
+				((float(*)(float))0x44cc20)((float)(SOM::rng()%0x168)*0.01745329f); //fmod_pi
+
+				return ((void(*)(void*,int,bool))0x407950)(&ai,1,0); //set_animation				
+			}
+		}
+		else if(dir2<-0.2617994f||0.2617994f<dir2)
+		{
+			st = 3;
+
+			ai[SOM::AI::turning_rate_goal] = ai[SOM::AI::turning_rate];
+			ai[SOM::AI::turning_rads_goal] = dir;
+
+			return ((void(*)(void*,int,bool))0x407950)(&ai,1,0); //set_animation
+		}
+	}
+
+	//Unused aggressive walk?
+	//NOTE: 1 screens out turn-only modes 
+	if((prf->locomotion&3)!=1&&prm[340]!=3)
+	{
+		if(!sighted) //Outside vision cone? Walk? Idle? #2???
+		{
+			if(SOM::rng()%100<90)
+			{
+				st = 1;
+
+				return ((void(*)(void*,int,bool))0x407950)(&ai,1,0); //set_animation
+			}
+		}
+		else
+		{
+			//2? I don't think any enemy uses this, though a few have SFX/SND tables? 
+			if(ai[SOM::AI::perimeter]<len)
+			{
+				st = -1!=mdl.animation(2)?2:1;
+				
+				int id = SOM::L.animation_id_table[st];
+				return ((void(*)(void*,int,bool))0x407950)(&ai,id,0); //set_animation
+			}
+		}
+	}
+
+	st = 0;
+
+	ai[SOM::AI::idling_time_goal] = SOM::rng()%3+1;
+
+	return ((void(*)(void*,int,bool))0x407950)(&ai,0,0); //set_animation
+}
+
 //EXTENSION?
 //0.5 is too jerky in transition both from slow gear to
 //normal gear and to fast turning at 2x. this is 1.5 in
@@ -1645,6 +1952,8 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	auto pr2 = SOM::L.enemy_pr2_data[*(WORD*)prm];
 	auto prf = (swordofmoonlight_prf_enemy_t*)(pr2+62);	
 
+	auto &clip = mdl.ext.clip; //EXPERIMENTAL
+
 	//yes, mp? I don't know what else this could be?
 	auto &hp = (WORD&)ai[SOM::AI::hp];
 	auto &mp = (WORD&)ai[SOM::AI::mp];
@@ -1660,14 +1969,14 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	//HACK: spawning?
 	auto reset_clip = [&]() //REMOVE ME
 	{
-		mdl.ext.clip.stem[0] = 2;
-		mdl.ext.clip.stem[1] = 2;
-		memcpy(mdl.ext.clip.soft,xyzuvw,sizeof(float)*3);
-		mdl.ext.clip.soft2[3] = 0;
-		memcpy(mdl.ext.clip.soft2,xyzuvw,sizeof(float)*3);
+		clip.stem[0] = 2;
+		clip.stem[1] = 2;
+		memcpy(clip.soft,xyzuvw,sizeof(float)*3);
+		clip.soft2[3] = 0;
+		memcpy(clip.soft2,xyzuvw,sizeof(float)*3);
 		/*this gets stuck in the wall
-		mdl.ext.clip.softolerance = min(0.5f,radius);*/
-		mdl.ext.clip.softolerance = min(0.35f,radius*0.7f);
+		clip.softolerance = min(0.5f,radius);*/
+		clip.softolerance = min(0.35f,radius*0.7f);
 	};
 	if(0==*(DWORD*)&mdl.fade) //REMOVE ME
 	{
@@ -1705,7 +2014,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	{
 		//FIX ME
 		//I feel like this should be unspawning?!
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 
 		//"retroactive" mode?
 		float *sp = &ai[SOM::AI::_xyzuvw];				
@@ -1721,7 +2030,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 			mdl.xyzuvw[0] = xyzuvw[0];
 			mdl.xyzuvw[1] = xyzuvw[1]+0.01f;
 			mdl.xyzuvw[2] = xyzuvw[2];
-			mdl.xyzuvw[4] = xyzuvw[4]+1.57079637f;
+			mdl.xyzuvw[4] = xyzuvw[4]+1.570796f;
 			mdl.fade = 1; //0x3f800000;
 
 			int id = SOM::L.animation_id_table[st];
@@ -1917,7 +2226,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	bool sighted = false;
 
 	//angle in direction of PC (pcstate?)
-	auto dir = atan2(SOM::xyz[2]-xyzuvw[2],SOM::xyz[0]-xyzuvw[0]);	
+	float dir = atan2(SOM::xyz[2]-xyzuvw[2],SOM::xyz[0]-xyzuvw[0]);	
 	float dir2 = ((FLOAT(__cdecl*)(FLOAT))0x44cc20)(dir-xyzuvw[4]);
 
 	//EXTENSION
@@ -1929,9 +2238,9 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	if(!wait/*||st!=3*/)
 	{
 		//SHOULD VISIBILITY SCALE????
-		auto len = *(float*)(prm+312); 
+		auto len = (float&)prm[312]; 
 		
-			len*=ai[SOM::AI::_scale]; //NEW?
+		len*=ai[SOM::AI::_scale]; //NEW?
 		
 		if(_2<=len) //view cone?
 		{
@@ -1960,10 +2269,11 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 		else sighted = _2<=len;
 
 		ai[SOM::AI::ai_bits]&=~(4|8);
-		if(sighted) 
-		ai[SOM::AI::ai_bits]|=4;
+ 
 		if(viewing) 
 		ai[SOM::AI::ai_bits]|=8;
+		if(sighted) 
+		ai[SOM::AI::ai_bits]|=4;		
 	}
 	else //EXTENSION
 	{
@@ -2065,6 +2375,8 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 	case 1: //walking
 	case 2: //2 seems to be walking when inside vision cone? (407882)
 
+		if(clip.feelers) eval = true;
+
 		if(wait)
 		{ 			
 			eval = _2<=ai[SOM::AI::shadow]+0.25f+0.1f;
@@ -2075,6 +2387,13 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 
 	case 3: //walking/turning?
 	{	
+		if(clip.feelers)
+		{
+			if(clip.feelers==3)
+			eval = ai.f[0x248/4]<ai[SOM::AI::turning_rate]*2;
+			else eval = true;
+		}
+
 		if(!wait) //error?
 		{
 			//FUN_004414c0_set_animation_goal_frame(&mdl,1);
@@ -2298,7 +2617,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 			//FUN_004418b0_get_cyan_CP_delta(&mdl,cp,~0);
 		//	extern BYTE __cdecl som_MDL_4418b0(SOM::MDL&,float*,DWORD);
 		//	som_MDL_4418b0(mdl,cp,~0);				
-			memcpy(cp,mdl.ext.clip.cp_accum[0],sizeof(cp));
+			memcpy(cp,clip.cp_accum[0],sizeof(cp));
 			//EXTENSION
 			//if(st>=1&&st<=3&&mdl.ext.f2) //UNFINISHED			
 			if(mdl.ext.anim_read_head2) //TODO: skeleton
@@ -2311,7 +2630,7 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 					som_MDL_4418b0(mdl,cp2,~0);
 					std::swap(mdl.ext.e2,mdl.c);
 					std::swap(mdl.ext.f2,mdl.d);*/
-					memcpy(cp2,mdl.ext.clip.cp_accum[1],sizeof(cp));
+					memcpy(cp2,clip.cp_accum[1],sizeof(cp));
 					//this visibly shifts back/forth every frame
 					//because it's overcorrecting
 					//if(dir2<0)
@@ -2326,15 +2645,13 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 				//if(sighted)
 				//EX::dbgmsg("ai #%d: %f %f (%d)",_1,cp[0],cp[2],mdl.c);
 			}
-			memset(mdl.ext.clip.cp_accum,0x00,sizeof(mdl.ext.clip.cp_accum));
+			memset(clip.cp_accum,0x00,sizeof(clip.cp_accum));
 
 			SOM::rotate(cp,xyzuvw[3],xyzuvw[4]+1.570796f);
 		
 			for(int i=3;i-->0;) cp[i]*=ai[SOM::AI::scale];
 		}
 	}
-
-	auto &clip = mdl.ext.clip; //EXPERIMENTAL
 
 	bool no_clip = 0&&EX::debug; //TESTING
 
@@ -2508,15 +2825,18 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 		mdl.xyzuvw[0] = clip.soft2[0];
 		mdl.xyzuvw[2] = clip.soft2[2];
 		mdl.xyzuvw[1] = clip.soft2[1]+0.01f;
-	}
-	if(tt&8) //EXPERIMENTAL slime mode?
-	mdl.xyzuvw[4] = xyzuvw[4]+1.57079637f;
+	}	
 	if(auto&u=mdl.xyzuvw[3]=xyzuvw[3]) //EXTENSION
 	if(prf->inclination[1]) //EXTENSION
 	{
 		float ci = min(prf->inclination[0],prf->inclination[1]);
 		ci*=M_PI/180;
 		u = u<0?min(0,u+ci):max(0,u-ci);
+	}
+	if(tt&8) //EXPERIMENTAL slime mode?
+	{
+		float v = xyzuvw[4]+1.570796f;
+		mdl.xyzuvw[4] = som_logic_slerp(mdl.xyzuvw[4],v,SOM::motions.step*8); //2024
 	}
 	//FUN_004416c0_update_MDL_xform_and_CPs(&mdl);
 	som_MDL_4416c0(mdl);
@@ -2539,7 +2859,8 @@ static void __cdecl som_logic_406ab0(DWORD _1, FLOAT _2)
 			if(y>SOM::xyz[1]+SOM::L.duck||y+h<SOM::xyz[1])
 			atks = 0;
 			//FUN_00407490_step_enemy_state_sub_reevaluate(&ai);
-			((void(__cdecl*)(void*))0x407490)(&ai);
+			if(1) som_logic_407490(ai);
+			else ((void(__cdecl*)(void*))0x407490)(&ai);
 		}
 		atks = swap;
 
@@ -3032,14 +3353,6 @@ extern void som_logic_reprogram()
 
 	//recursive SFX? (stack overflow on same SFX as subordinate)
 	{
-		/*wanted to see if windcutter could go through the target
-		//these should've been called after loading afterward
-		//0042E649 E8 72 FF FF FF       call        0042E5C0
-		//0042E628 E8 93 FF FF FF       call        0042E5C0
-		*(DWORD*)0x42E64a = (DWORD)som_logic_42e5c0_a-0x42E64e;
-		*(DWORD*)0x42E629 = (DWORD)som_logic_42e5c0_b-0x42E62f;*/
-
-		//try two?
 		//00430308 E8 E3 EE FF FF       call        0042F1F0  
 		//0043030D 83 C4 14             add         esp,14h  
 		//00430310 C7 46 2C 01 00 00 00 mov         dword ptr [esi+2Ch],1

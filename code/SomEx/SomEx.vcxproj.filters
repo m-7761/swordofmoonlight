@@ -231,6 +231,9 @@
     <ClCompile Include="som.SFX.cpp">
       <Filter>Som sources</Filter>
     </ClCompile>
+    <ClCompile Include="som.25.cpp">
+      <Filter>Som sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Ex.cursor.h">
@@ -419,6 +422,9 @@
     </Library>
     <Library Include="..\Exselector\Debug\Exselector.lib">
       <Filter>libraries\debug</Filter>
+    </Library>
+    <Library Include="..\Exselector\Tobii\lib\tobii_gameintegration_x86.lib">
+      <Filter>libraries</Filter>
     </Library>
   </ItemGroup>
   <ItemGroup>

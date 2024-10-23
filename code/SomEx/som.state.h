@@ -164,7 +164,7 @@ namespace SOM
 	stereoMode, //2022
 	masterVol,
 	superMode, //2021
-	map,mapX,mapY,mapZ,
+	map,mapX,mapY,mapZ,mapL,
 	opengl,
 	config(const char*,int def),rescue(const wchar_t*,int);
 	extern float zoom2(),ipd_center();
@@ -365,7 +365,8 @@ namespace SOM
 				//(0 if entry isn't possible. MAP files use 'e')
 				//unsigned rotation:2,nonzero:14,icon:8,unknown2:7,msb:1;
 				//unsigned rotation:2,_uk1:4,ev:1,_uk2:8,nobsp:1,icon:8,msb:8; //:1
-				unsigned rotation:2,_uk1:4,ev:8,_bsp:1,nobsp:1,icon:8,msb:8; //:1
+			//	unsigned rotation:2,_uk1:4,ev:8,_bsp:1,nobsp:1,icon:8,msb:8; //:1
+				unsigned rotation:2,box:4,ev:1,xxx:1,hit:1,_5:5,_bsp:1,nobsp:1,icon:8,msb:8;
 
 				//TRULY WEIRD
 				//WTH?? from som.scene.cpp (rendering)
@@ -623,7 +624,7 @@ namespace SOM
 
 		Animation(),~Animation();
 
-		void upload();
+		void upload(),release();
 	};
 	typedef std::vector<Animation> Kage,Face;
 	  
@@ -876,10 +877,20 @@ namespace SOM
 		float scale;
 		float scale2;
 		float unk5[2];
-		SHORT snd,chainfx;
+		WORD snd,chainfx;
 		char pitch,_pad2;
 		SHORT _;
 	};
+
+	struct sfx_pro_rec //EXTENSION
+	{
+		WORD slot;
+		char model[31],sound[31];
+	};
+
+	//2024: these allocate sound slots for non-numeric
+	//sound files
+	WORD SND(WORD),SND(char*a),SND(const wchar_t*a);
 
 	struct SFX //SOM::Struct<126>
 	{
@@ -999,7 +1010,7 @@ namespace SOM
 	//
 	// SOM::menupcs = (DWORD*)_19AA978+0xA8/4;
 	//
-	// size is 7Ah*4
+	// size is 7Ah*4 (30)
 	// 004212E2 B9 7A 00 00 00       mov         ecx,7Ah
 	//
 	extern DWORD *menupcs; //menu textures
@@ -1318,7 +1329,8 @@ namespace SOM
 		//
 		State<0x57B818,SOM::Struct<10>[256]> MPX_items;
 		//this data (2304B) is saved directly to the save file as it is
-		State<0x57E038,SOM::Item[64]> items;
+		//State<0x57E038,SOM::Item[64]> items;
+		State<0x57E038,SOM::Item[256]> items;
 		
 		//items use this for timestamps, gauges pulse on it, blindness
 		//pulses on it, Ghidra doesn't show that many references to it
@@ -1437,7 +1449,9 @@ namespace SOM
 		DWORD pcmagic_shield_timers[8] = {};
 		State<0x19C1D44,INT32> pcdamage_display; //hp
 		State<0x19c1d48,DWORD> damage_flash; //0-10
+		State<0x19c1d4c,DWORD> bad_status_mask;
 		State<0x19c1d50,DWORD[5]> status_timers;
+		State<0x19c1d64,DWORD[5]> status_timers2; //???
 		State<0x19c1d78,DWORD> damage_taken; //404375->425bc7
 		//like xyzuvw above except
 		//y is situated on the ground or base CP
@@ -1518,8 +1532,7 @@ namespace SOM
 		// data structure identical to the MDL sections
 		//
 		State<0x1c45d70,som_scene_picture[512]> SFX_images; //512?
-		//these are MDL data pointers
-		State<0x1c8dd70,SOM::Struct<622>*[512]> SFX_models; //512?
+		State<0x1c8dd70,SOM::MDL*[512]> SFX_models; //512?
 		//workshop.cpp has sfx_record
 		State<0x1C91D30,sfx_dat_rec[1024]> SFX_dat_file; //48B apiece (1024)
 		State<0x1c9dd30,DWORD> SFX_images_size;
@@ -1559,7 +1572,7 @@ namespace SOM
 		{
 			BYTE type, _pad[3];
 			DWORD ref_count;
-			BYTE *mdl_or_txr;
+			BYTE *mdl_or_txr; //MDL::data
 			SOM::MDL *mdl_instances[16];
 			DWORD _unknown; //UNUSED?
 		};
@@ -1767,8 +1780,8 @@ namespace SOM
 			INT32 unknown5;
 			INT32 unknown6;
 
-			void *sb; //DSOUND::IDirectSoundBuffer
-			void *sb3d; //DSOUND::IDirectSound3DBuffer
+			void **sb; //DSOUND::IDirectSoundMaster
+			void **sb3d; //DSOUND::IDirectSound3DBuffer
 		};
 		State<0X1D69D84,WAV*> snd_bank;
 
@@ -1994,7 +2007,7 @@ namespace SOM
 			//monster has data in the save
 			//file. it's 1.0 and not scaled
 			//NPCs use bool for this purpose
-			_save = 143; //?
+			_save = 143, //?
 
 		/////GENERAL USE MEMORY?///
 
@@ -2003,8 +2016,9 @@ namespace SOM
 			//LIKELY a "union" that depends 
 			//on ai_state			
 			//f146 = 146; //set to f24 or f24/2
+			turning_rate_goal = 146,
 			//f147 = 147; //target angle to PC?
-
+			turning_rads_goal = 147;
 			//148 is char (new 4-aligned block)
 //		}
 
@@ -2060,7 +2074,9 @@ namespace SOM
 			//40707d begins a jump table for
 			//these
 			//5: set trigger
-			ai_state = 144;
+			ai_state = 144,
+
+			idling_time_goal = 146;
 
 		/////GENERAL USE MEMORY?///
 
@@ -2159,6 +2175,8 @@ namespace SOM
 	extern DWORD shield_or_glove_sound_and_pitch(int=5);	
 	extern const SOM::Struct<22>*(*movesets)[4]; //2021	
 	extern const SOM::Struct<22> *shield_or_glove(int=5);
+	extern char move; //2024
+	extern BYTE *move_damage_ratings(int i=SOM::move);
 
 	extern struct Motions //som.mocap.cpp 
 	{	
@@ -2191,7 +2209,9 @@ namespace SOM
 
 		float cornering; //EXPERIMENTAL
 
-		MOTION_STATE sixaxis_calibration;
+		MOTION_STATE sixaxis_calibration; //Joyshock
+
+		float dx, dz; //EXPERIMENTAL
 
 	}motions; //singleton
 
@@ -2276,7 +2296,7 @@ namespace SOM
 	
 	//2022: these are now implemented in som.MPX.cpp
 	extern void se(int snd, int pitch=0, int vol=0);
-	extern void se3D(float pos[3], int snd, int pitch=0, int vol=0);
+	extern float se3D(float pos[3], int snd, int pitch=0, int vol=0);
 	inline void menuse(int snd)
 	{
 		//19aab0C doesn't include shops?!
@@ -2306,7 +2326,7 @@ namespace SOM
 
 struct som_scene_element; //som.scene.cpp
 
-struct som_MDO : SOM::Struct<47-2>
+struct som_MDO : SOM::Struct<31>
 {
 	/*SOM::Struct<47-2> //180B
 	{
@@ -2330,10 +2350,14 @@ struct som_MDO : SOM::Struct<47-2>
 		float scale[3]; //25
 		float _cmp_scale[3]; //28
 
-		float fade[2];
+		float fade,fade2;
 
-		// 132B mark (48 unknown)//
+		// 132B mark (48 unknown) //
 	}*/
+
+	float fade,fade2;
+
+	float controlpoints[4][3];
 
 	WORD *materials;
 
@@ -2376,7 +2400,7 @@ struct som_MDO : SOM::Struct<47-2>
 			{
 				//this is used to combine a MDO
 				//and MDL file
-				BYTE part, _pad; //reserving
+				BYTE part, skin; //reserving
 				WORD part_verts; //safety check
 				WORD*part_index; //relocated
 				//VERSION 2 (8B)
@@ -2405,6 +2429,8 @@ struct som_MDO : SOM::Struct<47-2>
 			som_MHM *mhm; //2022
 
 			som_BSP *bsp; //TEMPORARY?
+
+			BYTE *wt; DWORD wt_size;
 
 		}ext;
 
@@ -2440,7 +2466,7 @@ struct som_MDL //SOM::Struct<250>
 	int running_time(int c);
 	bool ending_soon(int f);
 	bool ending_soon2(int f);
-	bool control_point(float avg[3], int c, int f, int cp=-1, bool s2=false);
+	bool control_point(float avg[3], int c, int f, int cp=-1, bool s2=true);
 	//2021: update_animation_post separates
 	//the copy to the vbuffer so the arm.mdl
 	//has a chance to adjust the animation
@@ -2455,11 +2481,11 @@ struct som_MDL //SOM::Struct<250>
 	bool advance(int dir=1),advance2(int dir=1);
 	void rewind()
 	{
-		f = -1; ext.dir = 1; if(1||e!=c) ext.s = ext.t2 = 0;
+		f = -1; ext.dir = 1; if(e!=c) ext.t2 = 0; ext.s = 0;
 	}
 	void rewind2()
 	{
-		ext.f2 = -1; ext.dir2 = 1; if(1||e!=c) ext.s2 = ext.t2 = 0; 
+		ext.f2 = -1; ext.dir2 = 1; if(e!=c) ext.t2 = 0; ext.s2 = 0;
 	}
 	SOM::Animation *find_first_kage();
 
@@ -2661,7 +2687,7 @@ struct som_MDL //SOM::Struct<250>
 		float scale[3]; //20-31B
 		float xyz[3]; //32-43B
 		float nonlocal[4][4]; //44-107B
-		float local[4][4]; //108-171B
+		float local[4][4]; //108-171B //scale?
 		float xform[4][4]; //172-235B
 
 		//36 bytes 236-271
@@ -2851,7 +2877,9 @@ struct som_MDL //SOM::Struct<250>
 			//NOTE: must recompute if [3][3] is 0
 			float(*inverse)[4][4];*/
 
-			float cp_accum[2][3];
+			float cp_accum[2][3]; //2024
+
+			int feelers; //2024
 
 		}clip;
 

@@ -124,7 +124,8 @@ namespace SOM //old-style menus
 
 			int pixels()const; //%s: may want to extend to Use? like boxes?
 
-			const char *translate(const char*,int=0)const; 									
+			const char *translate(const char*,int=0)const;
+			const char *translate2(const char*,int=0)const;
 
 		private: friend void SOM::initialize_som_menus_cpp();
 

@@ -72,6 +72,7 @@ SOM_932_(Start)[3][16] =
 /*do_kf3*/ {"","NEW","CONTINUE"}, 
 /*do_st*/  {"PUSH START","NEW","LOAD"},
 };
+SOM_932_(Equip_Broke) = "機器が壊れた";
 //som.menus.cpp
 SOM_932_(Take) = "%sを取りますか？";
 SOM_932_(Press_any_button) = "孰かのボタンを押す";
@@ -122,6 +123,15 @@ SOM_932_(EneEdit_attack123) = "%s接攻撃%s"; //直接攻撃２ //間接攻撃２
 //SOM_932_(unregistered) = "未登録"; //mi-tou-roku //0x490030
 SOM_932_(SOM_MAP_load_standby_map) = "スタンバイマップをロード";
 SOM_932_(SOM_MAP_blend)[16] = {"フォグを混ぜる","スカイを混ぜる"};
+//som.menus.cpp
+SOM_932_(Shield_katakana) = "シールド";
+SOM_932_(Assist_katakana) = "アシスト";
+SOM_932_(Diagonal) = "斜め"; //oblique
+SOM_932_(Lateral) = "横方向"; 
+SOM_932_(Powerful) = "強力";
+SOM_932_(Straight) = "突進";
+SOM_932_(Defense) = "防御力";
+SOM_932_(Attack) = "攻撃力";
 
 #undef SOM_932_
 #endif SOM_932_INCLUDED

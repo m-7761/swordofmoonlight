@@ -1,8 +1,8 @@
 
 #ifndef SOMPASTE_VERSION
-#define SOMPASTE_VERSION 1,0,2,8
-#define SOMPASTE_VSTRING "1, 0, 2, 8"
-#define SOMPASTE_WSTRING L"1, 0, 2, 8"
+#define SOMPASTE_VERSION 1,0,2,10
+#define SOMPASTE_VSTRING "1, 0, 2, 10"
+#define SOMPASTE_WSTRING L"1, 0, 2, 10"
 #endif
 
 //ISSUES //ISSUES //ISSUES
@@ -204,6 +204,24 @@ SOMPASTE_API
 //(Note also that while longnames are shunned, they may aid artists in the early stages)*/
 const wchar_t *SOMPASTE_LIB(Longname)(wchar_t token)
 SOMPASTE_API_FINALE(const wchar_t*,Longname,(wchar_t),(token))
+
+SOMPASTE_API
+/*2024
+* Trying to extend database (EXPERIMENTAL)
+* 
+* HACK: This is a starting point to adding/inserting something new to/into the database.
+*/
+wchar_t SOMPASTE_LIB(Name)(const wchar_t *longname)
+SOMPASTE_API_FINALE(wchar_t,Name,(const wchar_t*),(longname))
+
+SOMPASTE_API
+/*2024
+* Trying to extend database (EXPERIMENTAL)
+* 
+* HACK: This is a starting point to adding/inserting something new to/into the database.
+*/
+bool SOMPASTE_LIB(Inject)(SOMPASTE p, HWND owner, wchar_t path[MAX_PATH], size_t kind_or_filesize)
+SOMPASTE_API_FINALE(bool,Inject,(SOMPASTE,HWND,wchar_t[],size_t),(p,owner,path,kind_or_filesize))
 
 SOMPASTE_API
 /*Convert a "place" into a file system file / folder address
@@ -568,6 +586,10 @@ struct SOMPASTE_LIB(module)
 	{
 		return (int)SOMPASTE_LIB(Database)(this,owner,inout,filter,0,0); 
 	}
+	inline bool database_insert(HWND owner, wchar_t path[MAX_PATH], size_t kind_or_filesize)
+	{
+		return SOMPASTE_LIB(Inject)(this,owner,path,kind_or_filesize); 
+	}
 	static const wchar_t *longname(wchar_t token)
 	{
 		return SOMPASTE_LIB(Longname)(token);
@@ -575,6 +597,10 @@ struct SOMPASTE_LIB(module)
 	static const wchar_t *longname(const wchar_t *token)
 	{
 		return token[1]?token:SOMPASTE_LIB(Longname)(token[0]);
+	}
+	static wchar_t longname_token(const wchar_t *longname) //2024
+	{
+		return SOMPASTE_LIB(Name)(longname); //EXPERIMENTAL
 	}
 	inline HWND place(HWND owner, wchar_t out[MAX_PATH], const wchar_t *in, const wchar_t *title=L"", void *modeless=0)
 	{

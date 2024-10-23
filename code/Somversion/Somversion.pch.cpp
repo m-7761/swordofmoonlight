@@ -3,7 +3,9 @@
 
 extern void Somfont()
 {	
-	static bool once = false; if(once++) return;
+	static bool once = false; 
+	
+	if(once) return; once = true;
 
 	wchar_t font[MAX_PATH] = L"";
 	DWORD max_path = sizeof(font);		

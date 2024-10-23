@@ -30,7 +30,7 @@ namespace Sompaste_pch //annoying
 
 #include <windows.h> 
 #include <windowsx.h> //GET_X_LPARAM
-#include <afxres.h> //ID_EDIT_UNDO
+#include "afxres.h" //ID_EDIT_UNDO
 
 #include <commctrl.h> //SetWindowSubclass
 //5.8 or better required for SetWindowSubclass and friends
@@ -84,5 +84,7 @@ extern const wchar_t *Somenviron(SOMPASTE p, const wchar_t *var, const wchar_t *
 extern HWND Somplace(SOMPASTE, HWND owner, wchar_t out[MAX_PATH], const wchar_t *in, const wchar_t *title, void *modeless);
 extern HWND Somproject(SOMPASTE, HWND owner, wchar_t inout[MAX_PATH], const wchar_t *filter, const wchar_t *title, void *modeless);
 extern const wchar_t *Somproject_longname(long);
+extern wchar_t Somproject_name(const wchar_t *longname); //EXPERIMENTAL
+extern bool Somproject_inject(SOMPASTE,HWND,wchar_t[MAX_PATH],size_t); //EXPERIMENTAL
 
 #endif //SOMPASTE_PCH_INCLUDED

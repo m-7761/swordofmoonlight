@@ -300,6 +300,13 @@ SOM_MAGIC_MENU
 	FLOW(_(X),case,hack: cost/magic description)
 	TEXT(_(X),1,COST,Cost,"魔法\4%3d","%3d")
 	FLOW(_(X),none,hack: see case^)
+
+		//EXTENSION //2024
+		//som_game_equip_menu_text_422ab0
+		#else 
+		FLOW(_(X),case,hack: item count)
+		TEXT(_(X),1,COST,Cost,"装備\4x%3d","x%3d")
+		FLOW(_(X),none,hack: see case^)
 #endif	
 	FLOW(_(X),cond,conditional continue...)
 	FLOW(_(X),case,attack/defense/none)
@@ -454,9 +461,9 @@ STOP(_(X),0,INV,Inv,"アイテム表示","Examine Display")
 	FLOW(_(X),case,joypad if present)
 	TEXT(_(X),1,PADXX,PadXX,"パッドなし","None Found")
 	FLOW(_(X),done,...)
+	TEXT(_(X),1,_BRIGHT,_Bright,"明るさ調整\4%d","%d") 
 	TEXT(_(X),1,_BGM,_Bgm,"ＢＧＭボリューム\4%d","%d")
-	TEXT(_(X),1,_SOUND,_Sound,"効果音ボリューム\4%d","%d")
-	TEXT(_(X),1,_BRIGHT,_Bright,"明るさ調整\4%d","%d")
+	TEXT(_(X),1,_SOUND,_Sound,"効果音ボリューム\4%d","%d") 
     TEXT(_(X),0,_HUD,_Hud,"各種ゲージ表示\4*WS*","*")
     TEXT(_(X),0,_NAV,_Nav,"方向表示\4*WS*","*")
     TEXT(_(X),0,_INV,_Inv,"アイテム表示\4*WS*","*")

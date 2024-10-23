@@ -16,7 +16,7 @@
 {return((out(*)prot)Somversion_hpp(L#lib L".dll",#imp))args;}
 #else /*!SOMVERSION_PCH_INCLUDED*/
 #define SOMVERSION_HPP_INTERFACE_(lib,out,imp,prot,args) \
-{static void*jmp=Somversion_hpp(L#lib L".dll",#imp);return((out(*)prot)jmp)args;}
+{static void*j=0;j=Somversion_hpp(L#lib L".dll",#imp);return((out(*)prot)j)args;}
 #endif /*SOMVERSION_PCH_INCLUDED*/
 #define SOMVERSION_HPP_INTERFACE(lib,out,imp,prot,args) \
 		SOMVERSION_HPP_INTERFACE_(lib,out,imp,prot,args) 

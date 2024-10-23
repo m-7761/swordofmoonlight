@@ -26,6 +26,8 @@ extern SOMPASTE Sompaste = 0;
 #include "../lib/swordofmoonlight.h" //zip
 #include "../x2mdl/x2mdl.h"
 
+#pragma optimize("",off) //2024
+
 namespace EX{ extern int x,y; }
 
 namespace DDRAW{ extern bool fx2ndSceneBuffer; }
@@ -7742,34 +7744,21 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 					HWND name = hlp==35100?som_tool_dialog():hWnd;
 					if(!GetDlgItemTextW(name,1029,som_tool_text,MAX_PATH))
 					{
-						//YUCK: not sure about this??
-						auto *a = (char*)ComboBox_GetItemData(lp,sel);
-						char *sep = strchr(a+32,'-');
-						assert(a[31]=='@'&&sep);
-						extern int som_tool_profile(wchar_t*&,int,int);
-						wchar_t *_ = som_tool_text;
-						som_tool_profile(_,atoi(sep+1),atoi(a+32));
-						_=wcscpy(som_tool_text,_-31);
-						if(auto*p=wcschr(_,'(')) 
-						do --p;
-						while(p<_&&isspace(*p));
+						GetWindowText(lp,som_tool_text,MAX_PATH);
+						auto *_ = som_tool_text;
+						while(*_) switch(*_++) //category?
+						{
+						case 0x3011: //right lenticular bracket
+						case ']': goto _;
+						}
+						if(!*_) 
+						_ = som_tool_text; _:
+						while(isspace(*_)) _++;
+						auto *p = wcschr(_,'(');
+						if(p) do --p; while(p<_&&isspace(*p));
+						if(p) *p = '\0';
 						HWND nc = GetDlgItem(name,1029);
 						SetWindowTextW(nc,_);
-						//Enemy tab requires one of these???						
-						/*disabling code in SOM_PRM_reprogram
-						* 00403413 75 39                jne         0040344E
-						SOM_PRM_47a708.save() = 1; 
-						SendMessage(name,WM_COMMAND,MAKEWPARAM(1029,EN_CHANGE),(LPARAM)nc);
-						SendMessage(name,WM_COMMAND,MAKEWPARAM(1029,EN_UPDATE),(LPARAM)nc);
-						SendMessage(nc,EM_SETMODIFY,1,0); //and this?
-						if(som_prm_tab==1005) //Enemies?
-						{
-							*(int*)0x47F838 = 1;
-							//0040340E 8B 48 F8		mov		ecx,dword ptr [eax-8]  
-							*(int*)0x478a8c = 1;
-							//004567D7 80 24 38 00	and		byte ptr [eax+edi],0
-							*(BYTE*)0x478a94 = 1;
-						} */
 						SendMessage(som_tool,WM_COMMAND,1013,0); //push old Record button
 					}
 					
@@ -9675,6 +9664,12 @@ static INT_PTR CALLBACK som_tool_InitDialog(HWND hwndDlg, UINT uMsg, WPARAM wPar
 	//Reminder: these go before SOM's DIALOGPROC is installed
 	switch(hlp) 
 	{
+	case 30000: //SOM_PRM
+
+		//2024: trying to update profiles on tab change only
+		SOM::PARAM::kickoff_write_monitoring_thread(hwndDlg);
+		break;
+
 	case 40000: //SOM_MAP
 
 		//ASSUMING EXCLUSIVE ACCESS TO onWrite
@@ -10754,6 +10749,9 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE A, LPCDLGTEMPLA
 						SOM_MAP_ini = GetPrivateProfileInt(L"editor",L"toggleSets",0,SOM::Game::title('.ini'));
 						SOM_MAP_alpha[0] = GetPrivateProfileInt(L"editor",L"mixer1",-50,SOM::Game::title('.ini'));
 						SOM_MAP_alpha[1] = GetPrivateProfileInt(L"editor",L"mixer2",0,SOM::Game::title('.ini'));
+
+						//HACK: must initialize to small version (background is corrupted otherwise, but it's big)
+						if(1!=som_tool_enlarge) SOM_MAP_ini&=~1; 
 
 						peek->exStyle|=WS_EX_APPWINDOW;
 					}
@@ -12951,7 +12949,7 @@ static bool som_tool_mapcomp(const wchar_t *w) //helper
 }			 
 
 //2018: making available to workshop_exe 
-extern int som_tool_profile(wchar_t* &io, int minor, int major=-1)
+extern int som_tool_profile(wchar_t* &io, int minor, int major=-1, bool no_database=false)
 {
 	const wchar_t *prof = 0; //returned as courtesy 
 
@@ -12967,12 +12965,26 @@ extern int som_tool_profile(wchar_t* &io, int minor, int major=-1)
 		prof = tab[tab(major)+minor].profile;
 	}
 								
-	int sep = *io?Sompaste->database(0,io,0,0):0; 
+	int sep; if(no_database) //2024: som_map_append_prt? //UNUSED
+	{
+		if(auto*s=wcschr(io,'/')) *s = '\0';
 
-	if(sep&&!io[sep+1]) //w=v
-	wcscpy(io+sep,Sompaste->longname(io[sep])); //NEW 
+		const wchar_t *ln = Sompaste->longname(prof);
 
-	io = const_cast<wchar_t*>(prof); return sep;
+		wchar_t data[MAX_PATH];
+		swprintf(data,L"%ls\\%hs\\%ls",io,major==-1?"parts":"prof",ln);
+		int len = EX::data(data,io);
+		return PathFindFileName(io)-io;
+	}
+	else
+	{
+		int sep = *io?Sompaste->database(0,io,0,0):0; 
+
+		if(sep&&!io[sep+1]) //w=v
+		wcscpy(io+sep,Sompaste->longname(io[sep])); //NEW 
+	
+		io = const_cast<wchar_t*>(prof); return sep;
+	}
 }
 extern HANDLE som_sys_dat = 0;
 static HANDLE WINAPI som_tool_CreateFileA(LPCSTR in, DWORD A, DWORD B, LPSECURITY_ATTRIBUTES C, DWORD D, DWORD E, HANDLE F)
@@ -13230,6 +13242,25 @@ static HANDLE WINAPI som_tool_CreateFileA(LPCSTR in, DWORD A, DWORD B, LPSECURIT
 		assert(out!=0); //INVALID_HANDLE_VALUE
 	}
 
+	if(A&GENERIC_WRITE)
+	if(SOM_MAP.exe==SOM::tool&&w_e=='m') //2024: make backup?
+	{
+		static bool *once = new bool[64]();
+
+		unsigned map = _wtoi(w_ext-2);
+		
+		assert(map<64&&isdigit(w_ext[-2])); 
+		
+		if(map<64&&!once[map])
+		{
+			once[map] = true; //assuming a valid file was opened
+
+			wchar_t cp[MAX_PATH]; swprintf(cp,L"%s.1",w);
+
+			CopyFileW(w,cp,0);
+		}
+	}
+
 	if(!out) out = CreateFileW(w,A,B,C,D,E,F);   	
 	assert(out!=0); //INVALID_HANDLE_VALUE
 	if(out==INVALID_HANDLE_VALUE||!SOM::Tool->ReadFile)
@@ -13335,7 +13366,8 @@ static HANDLE WINAPI som_tool_CreateFileA(LPCSTR in, DWORD A, DWORD B, LPSECURIT
 		//NOTE: I've copid this to SOM_MAP_201_open in
 		//2021
 		SOM_MAP.map.current = recursive; //YUCK
-		SOM_MAP.map = out; 
+		SOM_MAP.map = out;
+
 		break;
 	}
 	break;
@@ -14265,8 +14297,10 @@ static bool som_map_reset(bool &wrote)
 	bool out = wrote; wrote = false; return out;
 }
 struct SOM_MAP_icon_kv;
-extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022
+extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022: som.files.cpp
 {
+	assert(SOM::tool==SOM_MAP.exe);
+
 	auto &k = SOM_MAP.prt.blob[knum];
 	auto *p = SOM_MAP_4921ac.find_part_number(k.part_number());	
 	FILE *f = p?_wfopen(path,L"rb"):0; assert(f);
@@ -14344,6 +14378,123 @@ extern void som_map_syncup_prt(int knum, wchar_t path[MAX_PATH]) //2022
 	(SOM_MAP_4921ac::Icon*,WCHAR[],SOM_MAP_4921ac::Part*,std::set<SOM_MAP_icon_kv>*_=0);
 	auto* &ll = SOM_MAP_4921ac.icons_llist;
 	ll = SOM_MAP_40f830_icon(ll,art,p);
+}
+extern bool som_map_append_prt(wchar_t path[MAX_PATH]) //2024: som.files.cpp
+{
+	assert(SOM::tool==SOM_MAP.exe);
+
+	if(!Sompaste->database_insert(som_tool,path,228)) return false;
+
+	const wchar_t *fn = PathFindFileName(path);
+
+	//HACK: there isn't a corresponding item in the
+	//"database" for this part, but it has a longname
+	//entry. it's unknown if it belongs in the database
+	auto &v = SOM_MAP.prt.blob;
+	auto it = std::upper_bound(v.begin(),v.end()-1,fn,SOM_MAP_prt::predicate());
+	size_t index = it-v.begin();
+	SOM_MAP.prt.blob.insert(it,L"");	
+	for(auto&ea:v) if(ea.index==SOM_MAP.prt.missing) 
+	ea.index++;
+	SOM_MAP.prt.missing++; //2024
+
+	it = v.begin()+index; if(wcslen(fn)>=15)
+	{
+		it->profile[0] = Sompaste->longname_token(fn);
+		it->profile[1] = '\0';
+	}
+	else wcscpy_s(it->profile,fn);
+	
+	memset(&it->writetime,0x00,sizeof(FILETIME));
+
+	SOM_MAP_4921ac::Part *cp = SOM_MAP_4921ac.parts;
+	size_t sz = sizeof(*cp)*(SOM_MAP_4921ac.partsN+1);
+	(void*&)SOM_MAP_4921ac.parts = ((void*(__cdecl*)(size_t))0x46573f)(sz); //malloc?
+		
+	for(size_t i=SOM_MAP_4921ac.partsN;i-->index;)
+	{
+		if(cp[i].part_number>=1024) cp[i].part_number++;
+	}
+
+	memcpy(SOM_MAP_4921ac.parts,cp,sizeof(*cp)*index);
+	memcpy(SOM_MAP_4921ac.parts+index+1,cp+index,sizeof(*cp)*(SOM_MAP_4921ac.partsN-index));
+
+	((void(__cdecl*)(void*))0x465768)(cp); //free?
+
+	SOM_MAP_4921ac.partsN++;
+
+	auto &pt = SOM_MAP_4921ac.parts[index];
+
+	//HACK: expecting som_map_syncup_prt to fill this in
+	memset(&pt,0x00,sizeof(pt));
+
+	pt.part_number = it->part_number();
+
+	extern std::vector<WORD> SOM_MAP_my_plt;
+			
+	for(auto&ea:SOM_MAP_my_plt)
+	{
+		if(ea>=index) ea++;
+	}
+
+	index+=1024; //part_number
+
+	for(auto&ea:SOM_MAP_4921ac.grid)
+	{
+		if(ea.part>=index) 
+		if(ea.part!=65535) ea.part++;
+	}
+	for(int i=0;i<7;i++)
+	{
+		if(auto*p=SOM_MAP.layers[i])
+		{	
+			for(int j=100*100;j-->0;)
+			{
+				if(p[j].part>=index)
+				if(p[j].part!=65535) p[j].part++;
+			}
+		}
+	}
+	extern void SOM_MAP_adjust_undo_v(size_t);
+	SOM_MAP_adjust_undo_v(index);
+
+	index-=1024; //part_number
+
+	size_t ins = index-1;
+	size_t plt = ~0u;
+	if(ins!=SOM_MAP.prt.missing)
+	{
+		auto jt = SOM_MAP_my_plt.begin();
+		for(;jt<SOM_MAP_my_plt.end();jt++) if(ins==*jt)
+		{
+			jt++;
+			plt = jt-SOM_MAP_my_plt.begin();
+			SOM_MAP_my_plt.insert(jt,index); break;
+		}
+	}
+	if(plt==~0u)
+	{
+		auto jt = SOM_MAP_my_plt.begin();
+		plt = 0;
+		SOM_MAP_my_plt.insert(jt,index);
+	}
+	//fix palette area? //SOM_MAP_40000
+	{
+		int *vp = (int*)SOM_MAP_app::CWnd(SOM_MAP.palette);
+		int w = vp[0x54/4];
+		int h = SOM_MAP.prt.missing; //SOM_MAP_prt.blob.size();
+		if(h%w==0) h--; h/=w;
+
+		h++; //SOM_MAP_expand_icons? 
+
+		SetScrollRange(SOM_MAP.palette,1,0,h,0);
+
+		//HACK: trigger som_files_wrote_pr to update MSM view
+		extern WORD workshop_category;
+		workshop_category = it->number();
+	}	
+
+	return true;
 }
 static void som_map_syncup_prm_and_pr2_files()
 {	

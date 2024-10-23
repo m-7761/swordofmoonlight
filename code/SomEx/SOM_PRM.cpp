@@ -8,6 +8,8 @@ EX_TRANSLATION_UNIT //(C)
 #include "som.files.h"
 #include "som.tool.hpp" 
 
+#pragma optimize("",off) //2024
+
 extern HWND &som_tool;
 extern int som_tool_initializing;
 extern HWND som_tool_stack[16+1];
@@ -745,6 +747,32 @@ void __cdecl SOM_PRM_41bf19()
 	}
 }
 
+extern void som_SFX_write_PARAM_SFX_dat();
+static void __fastcall save_magic_tab(void *ecx)
+{
+	((void(__fastcall*)(void*))0x4207b0)(ecx);
+
+	som_SFX_write_PARAM_SFX_dat();
+}
+static void __fastcall save_object_tab(void *ecx)
+{
+	((void(__fastcall*)(void*))0x42b970)(ecx);
+
+	som_SFX_write_PARAM_SFX_dat(); //lamps
+}
+static void __fastcall save_enemy_tab(void *ecx)
+{
+	((void(__fastcall*)(void*))0x403930)(ecx);
+
+	som_SFX_write_PARAM_SFX_dat();
+}
+static void __fastcall save_NPC_tab(void *ecx)
+{
+	((void(__fastcall*)(void*))0x427270)(ecx);
+
+	som_SFX_write_PARAM_SFX_dat();
+}
+
 /*REFERENCE: MAY NEED LATER
 #pragma runtime_checks("",off) // mov         ecx,0Bh
 void __stdcall SOM_PRM_45A9FB(DWORD x, DWORD y, DWORD _cx, DWORD cy, DWORD clr)
@@ -919,17 +947,6 @@ extern void SOM_PRM_reprogram()
 		*(DWORD*)0x4034F5 = (DWORD&)add_profile-0x4034F9;
 		*(DWORD*)0x426CA1 = (DWORD&)add_profile-0x426CA5;
 	}
-	if(1) //2021: save PARAM/ITEM.ARM (+ beginning of move/delete help)
-	{	
-		memset((void*)0x41bf19,0x90,219);
-		*(BYTE*)0x41bf19 = 0xe8; //call
-		*(DWORD*)0x41bf1a = (DWORD)SOM_PRM_41bf19-0x41bf1e;
-
-		//2023: always save item.ARM (and everything else)
-		//since it's too much trouble to trigger item.arm
-		memset((void*)0x43e6c6,0x90,0x43e6d2-0x43e6c6);
-		memset((void*)0x43e6d5,0x90,0x43e6de-0x43e6d5);
-	}
 
 	//2023: problem removing non-items from PR2/PRO record
 	{
@@ -966,6 +983,43 @@ extern void SOM_PRM_reprogram()
 	{	
 		//00403413 75 39                jne         0040344E
 		*(BYTE*)0x403413 = 0xeb; //jmp
+	}
+
+	if(1) //2024: SFX.dat? //including lamps
+	{
+		//0043e774 e8 37 20 fe ff CALL FUN_004207b0_save_magic_tab
+		*(DWORD*)0x43e775 = (DWORD)save_magic_tab-0x43e779;
+		//0043e7d1 e8 9a d1 fe ff CALL FUN_0042b970_save_object_tab
+        *(DWORD*)0x43e7d2 = (DWORD)save_object_tab-0x43e7d6;
+		//0043e82a e8 01 51 fc ff CALL FUN_00403930_save_enemy_tab
+		*(DWORD*)0x43e82b = (DWORD)save_enemy_tab-0x43e82f;
+		//0043e87b e8 f0 89 fe ff CALL FUN_00427270_save_npc_tab
+		*(DWORD*)0x43e87c = (DWORD)save_NPC_tab-0x43e880;
+
+		//don't test save requirements
+		memset((void*)0x43e762,0x90,6); //magic
+		memset((void*)0x43e76e,0x90,6); //magic
+		memset((void*)0x43e7bf,0x90,6); //object
+		memset((void*)0x43e7cb,0x90,6); //object
+		memset((void*)0x43e820,0x90,2); //enemy
+		memset((void*)0x43e828,0x90,2); //enemy
+		memset((void*)0x43e871,0x90,2); //npc
+		memset((void*)0x43e879,0x90,2); //npc
+	}	
+	if(1) //2021: save PARAM/ITEM.ARM (+ beginning of move/delete help)
+	{	
+	  //TODO: CAN THIS BE IMPLEMENTED LIKE save_item_tab?	
+	  //TODO: CAN THIS BE IMPLEMENTED LIKE save_item_tab?
+	  //TODO: CAN THIS BE IMPLEMENTED LIKE save_item_tab?
+
+		memset((void*)0x41bf19,0x90,219);
+		*(BYTE*)0x41bf19 = 0xe8; //call
+		*(DWORD*)0x41bf1a = (DWORD)SOM_PRM_41bf19-0x41bf1e;
+
+		//2023: always save item.ARM (and everything else)
+		//since it's too much trouble to trigger item.arm
+		memset((void*)0x43e6c6,0x90,0x43e6d2-0x43e6c6);
+		memset((void*)0x43e6d5,0x90,0x43e6de-0x43e6d5);
 	}
 }
 

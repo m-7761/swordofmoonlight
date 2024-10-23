@@ -4,6 +4,7 @@ EX_TRANSLATION_UNIT //(C)
 
 #include <vector> 
 #include <algorithm> 
+#include <unordered_map> 
 
 #include "dx.ddraw.h"
 
@@ -21,9 +22,13 @@ EX_TRANSLATION_UNIT //(C)
 #include "../lib/swordofmoonlight.h" //prf
 #include "../x2mdl/x2mdl.h"
 
+#pragma optimize("",off) //2024
+
 namespace workshop_cpp
 {
 	namespace prf = SWORDOFMOONLIGHT::prf;
+
+	typedef swordofmoonlight_sfx_dat_t sfx_dat;
 
 	typedef swordofmoonlight_prt_part_t part_prt;
 
@@ -54,6 +59,12 @@ namespace workshop_cpp
 		WORD &my_sfx(){ return *(WORD*)&inclination; }			
 		BYTE &my_screeneffect(){ return *(BYTE*)(&my_sfx()+1); }
 		char *my_icard(){ return descriptions[0]; }
+
+		static sfx_dat &magic2_sfx_dat()
+		{
+			static sfx_dat d = {}; return d; //HACK?
+		}
+		char *magic2_sound(){ return skinTXR; }
 	};
 	struct npc_prf : prf_header, prf::npc_t
 	{
@@ -66,6 +77,12 @@ namespace workshop_cpp
 	struct my_prf : prf_header2, prf::magic_t
 	{
 		char icard[97];
+	};
+	struct magic2_prf : prf_header2, prf::magic2_t
+	{
+		char icard[97];
+
+		char f,x;
 	};
 
 	static int datamask = 0; struct data
@@ -499,7 +516,8 @@ static void workshop_moves_32767()
 		{
 			wchar_t w[8];
 			HWND ch = GetWindow(GetDlgItem(som_tool,1042),GW_CHILD);
-			for(int i=3;ch;ch=GetWindow(ch,GW_HWNDNEXT),i--) 
+			ch = GetWindow(ch,GW_HWNDLAST);
+			for(int i=0;ch;ch=GetWindow(ch,GW_HWNDPREV),i++) 
 			{
 				if(i==0&&move) break; //skip own self?
 
@@ -606,13 +624,19 @@ extern const char *workshop_directory(int sfx=false, int tool_or_hlp=SOM::tool)
 	case ObjEdit.exe: case 34100: return "obj";
 	case EneEdit.exe: case 35100: return "enemy";
 	case NpcEdit.exe: case 36100: return "npc";
-	case SfxEdit.exe: case 33100: return sfx=='sfx'?"sfx":"my"; 
+	case SfxEdit.exe: case 33100: return sfx=='snd'?"sound":sfx=='sfx'?"sfx":"my"; 
 	default: assert(SOM::tool==PrtsEdit.exe);
 	case 40000: return "map";
 	}
 }
 static const char *workshop_subdirectory(int id)
 {
+	if(SOM::tool==SfxEdit.exe) switch(id) //2024
+	{
+	case 1007: return "model";
+	case 1008: return "se";	
+	}
+
 	/*2022: preferring map/model
 	switch(id)
 	{	
@@ -1032,9 +1056,32 @@ static HANDLE SfxEdit_1000(HWND cb, int wr=0)
 		SetWindowLong(cb,GWL_USERDATA,fp);
 	}	
 
-	HANDLE h = INVALID_HANDLE_VALUE;
-	if(EX::data("sfx\\Sfx.dat",w))
-	h = CreateFileW(w,GENERIC_READ|wr,FILE_SHARE_READ,0,OPEN_EXISTING,0,0);
+	HANDLE h = INVALID_HANDLE_VALUE; 
+	if(wr) //2024: create writable SFX.DAT for project?
+	{
+		swprintf(w,L"%s\\DATA\\SFX\\SFX.DAT",EX::cd()); //2024
+		h = CreateFileW(w,GENERIC_READ|wr,FILE_SHARE_READ,0,OPEN_EXISTING,0,0);
+		if(h==INVALID_HANDLE_VALUE)
+		{
+			swprintf(w,L"%s\\DATA\\SFX",EX::cd()); //2024
+			CreateDirectory(w,0);
+			swprintf(w,L"%s\\DATA\\SFX\\SFX.DAT",EX::cd()); //2024
+			h = CreateFileW(w,wr,0,0,CREATE_ALWAYS,0,0);
+			SOM::sfx_dat_rec rec = {}; rec.procedure = 255;
+			for(DWORD _,i=1024;i-->0;)
+			WriteFile(h,&rec,sizeof(rec),&_,0);
+			CloseHandle(h);
+			h = CreateFileW(w,GENERIC_READ|wr,FILE_SHARE_READ,0,OPEN_EXISTING,0,0);
+		}		
+	}
+	else
+	{
+		swprintf(w,L"%s\\PARAM\\SFX.DAT",EX::cd()); //2024
+		h = CreateFileW(w,GENERIC_READ|wr,FILE_SHARE_READ,0,OPEN_EXISTING,0,0);
+		if(h==INVALID_HANDLE_VALUE)
+		if(EX::data("sfx\\Sfx.dat",w))
+		h = CreateFileW(w,GENERIC_READ|wr,FILE_SHARE_READ,0,OPEN_EXISTING,0,0);
+	}
 	if(cb)
 	{
 		workshop_cpp::sfx_record sfx;		
@@ -1068,7 +1115,11 @@ static VOID CALLBACK SfxEdit_1000_timer(HWND win, UINT, UINT_PTR id, DWORD)
 }
 static HANDLE SfxEdit_CreateFile(DWORD A, DWORD D)
 {		
-	workshop_cpp::my_prf my;
+	union
+	{
+		workshop_cpp::my_prf my;
+		workshop_cpp::magic2_prf m2;
+	};
 	workshop_cpp::enemy_prf enemy;
 	memset(&enemy,0x00,sizeof(enemy));
 	DWORD rd = 0; //used below
@@ -1077,7 +1128,7 @@ static HANDLE SfxEdit_CreateFile(DWORD A, DWORD D)
 		assert(A&GENERIC_READ);
 		HANDLE h = CreateFileW(som_tool_text,A,0,0,D,0,0);
 		if(h==INVALID_HANDLE_VALUE) return h;
-		ReadFile(h,&my,sizeof(my),&rd,0); 
+		ReadFile(h,&my,sizeof(m2),&rd,0); 
 		CloseHandle(h);
 	}
 	else 
@@ -1086,13 +1137,25 @@ static HANDLE SfxEdit_CreateFile(DWORD A, DWORD D)
 		my.friendlySFX = GetDlgItemInt(som_tool,1000,0,0);
 	}
 
-	assert(0==my._unknown1);
-	assert(0==my._unknown2);
+	//2024: new SFX sets these
+	//assert(0==my._unknown1);
+	//assert(0==my._unknown2);
 	enemy.my_sfx() = my.friendlySFX;
 	enemy.my_screeneffect() = my.onscreen;
 	memcpy(enemy.name,my.name,sizeof(my.name));
-	if(rd==40+97)
-	memcpy(enemy.my_icard(),my.icard,sizeof(my.icard));
+
+	if(1>=my.onscreen)
+	{
+		if(rd>=40+97)
+		memcpy(enemy.my_icard(),my.icard,sizeof(my.icard));
+	}
+	else if(2==my.onscreen&&rd>=sizeof(m2)) 
+	{
+		memcpy(&enemy.magic2_sfx_dat(),&m2.SFX_dat,sizeof(m2.SFX_dat));
+		memcpy(enemy.model,m2.model,sizeof(m2.model));
+		memcpy(enemy.magic2_sound(),m2.sound,sizeof(m2.sound));
+		memcpy(enemy.my_icard(),m2.icard,sizeof(m2.icard));
+	}	
 
 	//HACK: SfxEdit_CreateFile_TXR disables culling
 	DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_CULLMODE,DX::D3DCULL_CCW);
@@ -1530,15 +1593,15 @@ static bool workshop_ReadFile_part(workshop_cpp::part_prt &part, size_t part_s)
 	//HACK: emulate the other tools
 	workshop_SetWindowTextA(som_tool,SOMEX_(A)"\\.ws"); return true;
 }
-static void workshop_click_radio(int a, int z, int id)
+static void workshop_click_radio(int a, int z, int id, HWND hw=som_tool)
 {
 	if(z==2000+0x1F) //HACK: ObjEdit
 	{
 		//2022: BM_CLICK below was showing None (1007)
 		//checked, but it could be a graphical glitch
 		//since it only happens in the maximized mode
-		CheckRadioButton(som_tool,2000,z,id);
-		CheckRadioButton(som_tool,1007,1009,id);
+		CheckRadioButton(hw,2000,z,id);
+		CheckRadioButton(hw,1007,1009,id);
 		goto notify;
 	}
 
@@ -1547,7 +1610,7 @@ static void workshop_click_radio(int a, int z, int id)
 	/*2021: I think it happens when checkboxes are disabled
 	//(it's happening with ItemEdit File->New)
 	if(workshop_mode==0)*/
-	if(!IsWindowEnabled(GetDlgItem(som_tool,id)))
+	if(!IsWindowEnabled(GetDlgItem(hw,id)))
 	{	
 		if(z==2000+0x1F) //HACK: ObjEdit
 		{
@@ -1556,18 +1619,18 @@ static void workshop_click_radio(int a, int z, int id)
 			assert(SOM::tool==ObjEdit.exe);
 			if(id<2000)
 			{
-				CheckRadioButton(som_tool,2000,z,id);
+				CheckRadioButton(hw,2000,z,id);
 				z = 1009;				
 			}
 		}
 //2023: BM_CLICK causes artifacts when hiding		
 
-//		CheckRadioButton(som_tool,a,z,id);
+//		CheckRadioButton(hw,a,z,id);
 	}
-//	SendDlgItemMessage(som_tool,id,BM_CLICK,0,0);
-	CheckRadioButton(som_tool,a,z,id);
+//	SendDlgItemMessage(hw,id,BM_CLICK,0,0);
+	CheckRadioButton(hw,a,z,id);
 	notify: //2023: simulate BM_CLICK?
-	SendMessage(som_tool,WM_COMMAND,id,(LPARAM)GetDlgItem(som_tool,id));
+	SendMessage(hw,WM_COMMAND,id,(LPARAM)GetDlgItem(hw,id));
 }
 static WCHAR *workshop_default(WCHAR *w, int i, int def=0)
 {
@@ -1761,12 +1824,6 @@ static bool workshop_ReadFile_obj(workshop_cpp::object_prf &obj, size_t obj_s)
 
 	if(obj_s==108+97) memcpy(workshop->icard,obj.icard,96);
 
-	//1 for chest/switch/door/trap...
-	//setting to 0 doesn't appear to change things
-	//assert((obj.operation==0x15)==obj.interactive); 
-	//assert(0==obj._unused1); //1.0 for 0000/0001.prf
-	assert(0==obj._unknown3);
-
 	//Reminder: ObjEdit fails to set these if 1001
 	//comes before 1000 in window order (weird???)
 	int id; switch(obj.clipmodel)
@@ -1839,6 +1896,7 @@ static bool workshop_ReadFile_obj(workshop_cpp::object_prf &obj, size_t obj_s)
 
 	SetDlgItemText(som_tool,1040,workshop_default(w,obj.flameSFX,-1));
 	SetDlgItemText(som_tool,1041,workshop_default(w,obj.flameSFX_periodicity));
+	SetDlgItemText(som_tool,1042,workshop_default(w,obj.flameCP)); //2024
 
 	CheckDlgButton(som_tool,1050,obj.loopable);
 	CheckDlgButton(som_tool,1051,obj.sixDOF);
@@ -2212,9 +2270,11 @@ static bool workshop_ReadFile_npc(workshop_cpp::npc_prf &npc, size_t npc_s)
 
 	return true;
 }
-static bool workshop_ReadFile_my(workshop_cpp::enemy_prf &enemy, int my_s)
+static bool workshop_ReadFile_sfx(workshop_cpp::enemy_prf &enemy, int my_s)
 {
 	assert(my_s==sizeof(enemy));
+
+	  /***CONTINUING SfxEdit_CreateFile***/
 
 	memcpy(workshop->icard,enemy.my_icard(),96);
 	
@@ -2223,47 +2283,87 @@ static bool workshop_ReadFile_my(workshop_cpp::enemy_prf &enemy, int my_s)
 	//workshop_cpp::enemy_prf *hack = EneEdit_4173DC; 
 	//EneEdit_4173DC = &enemy;
 	if(!EneEdit_4173DC) EneEdit_4173DC = &enemy;
-	
-	int id = enemy.my_screeneffect()?1002:1003;
-	workshop_click_radio(1002,1003,id);
 
-	HWND cb = GetDlgItem(som_tool,1000);
 	HWND se = GetDlgItem(som_tool,1001);
-	SetWindowLong(cb,GWL_USERDATA,-1); //SfxEdit_1000
+	HWND cb = GetDlgItem(som_tool,1000);
+		
 	wchar_t w[32];
 	WORD sfx = enemy.my_sfx();
 	_itow(sfx,w,10);
-	//the following subroutine initializes screen
-	//effects magic... ebx is "friendlySFX" and it
-	//must be less than 16
-	//00428220 53                   push        ebx
-	BYTE model = 0xFF;
-	if(!enemy.my_screeneffect())
-	{	
-		int i = ComboBox_FindStringExact(cb,-1,w);	
-		if(i!=CB_ERR)
+
+	int id = enemy.my_screeneffect();
+	if(id<=1)
+	{
+		id = id?1002:1003;
+		workshop_click_radio(1002,1004,id);
+
+		SetWindowLong(cb,GWL_USERDATA,-1); //SfxEdit_1000
+
+		//the following subroutine initializes screen
+		//effects magic... ebx is "friendlySFX" and it
+		//must be less than 16
+		//00428220 53                   push        ebx
+		BYTE model = 0xFF;
+		if(!enemy.my_screeneffect())
+		{	
+			int i = ComboBox_FindStringExact(cb,-1,w);	
+			if(i!=CB_ERR)
+			{
+				LPARAM lp = ComboBox_GetItemData(cb,i);
+				model = lp>>8&0xFF;			
+				ComboBox_SetCurSel(cb,i);			
+			}	
+			else SetWindowText(cb,w);
+			windowsex_notify(som_tool,1000,CBN_EDITCHANGE);
+			*w = '\0'; //SetWindowText(se,L""); 
+		}
+		else 
+		{	
+			//historically these are hardcoded by 42D5B0 (som_db.exe)
+			if(sfx<12) model = 207; //bubbles
+			else model = 208+sfx-12; //shields		
+		}
+		if(0xFF!=model)
+		sprintf(enemy.model,"%04d.mdl",model);
+	}
+	else //2024
+	{
+		id = 1004;
+		workshop_click_radio(1002,1004,id);
+
+		SetDlgItemInt(som_tool,1000,sfx,0);
+		SetWindowLong(cb,GWL_USERDATA,48*sfx); //SfxEdit_1000
+
+		auto &d = enemy.magic2_sfx_dat();
+
+		SetDlgItemInt(som_tool,1041,d.procedure,0); 
+		SetDlgItemInt(som_tool,1040,d.model,0);
+		for(int i=6;i-->0;)
+		SetDlgItemInt(som_tool,1042+i,d.unk2[i],0);
+		for(int i=8;i-->0;)
+		SetDlgItemFloat(som_tool,1048+i,(&d.width)[i]);
+		SetDlgItemInt(som_tool,1056,(int)(short)d.snd,1);
+		SetDlgItemInt(som_tool,1057,d.pitch,1);
+		SetDlgItemInt(som_tool,1058,d.chainfx,0);
+		SendDlgItemMessage(som_tool,1059,BM_SETCHECK,d.chainfx?1:0,0);
+
+		if(!*enemy.model)
 		{
-			LPARAM lp = ComboBox_GetItemData(cb,i);
-			model = lp>>8&0xFF;			
-			ComboBox_SetCurSel(cb,i);			
-		}	
-		else SetWindowText(cb,w);
-		windowsex_notify(som_tool,1000,CBN_EDITCHANGE);
-		*w = '\0'; //SetWindowText(se,L""); 
+			if(0xFF!=d.model) sprintf(enemy.model,"%04d.mdl",d.model);
+		}
+		else
+		{
+			SetDlgItemText(som_tool,1007,EX::need_unicode_equivalent(932,enemy.model));
+		}
+		SetDlgItemText(som_tool,1008,EX::need_unicode_equivalent(932,enemy.magic2_sound()));
+
+		*w = '\0'; //screen effect
 	}
-	else 
-	{	
-		//historically these are hardcoded by 42D5B0 (som_db.exe)
-		if(sfx<12) model = 207; //bubbles
-		else model = 208+sfx-12; //shields		
-	}
-	if(0xFF!=model)
-	sprintf(enemy.model,"%04d.mdl",model);
 
 	SetDlgItemText(som_tool,1005,EX::need_unicode_equivalent(932,enemy.model));
 	SetWindowText(se,w);
-	SetDlgItemText(som_tool,1006,EX::need_unicode_equivalent(932,enemy.name));
-	
+	SetDlgItemText(som_tool,1006,EX::need_unicode_equivalent(932,enemy.name));	
+
 	//EneEdit_4173DC = hack; 
 	if(&enemy==EneEdit_4173DC) EneEdit_4173DC = 0;	
 	
@@ -2350,7 +2450,7 @@ extern BOOL WINAPI workshop_ReadFile(HANDLE in, LPVOID to, DWORD sz, LPDWORD rd,
 
 		case SfxEdit.exe:
 
-			if(!workshop_ReadFile_my(*(workshop_cpp::enemy_prf*)to,*rd))
+			if(!workshop_ReadFile_sfx(*(workshop_cpp::enemy_prf*)to,*rd))
 			assert(0); break;
 		}
 		WORD &w = (WORD&)((BYTE*)to)[cat];
@@ -2363,10 +2463,20 @@ extern BOOL WINAPI workshop_ReadFile(HANDLE in, LPVOID to, DWORD sz, LPDWORD rd,
 	return 1;
 }
 
-static void workshop_file_update(int);
+static unsigned workshop_last_write = 0; 
+static void workshop_file_update(int,int='sfx');
 static void workshop_file_system(int,bool=false);
 static void workshop_DROPFILES(WPARAM wParam)
 {
+	//2024: there is a bug or something where
+	//SOM_PRM is reopening (C8N_SELCHANGE) if
+	//Save or Save As is used by SfxEdit.exe!
+	if(workshop_last_write)
+	if(EX::tick()-workshop_last_write<500)
+	{
+		return;
+	}
+
 	HDROP &drop = (HDROP&)wParam;
 	UINT n = DragQueryFileW(drop,-1,0,0);
 	if(0==n&&workshop_tool)
@@ -2946,7 +3056,8 @@ static void workshop_init_filter(int id)
 	case 1006: art = a = "*.mhm"; f++; break;
 	case 40074: art = a = "*.txr"; f++; break;
 	//case 40075:
-	case 1013: a = "*.bmp"; f+=2; break;
+	case 1013: a = "*.bmp"; f+=2; break; //PrtsEdit
+	case 1008: a = "*.wav;"; b = "*.snd"; f++; break; //SfxEdit
 	}
 	art = art?";*.*":""; //2021
 	i+=swprintf(filter+i+1,L"%hs%hs%hs%lc",a,b,art,0);	
@@ -3091,6 +3202,10 @@ static HWND SfxEdit_INITDIALOG_right(HWND hw=som_tool)
 }
 static void SfxEdit_INITDIALOG()
 {
+	workshop_init_filter(1008);
+	SetDlgItemTextW(som_tool,1008,L"");
+	windowsex_enable<1004>(som_tool); //2024
+
 	SendDlgItemMessage(som_tool,1019,TBM_SETRANGEMAX,1,2);
 		
 	HANDLE h = SfxEdit_1000(0);
@@ -3101,216 +3216,10 @@ static void SfxEdit_INITDIALOG()
 	HWND cb = SfxEdit_INITDIALOG_right();
 	int prev = 1025*48;
 	for(int fp=0;fp<(int)rd;fp+=48)
-	{
-		struct record //REMOVE ME
-		{
-			//if 42ED10 returns zero floats8[0] and [1] are
-			//processed @42E63D					
-			//0042E631 E8 DA 06 00 00       call        0042ED10 
-			//...
-			//0042ED2B 8A 88 30 1D C9 01    mov         cl,byte ptr [eax+1C91D30h]
-			//<100 returns 0
-			//>127 returns 2
-			//100~127 (then) returns 1
-			//...
-			//THESE ARE LEGACY PROCEDURE VALUES
-			//0042EA51 8B 14 CD 48 E6 45 00 mov         edx,dword ptr [ecx*8+45E648h]
-			//0~15
-			//20~22
-			//30~34
-			//40~46
-			//100~102 (type 1)
-			//128~134 (type 2)
-			//
-			BYTE procedure;
-			//0042E5E8 66 0F B6 BE 31 1D C9 01 movzx       di,byte ptr [esi+1C91D31h] 
-			BYTE model;							
-			BYTE unknown1;
-			//0042F00B 8A 90 33 1D C9 01    mov         dl,byte ptr [eax+1C91D33h]
-			BYTE unknown2;
-			//004314E4 8A 50 04             mov         dl,byte ptr [eax+4]
-			BYTE unknown3;
-			BYTE unknown4;
-			BYTE unknown5;
-			BYTE unknown6;
-			//0
-			//0042E63D D9 86 38 1D C9 01    fld         dword ptr [esi+1C91D38h]
-			//1
-			//0042E64E D9 86 3C 1D C9 01    fld         dword ptr [esi+1C91D3Ch]
-			//2
-			//00431452 05 30 1D C9 01       add         eax,1C91D30h  
-			//...
-			//004314A8 8B 48 10             mov         ecx,dword ptr [eax+10h]
-			//3
-			//00431452 05 30 1D C9 01       add         eax,1C91D30h  
-			//00431457 8B 48 14             mov         ecx,dword ptr [eax+14h]
-			FLOAT floats8[8];
-			//
-			//entered when equipping magic?
-			//43F420 appears to increase SND reference counts
-			//
-			//0042E5FD 66 8B 86 58 1D C9 01 mov         ax,word ptr [esi+1C91D58h]  
-			//0042E604 66 3D FF FF          cmp         ax,0FFFFh 
-			//0042E608 74 10                je          0042E61A  
-			//0042E60A 25 FF FF 00 00       and         eax,0FFFFh  
-			//0042E60F 6A 00                push        0  
-			//0042E611 50                   push        eax  
-			//0042E612 E8 09 0E 01 00       call        0043F420  
-			//0042E617 83 C4 08             add         esp,8  
-			//
-			//execution context (windcutter)
-			//0042EAB6 66 8B 88 58 1D C9 01 mov         cx,word ptr [eax+1C91D58h]
-			//...
-			//0042EAE9 E8 C2 0A 01 00       call        0043F5B0
-			//(will call DSOUND::IDirectSound3DBuffer::SetPosition)
-			WORD ffff;				
-			//0042E5C0 this is RECURSIVE... checking WORD is 0 or 1???? WORD?
-			//(seems to call 42E5C0 again, on the next Sfx.dat entry)
-			//...
-			//0042E61A 66 83 BE 5A 1D C9 01 00 cmp         word ptr [esi+1C91D5Ah],0  
-			//0042E622 74 0C                je          0042E630  
-			//0042E624 8D 43 01             lea         eax,[ebx+1]  
-			//0042E627 50                   push        eax  
-			//0042E628 E8 93 FF FF FF       call        0042E5C0  
-			//0042E62D 83 C4 04             add         esp,4  
-			WORD zero1;
-			//this is PITCH ... for some reason it is unsigned
-			//(24 is subtracted from it)
-			//0042EACA 8A 80 5C 1D C9 01    mov         al,byte ptr [eax+1C91D5Ch]
-			//..
-			//0042EADE 2C 18                sub         al,18h
-			BYTE zero2; //24 for #800 (38400)
-			//padding?
-			BYTE zero3[3];
-		}&rec = *(record*)(buf+fp);				
-		//0042EA32 8A 88 30 1D C9 01    mov         cl,byte ptr [eax+1C91D30h]  
-		//0042EA38 81 F9 00 01 00 00    cmp         ecx,100h  
-		//0042EA3E 0F 8D B2 00 00 00    jge         0042EAF6  
-		//0042EA44 80 B8 31 1D C9 01 FF cmp         byte ptr [eax+1C91D31h],0FFh  
-		//0042EA4B 0F 83 A5 00 00 00    jae         0042EAF6  
-		if(0xffff==*(WORD*)&rec)
-		{
-			for(int i=2;i<sizeof(rec);i+=2)
-			assert(0==*(WORD*)(&rec.procedure+i));
-			continue;
-		}		
-		if(0xffff!=rec.ffff||0!=rec.zero2) switch(fp) //oddballs?
-		{
-		default: //assert(0); //INCOMPLETE
-		//
-		//815 is a PC equipped attack magic that sets
-		//rec.ffff to 182
-		//rec.ffff looks like a sound effect number
-		//
-		case 38400: //800: 820/24 procedure is 0???
-		case 38448: //801: 167/24 procedure is 0x14
-		case 38544: //803: 182/27 procedure is 0x04
-		case 38592: //804: 171/27 procedure is 0x04 
-				
-		//CONTINUED BELOW
-		case 39360: //820: 194/24 procedure is 0x28 
-		case 39408: //negative (ffff/0)
-		case 39456: //negative (ffff/0)
+	{			
+		auto &rec = *(SOM::sfx_dat_rec*)(buf+fp);				
 
-			int bp = 0; break; //breakpoint
-		}
-		if(0!=rec.zero1) switch(fp) //oddballs?
-		{
-		//INCOMPLETE
-		case 39360: //820: 1
-		case 39408: //821: 1 procedure is 0x29
-		case 39456: //822: 1 procedure is 0x2a
-
-			//RECURSIVE if nonzero... into the next
-			//Sfx.dat entry
-			//0042E61A 66 83 BE 5A 1D C9 01 00 cmp         word ptr [esi+1C91D5Ah],0 
-			default: assert(1==rec.zero1); 
-		}		
-		assert(0==rec.zero3[0]&&0==rec.zero3[1]&&0==rec.zero3[2]);
-		/*som_db
-		//45E648 holds a procedure table... two pointers apiece
-		0042EA51 8B 14 CD 48 E6 45 00 mov         edx,dword ptr [ecx*8+45E648h]  
-		0042EA58 85 D2                test        edx,edx  
-		0042EA5A 0F 84 96 00 00 00    je          0042EAF6  
-		0042EA60 8B 04 CD 4C E6 45 00 mov         eax,dword ptr [ecx*8+45E64Ch]
-		*/
-		if(0) //INCOMPLETE
-			/*complete list follows
-			//0~15
-			//20~22
-			//30~34
-			//40~46
-			//100~102 (type 1)
-			//128~134 (type 2)
-			*/
-		switch(rec.procedure) 
-		{
-		case 0xFF:
-			//assert(rec.model==0xFF);
-			break;
-
-			//LINKED/SOUND
-			//42E5C0 is interested in floats8[0~1]
-			//(integers?)
-			//I think floats8[0] here is a link to
-			//another SFX field. Or 65535 if there
-			//is not a link
-			//floats8[1] seems to be an index also
-			//43F420 compares it to 1024. it seems
-			//to be a SND reference, into 1D11E54h
-			//(SOM::L.SND_ref_counts)
-
-			//42ED10 type 0 (0~0x63)
-
-		//0~15
-		case 0x00: //80
-		case 0x03:
-		case 0x04: case 0x05: case 0x09: 
-		case 0x0C: //54.MDL (firewall?)
-		case 0x0F:
-
-		//20~22
-		case 0x14: 
-			//MDL & TXR :(
-		case 0x15: //110.mdl //168.txr
-					
-		//30~34
-		case 0x1e: //poison cloud (texture only)
-		case 0x22:
-				
-			//LEAF EFFECTS?
-			//42E5C0 is uninterested in floats8[0~1]
-			//(scale factors?)
-
-			//42ED10 type 1 (0x64~0x7f)
-
-		//100~102 (type 1)
-		case 0x64: //explosion?	(textures 10 & 181)
-		case 0x65: //54.MDL (firewall?) 
-
-			case 0x66: //UNUSED? //2020
-				
-			//42ED10 type 2 (0x80~0xff)
-
-		//128~134 (type 2)
-		case 0x80: 
-		case 0x81: //191.mdl (lizardman fireball)
-
-			case 0x82: //UNUSED? //2020
-
-				//dimmer billboard?
-
-		case 0x83: 
-		case 0x84: //7.txr //50.txr //177.txr (flame)
-		
-				//bright billboard (standard)
-
-			case 0x85: //UNUSED? //2020
-
-		case 0x86:
-			break;				
-		default: assert(0);
-		}		
+		if(0xff==rec.procedure) continue;
 		
 		if(fp-prev>48)
 		ComboBox_AddString(cb,L"---");
@@ -3324,6 +3233,158 @@ static void SfxEdit_INITDIALOG()
 	delete[] buf;
 	if(!ComboBox_GetCount(cb)) //TODO: translate 
 	ComboBox_AddString(cb,L"Sfx.dat did not load");
+}
+
+static HWND SfxEdit_lv = 0; 
+int CALLBACK SfxEdit_lv_cmp(LPARAM a, LPARAM b, LPARAM i)
+{
+	LVFINDINFOW lfi = {LVFI_PARAM};
+
+	wchar_t buf1[32],buf2[32];
+	LVITEMW lvi = {LVIF_TEXT};
+	lvi.pszText = buf1;
+	lvi.cchTextMax = 32;
+	//lvi.iItem = a&0xffff;
+	lfi.lParam = a; //WINSANITY
+	lvi.iItem = ListView_FindItem(SfxEdit_lv,-1,&lfi);
+	lvi.iSubItem = i;
+	SendMessageW(SfxEdit_lv,LVM_GETITEMW,0,(LPARAM)&lvi);
+	lvi.pszText = buf2;
+	//lvi.iItem = b&0xffff;
+	lfi.lParam = b; //WINSANITY
+	lvi.iItem = ListView_FindItem(SfxEdit_lv,-1,&lfi); 
+	SendMessageW(SfxEdit_lv,LVM_GETITEMW,0,(LPARAM)&lvi);
+	switch(i)
+	{
+	case 0: case 1: case 4: return _wtoi(buf1)-_wtoi(buf2);
+	}
+	return wcscmp(buf1,buf2);
+}
+static INT_PTR CALLBACK SfxEdit_lv_dp(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	HWND lv = SfxEdit_lv;
+
+	switch(uMsg)
+	{	
+	case WM_INITDIALOG:
+	{
+		lv = SfxEdit_lv = GetDlgItem(hwndDlg,1000);	
+
+		//SetWindowTheme(hwndDlg,L"",L"");
+		SetWindowTheme(lv,L"",L"");
+
+		ListView_SetExtendedListViewStyleEx(lv,0,LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES|LVS_EX_HEADERDRAGDROP|LVS_EX_LABELTIP|LVS_EX_ONECLICKACTIVATE);
+
+		LVCOLUMNW lvc = {LVCF_TEXT|LVCF_WIDTH|LVCF_FMT};
+		lvc.fmt = HDF_SORTDOWN;
+		lvc.cx = 50;
+		lvc.pszText = L"#";
+		ListView_InsertColumn(SfxEdit_lv,0,&lvc);
+		lvc.pszText = L"Procedure";
+		ListView_InsertColumn(SfxEdit_lv,1,&lvc);
+		lvc.cx = 100;
+		lvc.pszText = L"Description";
+		ListView_InsertColumn(SfxEdit_lv,2,&lvc);
+		lvc.cx = 80;
+		lvc.pszText = L"Profile";
+		ListView_InsertColumn(SfxEdit_lv,3,&lvc);
+		lvc.cx = 60;
+		lvc.pszText = L"3D Index";
+		ListView_InsertColumn(SfxEdit_lv,4,&lvc);
+		wchar_t w[MAX_PATH]; 
+		for(int j=0,i=0;*EX::data(i);i++)
+		{
+			int w_s = swprintf(w,L"%s\\sfx\\prof\\*.prf",EX::data(i))-5;
+
+			WIN32_FIND_DATAW data; 
+			HANDLE find = FindFirstFileW(w,&data);
+			if(find!=INVALID_HANDLE_VALUE) do		
+			{
+				wcscpy_s(w+w_s,MAX_PATH-w_s,data.cFileName);
+				workshop_cpp::magic2_prf m2;
+				FILE *f = _wfopen(w,L"rb"); if(!f)
+				{
+					assert(0); continue; 
+				}				
+				if(243==fread(&m2,1,sizeof(m2),f))
+				{
+					wchar_t buf[8];
+					LVITEMW lvi = {LVIF_PARAM|LVIF_TEXT};
+					lvi.lParam = i<<16|j++;
+					lvi.iSubItem = 0;
+					lvi.pszText = _itow(m2.SFX,buf,10);
+					lvi.iItem = 10000;
+					lvi.iItem = ListView_InsertItem(lv,&lvi);
+					lvi.iSubItem = 1;
+					lvi.pszText = _itow(m2.SFX_dat.procedure,buf,10);
+					//ListView_SetItemText(lv,&lvi);
+					SendMessageW(lv,LVM_SETITEMTEXTW,lvi.iItem,(LPARAM)&lvi);
+					lvi.iSubItem = 2;
+					lvi.pszText = (WCHAR*)EX::need_unicode_equivalent(932,m2.name);
+					SendMessageW(lv,LVM_SETITEMTEXTW,lvi.iItem,(LPARAM)&lvi);
+					lvi.iSubItem = 3;
+					*PathFindExtension(data.cFileName) = '\0';
+					lvi.pszText = data.cFileName;
+					SendMessageW(lv,LVM_SETITEMTEXTW,lvi.iItem,(LPARAM)&lvi);
+					lvi.iSubItem = 4;
+					lvi.pszText = _itow(m2.SFX_dat.model,buf,10);
+					SendMessageW(lv,LVM_SETITEMTEXTW,lvi.iItem,(LPARAM)&lvi);
+
+					ListView_SortItems(lv,SfxEdit_lv_cmp,0);
+				}
+				fclose(f);
+
+			}while(FindNextFileW(find,&data));
+		}
+		break;	
+	}
+	case WM_NOTIFY:
+	{
+		NMLISTVIEW *p = (NMLISTVIEW*)lParam;
+		if(lv==p->hdr.hwndFrom)
+		if(p->hdr.code==LVN_COLUMNCLICK)
+		{
+			ListView_SortItems(lv,SfxEdit_lv_cmp,p->iSubItem);
+		}
+		else if(p->hdr.code==LVN_ITEMACTIVATE)
+		{
+			LVITEMW lvi = {LVIF_PARAM|LVIF_TEXT};
+			lvi.iItem = p->iItem;
+			lvi.iSubItem = 3;
+			wchar_t buf[MAX_PATH];
+			lvi.cchTextMax = MAX_PATH;
+			lvi.pszText = buf;
+			SendMessageW(lv,LVM_GETITEMW,0,(LPARAM)&lvi);
+			auto *data = EX::data(lvi.lParam>>16);
+			wchar_t ws[MAX_PATH];
+			swprintf(ws,L"%s\\sfx\\prof\\%s.prf",data,buf);
+			{
+				//HACK: follow workshop_DROPFILES lead?
+				SetEnvironmentVariableW(L".WS",ws);
+				som_tool_initializing++;
+				SendMessage(workshop_host,WM_COMMAND,40001,0);
+				workshop_xtitles();
+				som_tool_initializing--;
+			//	SetForegroundWindow(GetParent(lv)); //doesn't take
+			}			
+		}
+		break;
+	}
+	case WM_SIZE: 
+	{
+		int w = LOWORD(lParam), h = HIWORD(lParam);
+
+		MoveWindow(lv,3,3,w-6,h-6,1);
+
+		break;
+	}
+	case WM_CLOSE: close: 
+		
+		SfxEdit_lv = 0;
+		DestroyWindow(hwndDlg);
+		break;	
+	}
+	return 0;
 }
 
 static void workshop_limitpitch(int id, HWND p=som_tool)
@@ -3907,6 +3968,17 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 		if(LOWORD(wParam)>30000)
 		wParam = LOWORD(wParam);
 
+		//2024: this has stopped working???
+		//NOTE: this had been handled by ObjEdit.exe's code???
+		if(wParam>=999&&wParam<=1001)
+		{
+			if(SOM::tool==ObjEdit.exe) //enable depth for box?
+			{
+				windowsex_enable<1004>(som_tool,wParam==1001);
+				return 0; //IMPORTANT
+			}
+		}
+
 		switch(wParam)
 		{
 		case IDOK: //VK_RETURN?
@@ -4054,7 +4126,18 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			break;
 
 		case 1015: case 1016:
+
 			if(hlp==60000) goto file_system; //PtrsEdit?
+
+			break;
+
+		case 1012: case 1013: //2024: New Special Effect?
+		
+			if(hlp==65000) //SfxEdit?
+			workshop_file_system(wParam==1012?1007:1008); 
+			
+			break;
+
 		case 1000: 
 
 			if(hlp==61000) //ItemEdit
@@ -4105,7 +4188,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			}
 			break;
 
-		case 1007: case 1008: case 1009: case 1010: 
+		case 1007: case 1008:case 1009: case 1010: 
 		case 1030: case 1031: case 1032: case 1033: 
 
 			if(hlp==61000) //ItemEdit
@@ -4189,7 +4272,7 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			PrtsEdit_SoftMSM(wParam);
 			break;*/
 		case 36000:	case 36001: //PrtsEdit (2023)
-		workshop_file_system(wParam&1?1006:1005,true);  
+			workshop_file_system(wParam&1?1006:1005,true);  
 			break;
 
 		case 32767: //Move
@@ -4199,6 +4282,18 @@ extern LRESULT CALLBACK workshop_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			break;
 
 		case 32768: workshop_icard_32768(); 
+			break;
+
+		case 32769: 
+			
+			if(SOM::tool==SfxEdit.exe)
+			{
+				if(SfxEdit_lv)
+				{
+					FlashWindow(GetParent(SfxEdit_lv),1); 	
+				}
+				else CreateDialogW(0,L"SFX",som_tool,SfxEdit_lv_dp);
+			}
 			break;
 
 		//disable ObjEdit's save prompt?
@@ -4657,7 +4752,7 @@ extern INT_PTR CALLBACK workshop_102c_ext(HWND hwndDlg, UINT uMsg, WPARAM wParam
 		   
 	case WM_CLOSE: close: 
 		
-		SendMessage(hwndDlg,WM_INITDIALOG,0,0);
+		SendMessage(hwndDlg,WM_INITDIALOG,0,0); //???
 		DestroyWindow(hwndDlg);
 		break;
 	} 
@@ -4813,10 +4908,13 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 			break;
 
 		case 1002: case 1003:
-		{
-			if(SOM::tool==SfxEdit.exe
-			&&Button_GetCheck((HWND)lParam))
+		
+			if(SOM::tool==SfxEdit.exe)
+			if(Button_GetCheck((HWND)lParam))
 			{
+				windowsex_enable(som_tool,1012,1013,0); //2024
+
+				SfxEdit_1004_continued:
 				BYTE se = wParam==1002; //bool
 				windowsex_enable<1001>(hwndDlg,se);				
 				if(se!=EneEdit_4173DC->my_screeneffect())
@@ -4828,7 +4926,17 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 				}
 			}
 			break;
-		}			
+
+		case 1004: //2024
+		
+			if(SOM::tool==SfxEdit.exe)
+			if(Button_GetCheck((HWND)lParam))
+			{
+				windowsex_enable(som_tool,1012,1013,1); //2024
+				goto SfxEdit_1004_continued;
+			}
+			break;
+					
 		case MAKEWPARAM(1001,EN_CHANGE):
 		case MAKEWPARAM(1040,EN_CHANGE):
 		
@@ -4874,6 +4982,18 @@ extern INT_PTR CALLBACK workshop_102(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPA
 				SetWindowText(ch,w);
 				//2021: give a little time to input more than one digit
 				//workshop_model_update();
+				SetTimer(ch,'sfx',300,workshop_model_update_timer);
+			}
+			break;
+
+		case MAKEWPARAM(1007,EN_CHANGE):
+
+			if(SOM::tool==SfxEdit.exe) //model override?
+			{
+				HWND ch = GetDlgItem(som_tool,1005);
+				WCHAR w[32] = {};
+				GetWindowText((HWND)lParam,w,31);
+				SetWindowText(ch,w);
 				SetTimer(ch,'sfx',300,workshop_model_update_timer);
 			}
 			break;
@@ -5441,16 +5561,20 @@ static int workshop_103_104_INITDIALOG_chkstk(HWND hw, LPARAM lp)
 	if(EneEdit.exe==SOM::tool) switch(lp)
 	{
 	case 10: case 11: case 12:		
-		windowsex_enable<1021>(hw);
+		windowsex_enable<1021>(hw); //break;
 	case 15: case 16: case 17:				
+	{
 		windowsex_enable<1006>(hw);
-		SetDlgItemText(hw,1006,
-		EX::need_unicode_equivalent(932,EneEdit_4173DC->descriptions[lp-(lp>=15?12:10)]));
+		auto *w = EX::need_unicode_equivalent
+		(932,EneEdit_4173DC->descriptions[lp-(lp>=15?12:10)]);		
+		SetDlgItemText(hw,1006,w);
+		if(!*w) goto off; //2024
 		//NOTE: this is a little confusing, but 
 		//assuming that if the attack is opened
 		//that it's going to be enabled so that
 		//clicking this button is not busy work
 		goto on;
+	}
 	case 6: if(8&EneEdit_4173DC->countermeasures)
 			goto on; goto off;
 	case 7: if(4&EneEdit_4173DC->countermeasures)
@@ -5463,7 +5587,7 @@ static int workshop_103_104_INITDIALOG_chkstk(HWND hw, LPARAM lp)
 	//hack: preventing WS_TABSTOP from being added
 	//CheckDlgButton(hw,on_off,1);	
 	//SendDlgItemMessage(hw,on_off,BM_CLICK,1,0); //glitchy
-	workshop_click_radio(1007,1008,on_off); //2023
+	workshop_click_radio(1007,1008,on_off,hw); //2023
 	//MoveWindow
 	RECT rc; GetWindowRect(hw,&rc); 
 	int h = rc.bottom-rc.top, w = rc.right-rc.left;	
@@ -5954,7 +6078,7 @@ static void workshop_model_update()
 		break;
 	}
 }
-static void workshop_file_update(int id)
+static void workshop_file_update(int id, int sfx)
 {	
 	//ALGORITHM
 	//this is to let subdirectories exists inside of
@@ -5962,7 +6086,7 @@ static void workshop_file_update(int id)
 	const wchar_t *fn,*w = fn = 
 	PathFindFileNameW(som_tool_text);	
 	const char *subdir = workshop_subdirectory(id);	
-	const char *topdir = workshop_directory('sfx'); //2022
+	const char *topdir = workshop_directory(sfx); //2022
 	for(int i,ii=w-som_tool_text;ii>1;ii=i)
 	{
 		w--;
@@ -6061,6 +6185,24 @@ static void workshop_file_update(int id)
 		}
 		break;
 
+	case SfxEdit.exe: //2024
+		
+		switch(id)
+		{
+		case 1007:
+
+			SetDlgItemText(som_tool,1007,fn);
+			SetDlgItemText(som_tool,1005,fn);
+			workshop_model_update();
+			break;
+
+		case 1008:
+
+			SetDlgItemText(som_tool,1008,fn);
+			break;
+		}
+		break;
+
 	default: workshop_model_update();
 	}
 }
@@ -6117,19 +6259,22 @@ static void workshop_file_system(int id, bool alt)
 	bool open_dlg = id>=0; //PrtsEdit_SoftMSM
 	if(!open_dlg) id = -id;
 
+	int sfx_arm = 'sfx';
+
 	wchar_t **f = workshop_filters; 
+
 	switch(id)
 	{
 	case 40074: //skin?
 	case 1006: f++;	break; //mhm?	
 	case 1013: f+=2; break; //bmp? save skin?
+	case 1008: f++; sfx_arm = 'snd'; break;
 	}
 
 	const char *subdir = workshop_subdirectory(id);
 
 	bool subdir2 = false; subdir2: //2022: map/msm or map/mhm?
 
-	int sfx_arm = 'sfx';
 	if(SOM::tool==ItemEdit.exe //2023: File System?
 	//&&ES_NUMBER&GetWindowStyle(GetDlgItem(som_tool,1005)))
 	&&IsDlgButtonChecked(som_tool,1031)) //workshop_minmax 
@@ -6238,9 +6383,13 @@ static void workshop_file_system(int id, bool alt)
 	};
 	if(!*slash) *som_tool_text = '\0';
 	if(!*slash) w.lpstrInitialDir = som_tool_text+1; 
-	if(GetOpenFileNameW(&w)&&SOM::tool!=SfxEdit.exe) 
+	if(GetOpenFileNameW(&w)) 
 	{
-		workshop_file_update(id);
+		if(id==1005&&SOM::tool==SfxEdit.exe)
+		{
+			MessageBeep(-1); //read-only?
+		}
+		else workshop_file_update(id,sfx_arm);
 	}
 	else if(id==40074)
 	{
@@ -6350,6 +6499,7 @@ static void workshop_WriteFile_obj()
 	//have 0 here, so saving them triggers SVN changes
 	obj.trapSFX_visible = obj.trapSFX?!IsDlgButtonChecked(som_tool,1032):0;
 	obj.flameSFX = workshop_WriteFile_int(1040,-1);
+	obj.flameCP = workshop_WriteFile_int(1042); //2024
 	obj.flameSFX_periodicity = workshop_WriteFile_int(1041);
 	obj.loopable = IsDlgButtonChecked(som_tool,1050);
 	obj.sixDOF = IsDlgButtonChecked(som_tool,1010);
@@ -6733,19 +6883,49 @@ static void workshop_WriteFile_npc()
 	som_tool_wector.insert(som_tool_wector.begin(),
 	(WCHAR*)&npc,(WCHAR*)&npc+sizeof(npc)/2);
 }
-static void workshop_WriteFile_my()
+static void workshop_WriteFile_sfx()
 {
-	workshop_cpp::my_prf my; 
-	enum{ sizeof_my = sizeof(my)-sizeof(my.icard) };
-	memset(&my,0x00,sizeof_my);
-	workshop_WriteFile_text(1006,my.name);
-	my.onscreen = IsDlgButtonChecked(som_tool,1002);
-	my.friendlySFX = GetDlgItemInt(som_tool,my.onscreen?1001:1000,0,0);
+	int type = GetDlgRadioID(som_tool,1002,1004);
 
-	som_tool_wector.assign((WCHAR*)&my,(WCHAR*)&my+sizeof_my/2);
+	if(type<=1003)
+	{
+		workshop_cpp::my_prf my = {}; 
+		enum{ sizeof_my = sizeof(my)-sizeof(my.icard) };
+		memset(&my,0x00,sizeof_my);
+		workshop_WriteFile_text(1006,my.name);
+		my.onscreen = IsDlgButtonChecked(som_tool,1002);
+		my.friendlySFX = GetDlgItemInt(som_tool,my.onscreen?1001:1000,0,0);
+
+		som_tool_wector.assign((WCHAR*)&my,(WCHAR*)&my+sizeof_my/2);
+	}
+	else //2024
+	{
+		workshop_cpp::magic2_prf m2 = {}; 
+		enum{ sizeof_m2 = sizeof(m2)-sizeof(m2.icard)-2 };
+
+		workshop_WriteFile_text(1006,m2.name);
+		m2.type = 2;
+		m2.SFX = GetDlgItemInt(som_tool,1000,0,0); 
+		m2.SFX_dat.procedure = GetDlgItemInt(som_tool,1041,0,0); 
+		m2.SFX_dat.model = GetDlgItemInt(som_tool,1040,0,0);
+		for(int i=6;i-->0;)
+		m2.SFX_dat.unk2[i] = GetDlgItemInt(som_tool,1042+i,0,0);
+		for(int i=8;i-->0;)
+		(&m2.SFX_dat.width)[i] = GetDlgItemFloat(som_tool,1048+i);		
+		m2.SFX_dat.snd = GetDlgItemInt(som_tool,1056,0,1);
+		m2.SFX_dat.pitch = GetDlgItemInt(som_tool,1057,0,1);
+		m2.SFX_dat.chainfx = GetDlgItemInt(som_tool,1058,0,0);
+
+		workshop_WriteFile_text(1007,m2.model);
+		workshop_WriteFile_text(1008,m2.sound);
+
+		som_tool_wector.assign((WCHAR*)&m2,(WCHAR*)&m2+sizeof_m2/2);
+	}
 }
 static bool workshop_WriteFile(const wchar_t *to)
 {		
+	workshop_last_write = EX::tick();
+
 	if(!*to)
 	{
 		assert(*to);
@@ -6760,7 +6940,7 @@ static bool workshop_WriteFile(const wchar_t *to)
 	case ObjEdit.exe: workshop_WriteFile_obj(); break;
 	case EneEdit.exe: workshop_WriteFile_enemy(); break;
 	case NpcEdit.exe: workshop_WriteFile_npc(); break;
-	case SfxEdit.exe: workshop_WriteFile_my(); break;
+	case SfxEdit.exe: workshop_WriteFile_sfx(); break;
 	}
 
 	//2022: one day ObjEdited saved the PRF file to an MMD3D model
@@ -6818,27 +6998,22 @@ static bool workshop_WriteFile(const wchar_t *to)
 
 			WriteFile(h,"f",1,&wr,0); //any single letter will do
 		}
-		if(SfxEdit.exe==SOM::tool) 
-		{
-			/*2020: I think 88 was a mistake
-			if(wr!=88) //FX? any 2 will do*/
-			if(wr!=40)
-			{
-				//RESERVING for a new variable-length special effects
-				//format... it will be developed shortly, but may not
-				//even use PRF for its extension
-				assert(0);
-			//	assert(!wcsicmp(L".prf",ext)); //???
-				WriteFile(h,"fx",2,&wr,0);
-			}
-		}
 
 	workshop->icard[96] = '\0';
 	size_t zf = strlen(workshop->icard);
 	memset(workshop->icard+zf,0x00,97-zf);	
 	WriteFile(h,workshop->icard,97,&wr,0);
 
-	CloseHandle(h); return true;
+	//this makes size%4 3
+	if(SOM::tool==SfxEdit.exe)
+	if(1004==GetDlgRadioID(som_tool,1002,1004))
+	{
+		WriteFile(h,"fx",2,&wr,0);
+	}
+
+	CloseHandle(h); 
+	
+	workshop_last_write = EX::tick(); return true;
 }
 extern BOOL APIENTRY workshop_GetSaveFileNameA(LPOPENFILENAMEA a)
 {
@@ -6962,8 +7137,8 @@ extern bool workshop_exe(int hlp)
 		//aside from this it's outlived its earlier use
 		minor = workshop_category; 
 	}
-	extern int som_tool_profile(wchar_t*&,int,int);
-	som_tool_profile(_=ws,minor,major);
+	extern int som_tool_profile(wchar_t*&,int,int,bool);
+	som_tool_profile(_=ws,minor,major,false);
 
 	new_profile:
 
@@ -7340,6 +7515,11 @@ extern void som_game_60fps()
 			p->loopingSND_delay*=fps;
 			p->openingSND_delay*=fps;
 			p->closingSND_delay*=fps;
+
+			//2024: build sound table?
+			p->loopingSND = SOM::SND(p->loopingSND); 
+			p->openingSND = SOM::SND(p->openingSND); 
+			p->closingSND = SOM::SND(p->closingSND); 
 		}
 		/*som_game_60fps_npc_etc does this overflow safety checks
 		if(auto p=(workshop_cpp::npc_prf*)SOM::L.NPC_pr2_data[i])
@@ -7412,7 +7592,7 @@ extern void som_game_60fps()
 	extern void som_game_60fps_move(SOM::Struct<22>[250],int);
 	if(fix.item) som_game_60fps_move(SOM::L.item_pr2_file,250);
 
-	fix.obj = 1;
+	fix.obj = 0;
 	fix.magic = 0;
 	fix.item = 0;
 	fix.arm = 0;
@@ -7426,7 +7606,7 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 	bool arm60 = other||60==SOM::arm[0];	
 
 	//REMOVE ME
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	//UNFINISHED: this needs to be able to change on the fly
 	extern float som_MDL_arm_fps; //0.06f	
 	int armX = 1+(int) 
@@ -7456,9 +7636,17 @@ extern void som_game_60fps_move(SOM::Struct<22> p[], int n)
 		{
 			i->SND_delay = armX; //sound won't play otherwise
 		}
+
+		i->SND = SOM::SND(i->SND); //2024: build sound table?
+	}
+	else if(!other&&i->equip==1&&i->zero_if_move_t!=0) //2024
+	{
+		struct:workshop_cpp::prf_header,prf::item_t,prf::moveset_t{}*ms;
+		(void*&)ms = i;
+		for(int j=4;j-->0;) ms->SND[j] = SOM::SND(ms->SND[j]);
 	}
 }
-static void som_game_60fps_sxx(bool upscale, void *b0, void *bs, WORD *sxx)
+static void som_game_60fps_sxx(bool upscale, void *b0, void *bs, WORD *sxx, bool snd)
 {
 	//NOTE: this is run whether upscaling or not in order
 	//to repair (amputate) structural errors so the game
@@ -7487,6 +7675,11 @@ static void som_game_60fps_sxx(bool upscale, void *b0, void *bs, WORD *sxx)
 			{
 				memset(d,0x00,4); goto bad;
 			}//*/
+
+			if(snd) //2024: build sound table?
+			{
+				d->effect = SOM::SND(d->effect);
+			}
 			
 			//NOTE: just converting 0 to 1 since I
 			//don't think 0 is a valid time but it
@@ -7525,8 +7718,8 @@ extern void som_game_60fps_npc_etc(std::vector<BYTE*> &v)
 
 			for(int i=0;i<32;i++)
 			{
-				som_game_60fps_sxx(upscale,p,e,p->dataSFX[i]);
-				som_game_60fps_sxx(upscale,p,e,p->dataSND[i]);
+				som_game_60fps_sxx(upscale,p,e,p->dataSFX[i],0);
+				som_game_60fps_sxx(upscale,p,e,p->dataSND[i],1);
 			}
 		}
 		if(enemy) if(auto p=(workshop_cpp::enemy_prf*)v[i])
@@ -7537,8 +7730,8 @@ extern void som_game_60fps_npc_etc(std::vector<BYTE*> &v)
 
 			for(int i=0;i<32;i++)
 			{
-				som_game_60fps_sxx(upscale,p,e,p->dataSFX[i]);
-				som_game_60fps_sxx(upscale,p,e,p->dataSND[i]);
+				som_game_60fps_sxx(upscale,p,e,p->dataSFX[i],0);
+				som_game_60fps_sxx(upscale,p,e,p->dataSND[i],1);
 			}
 
 			if(!p->turning_ratio)

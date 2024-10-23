@@ -13,6 +13,11 @@ EX_TRANSLATION_UNIT //(C)
 #include "../lib/swordofmoonlight.h"
 #include "../x2mdl/x2mdl.h"
 
+//2024: MapComp_40c40a_etc_xyz
+//MapComp_40c40a_obj_z(char *a) assume
+//stack address of a
+#pragma optimize("",off)
+
 extern DWORD(&MapComp_memory)[6];
 
 static struct Mapcomp_SoftMSM //SoftMSM
@@ -1179,6 +1184,7 @@ extern DWORD MapComp_408ea0(DWORD pn) //SOM_MAP.cpp
 //0040C40A FF 74 24 04          push        dword ptr [esp+4]  
 //0040C40E E8 6C FF FF FF       call        0040C37F  
 //0040C413 59                   pop         ecx 
+#pragma optimize("",off)
 static void __cdecl MapComp_40c40a_obj_z(char *a)
 {
 	//004061C3 C6 84 24 9A 00 00 00 00 mov         byte ptr [esp+9Ah],0 
@@ -1211,6 +1217,7 @@ static int __cdecl MapComp_40c40a_etc_xyz(char *a)
 	etc[2] = *x;
 	etc[3] = (BYTE)i; return i; //y
 }
+//#pragma optimize("",on)
 
 extern void MapComp_reprogram()
 {
@@ -1491,6 +1498,18 @@ extern void MapComp_reprogram()
 		//shl ecx,6
 		//or dword ptr [ebp+10h],ecx
 		memcpy((void*)0x405f4c,"\x31\xc9\x8a\x08\xc1\xe1\x06\x09\x4d\x10",10);
+		//2024 clear final 2 bits? doesn't work. there's a bug
+		//where some tiles have their "hit" (pit) bit set when
+		//'E' is set in bits 6~13
+		//(this bug was in reading the MPX file using a union)
+		//and dword ptr [ebp+10h],3fffh
+		//memcpy((void*)0x405f56,"\x81\x65\x10\xff\x3f\x00\x00",7);
 		memset((void*)0x405f56,0x90,7);
 	}
+	//2024
+	//recover pit/poison data
+	//00405faa 81 4d 10 00 01 00 00       OR         dword ptr [EBP + 0x10],0x100
+    //00405fbe 81 4d 10 80 00 00 00       OR         dword ptr [EBP + 0x10],0x80
+	*(DWORD*)0x405fad = 0x8000;
+	*(DWORD*)0x405fc1 = 0x4000;
 }

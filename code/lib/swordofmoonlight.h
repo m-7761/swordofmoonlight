@@ -341,7 +341,7 @@ typedef struct _swordofmoonlight_mdo_extra /*EXTENSION*/
 
 	/*this is used to combine a MDO
 	//and MDL file*/
-	uint8_t part, _pad;
+	uint8_t part, skin;
 	ule16_t part_verts;
 	ule32_t part_index; 
 	/*VERSION 2 (8B)*/
@@ -1396,7 +1396,8 @@ swordofmoonlight_prm_magic_t;
 typedef struct _swordofmoonlight_prm_object /*56B*/
 {
 	cint8_t name[31];
-	uint8_t unknown1[5];
+	uint8_t unknown1;
+	lefp_t scale;
 	ule16_t profile;
 	/*
 	//38+4: extension? str/mag/?
@@ -1492,25 +1493,9 @@ typedef struct _swordofmoonlight_prt_part
 
 }SWORDOFMOONLIGHT_PACK
 swordofmoonlight_prt_part_t;	
-typedef struct _swordofmoonlight_prf_magic 
-{
-	enum{ mask=1 };
-
-	SWORDOFMOONLIGHT_RETURN_BY_REFERENCE2(prf_magic)
-	
-	uint8_t onscreen; /*0~1*/
-
-	ule16_t friendlySFX;
-
-	/*INVESTIGATE ME*/
-	ule16_t _unknown1; /*0?*/
-	ule32_t _unknown2; /*0?*/
-
-}SWORDOFMOONLIGHT_PACK
-swordofmoonlight_prf_magic_t;			
 typedef struct _swordofmoonlight_prf_item
 {
-	enum{ mask=10 };
+	enum{ mask=10 }; /*byte 62*/
 
 	SWORDOFMOONLIGHT_RETURN_BY_REFERENCE2(prf_item)
 
@@ -1704,9 +1689,7 @@ typedef struct _swordofmoonlight_prf_object
 		/*84B marker*/
 
 	le16_t flameSFX; /*-1=none*/
-
-	/*SOMETHING... crashes if 0x80,40,20 not 0x10,f,1,1f*/
-	uint8_t _unknown3; /*0? 0~31?*/
+	uint8_t flameCP; /*green CP value*/
 
 	uint8_t flameSFX_periodicity; /*0~255 frames*/
 
@@ -1885,7 +1868,58 @@ typedef struct _swordofmoonlight_prf_npc
 	ule16_t dataSFX[32][2], dataSND[32][2];
 
 }SWORDOFMOONLIGHT_PACK
-swordofmoonlight_prf_npc_t;	
+swordofmoonlight_prf_npc_t;
+typedef struct _swordofmoonlight_prf_magic 
+{
+	enum{ mask=1 };
+
+	SWORDOFMOONLIGHT_RETURN_BY_REFERENCE2(prf_magic)
+	
+	uint8_t onscreen; /*0~1*/
+
+	ule16_t friendlySFX;
+
+	/*INVESTIGATE ME*/
+	ule16_t _unknown1; /*0?*/
+	ule32_t _unknown2; /*0?*/
+
+}SWORDOFMOONLIGHT_PACK
+swordofmoonlight_prf_magic_t;			
+typedef struct _swordofmoonlight_sfx_dat /*2024*/
+{
+	uint8_t procedure;
+	uint8_t model;
+	uint8_t unk2[6];
+	lefp_t width;
+	lefp_t height;
+	lefp_t radius;
+	lefp_t speed;
+	lefp_t scale;
+	lefp_t scale2;
+	lefp_t unk5[2];
+	uint16_t snd,chainfx;
+	int8_t pitch,_pad2;
+	uint16_t _unk6;
+
+}SWORDOFMOONLIGHT_PACK
+swordofmoonlight_sfx_dat_t;
+typedef struct _swordofmoonlight_prf_magic2 /*2024*/
+{
+	enum{ mask=1 };
+
+	SWORDOFMOONLIGHT_RETURN_BY_REFERENCE2(prf_magic2)
+	
+	uint8_t type; /*onscreen=2*/
+
+	ule16_t SFX; /*friendlySFX*/
+
+	swordofmoonlight_sfx_dat_t SFX_dat;
+
+	cint8_t model[31];
+	cint8_t sound[31];
+
+}SWORDOFMOONLIGHT_PACK
+swordofmoonlight_prf_magic2_t;
 
 /*2021: WORK IN PROGRESS*/
 typedef struct _swordofmoonlight_mpx_base /*256B*/
@@ -3369,6 +3403,28 @@ namespace mdl /*SWORDOFMOONLIGHT::*/
 			}
 		}
 	}
+	static void multiply_transpose(const float *mat, const float *vin, float *vout, bool homogeneous=true, int m=3, int n=1)
+	{
+		float vtmp[3], *vptr=vtmp, *&vsrc = vin==vout?vptr:(float*&)vin;
+
+		//0 1 2 3
+		//4 5 6 7
+		//8 9 1011
+		//12131415
+		for(int i=0;i<n;i++,vin+=m,vout+=m)
+		{
+			if(vin==vout) vtmp[0]=vin[0],vtmp[1]=vin[1],vtmp[2]=vin[2]; 
+
+			vout[0] = mat[0]*vsrc[0] + mat[1]*vsrc[1] + mat[ 2]*vsrc[2];
+			vout[1] = mat[4]*vsrc[0] + mat[5]*vsrc[1] + mat[ 6]*vsrc[2];
+			vout[2] = mat[8]*vsrc[0] + mat[9]*vsrc[1] + mat[10]*vsrc[2];
+				
+			if(homogeneous) /*0 or 1 (0 for normals, 1 for vertices)*/
+			{
+				vout[0]+=mat[3]; vout[1]+=mat[7]; vout[2]+=mat[11];
+			}
+		}
+	}
 
 	/*/transpose: generic matrix transposition over m matrices
 	//
@@ -3716,6 +3772,7 @@ namespace prf /*SWORDOFMOONLIGHT::*/
 	using namespace _memory_;
 	typedef void file_t,maptorom;		
 	typedef swordofmoonlight_prf_magic_t magic_t;
+	typedef swordofmoonlight_prf_magic2_t magic2_t;
 	typedef swordofmoonlight_prf_item_t item_t;		
 	typedef swordofmoonlight_prf_item2_t item2_t;
 	typedef swordofmoonlight_prf_move_t move_t;

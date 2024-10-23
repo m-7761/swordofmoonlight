@@ -1,6 +1,8 @@
 #include "Ex.h" 
 EX_TRANSLATION_UNIT //(C)
 
+#include <vector> //mc_speedup
+
 #include "Ex.ini.h"
 #include "Ex.input.h"
 #include "Ex.output.h"
@@ -14,6 +16,9 @@ EX_TRANSLATION_UNIT //(C)
 
 #define SOMVECTOR_MATH
 #include "../Somplayer/Somvector.h"
+
+//2024: Tobii Eye Tracker 5
+#include "../Exselector/Tobii/include/tobii_gameintegration.h"
 
 namespace DDRAW
 {
@@ -50,6 +55,9 @@ static const float som_mocap_squat = 0.63f;
 //the "fast walk" status as if hunched over like in a
 //pensive stance
 enum{ som_mocap_fastwalker=0&&EX::debug };
+
+//NOTE: don't store vector in som_mocap
+static std::vector<unsigned> mc_speedup;
 
 //HISTORY LESSON
 //
@@ -151,6 +159,8 @@ static struct som_mocap
 	float backwards,sideways;
 
 	int gauge_bufs[3] = {};
+
+	float glances[3];
 
 	typedef struct //engine
 	{
@@ -488,7 +498,8 @@ static struct som_mocap
 			//ensure jump occur. it can kick in later as well after it
 			//starts. it also applies if not grounded since there's no
 			//imperative to eliminate jumps in that case
-			in_air = mc.Engine.Prolog.air>0||SOM::motions.tick-mc.lept<=500;
+			//in_air = mc.Engine.Prolog.air>0||SOM::motions.tick-mc.lept<=500;
+			in_air = SOM::motions.tick-mc.lept<=750; //2024
 			//it's really frustrating when a crouch jump fails and the
 			//imperative to prevent false positives isn't really there
 			if(mc.ducking>1) in_air = true;
@@ -1020,12 +1031,15 @@ static DWORD som_mocap_footstep_tick = 0; //2017
 //static float som_mocap_footstep_volume = 0; //2020
 static void som_mocap_footstep_soundeffect()
 {
+	extern float som_clipc_climb2;
+	if(som_clipc_climb2>0) return; //HACK?
+
 	//if(EX::debug) return;
 
 	#ifdef NDEBUG
 	//do this with frequency and left Ex.ini define
 	//desired range
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	#endif
 
 	//2017: this plays at very fast stutters under
@@ -1044,6 +1058,8 @@ static void som_mocap_footstep_soundeffect()
 		snd = EX::isNaN(f)?0:(int)f&0xfff; 
 	}
 	else snd = 30; if(!snd) return;
+
+	snd = SOM::SND(snd); //2024: build sound table?
 
 	int volume = 0, pitch = 0;
 
@@ -1274,6 +1290,8 @@ static void som_mocap_ceiling(BYTE *kb)
 	//do thud sound effect
 	if(hit&&hit<=SOM::L.height&&mc.jumping>=1) 
 	{
+		SOM::rumble();
+
 		SOM::bopped = SOM::frame;
 
 		int snd = -1;
@@ -1287,9 +1305,12 @@ static void som_mocap_ceiling(BYTE *kb)
 		if(snd>=0||EX::debug)
 		{			
 			snd = snd>=0?snd:1009; //1009 is just beep test		
+
+			auto snd2 = SOM::SND(snd); //2024: build sound table?
+
 			//REMOVE ME
 			//there's a bug where you can't mix 2D and 3D sounds
-			if(snd>=1000) SOM::se(snd); else SOM::se3D(SOM::xyz,snd); 
+			if(snd>=1000) SOM::se(snd2); else SOM::se3D(SOM::xyz,snd2); 
 		}
 	}
 	//CONTINUED BELOW...
@@ -1638,6 +1659,22 @@ void som_mocap::engine::operator()(float step, BYTE *kb)
 	{
 		float swing = SOM::L.swinging!=0;
 		SOM::motions.swing = lerp(SOM::motions.swing,swing,mc.antijitter*0.5f);
+	}
+	
+	if(0) //auto-dash on attacking
+	{
+		//0xF3 is interfering with HUD controls (and probably a lot more)
+		if(mc.attacked&&!mc.attack&&!mc.Weapon.guard_releasing
+		||mc.Weapon.guard_bashtick&&SOM::motions.tick-mc.Weapon.guard_bashtick<100
+		||mc.attacked2&&!mc.attack2&&!mc.Shield.guard_releasing
+		||mc.Shield.guard_bashtick&&SOM::motions.tick-mc.Shield.guard_bashtick<100) 
+		{			
+			if(op->do_dash) kb[0xF3] = 0x80;
+		}
+		if(mdl.d>1||mdl.ext.d2) if(op->do_dash)
+		{
+			SOM::L.dashing-=min(SOM::L.dashing,SOM::motions.diff/2); //3
+		}
 	}
 
 	//2022: save the real state of the action
@@ -3055,7 +3092,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 			#ifdef NDEBUG
 			//do this with frequency and let Ex.ini define
 			//desired range
-			int todolist[SOMEX_VNUMBER<=0x1020602UL];
+			int todolist[SOMEX_VNUMBER<=0x1020704UL];
 			#endif
 			//HACK: historically the original arm resets to 1
 			//somehow/somewhere it's being set to 0 (this is
@@ -3203,6 +3240,7 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 		if(!shield||!SOM::motions.swing_move)
 		if(shield||!mdl.ext.d2&&!mc_attack)
 		if(!SOM::L.pcequip2) //equipping?
+		if(!mc.glances[2]) //2024
 		{
 			if(atk) mc_attacked = true; //bash?
 
@@ -3489,8 +3527,11 @@ int som_mocap::guard::operator()(int turbo, int turbo2)
 					if(!shield) atk3+=som_mocap_windup2();
 				}
 			}
+				//keep shield raise so animation stays in
+				//combinated mode for its entire lifetime
 
 			//mdl_d-=1; assert(mdl_d<=lo);
+			if(!shield||mdl.d<1||mdl_d-mdl.ext.s2-3>mdl.ext.speed2)
 			mdl_advance(-1);
 
 			ps[SOM::PC::attack_power] = m; //HACK: som_scene_swing
@@ -3703,6 +3744,8 @@ extern void som_mocap_headwind(bool on)
 	}
 	else snd = 1000; if(snd)
 	{
+		snd = SOM::SND(snd); //2024: build sound table?
+
 		auto &mc = som_mocap;
 
 		auto &sb = SOM::L.snd_bank[snd];
@@ -4207,6 +4250,10 @@ void som_mocap::engine::prolog::operator()(float step)
 	}
 
 	//EX::dbgmsg("air: %f %f",air,mc.jumping);
+		
+	//2024: just consider lept to include falling?!
+	//it simplifies the Jumpstart logic
+	if(air>0) mc.lept = SOM::motions.tick;
 
 	if(do_g) 
 	if(!SOM::emu&&(freefall
@@ -5104,6 +5151,46 @@ static void som_mocap_refill(WORD &p, int loss)
 		p = max(0,min(p+gain-loss,5000));
 	}
 }
+static float som_mocap_speedwalk(float dash)
+{
+	if(!SOM::motions.dz) return 1; //zero divide
+
+	float most = 0;
+	unsigned now = EX::tick();
+	unsigned len = 1/SOM::motions.dz*500*(4-3*dash);	
+	for(auto&ea:mc_speedup)
+	{
+		unsigned del = now-ea;
+
+		if(del>len) continue;
+
+		float t = del/(float)len;
+
+		t = cosf(t*2*M_PI)/2+0.5f;
+		t = 1-t; 
+		
+		//t = powf(t,1+SOM::motions.dz*0.5f+dash*0.5f);
+		t = powf(t,1+dash);
+
+		most = max(most,t);
+	}
+	
+	//now, get rid of used up speedups
+	for(size_t i=0;i<mc_speedup.size();i++)
+	{
+		auto &ea = mc_speedup[i];
+
+		if(now-ea<len) continue;
+
+		std::swap(ea,mc_speedup.back());
+
+		mc_speedup.pop_back(); i--; 
+	}
+
+	float x = som_mocap::lerp(0.333f,0.2f,dash);
+
+	return 1+most*x*SOM::motions.dz;
+}
 void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 {	
 	EX::INI::Player pc; EX::INI::Option op; 
@@ -5128,6 +5215,8 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 	
 	if(SOM::emu) return; //! (emulation) /////////////////////
 	
+	int arm_d = SOM::L.arm_MDL->d+SOM::L.arm_MDL->ext.d2;
+
 	float power = horsepower;
 	if(!SOM::motions.aloft)
 	{
@@ -5137,6 +5226,10 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 		//restore power when sliding
 		//NOTE: code for subtracting power is at 425253
 		//code for adding power is at 425162
+		// 
+		// 2024: I've augmented 00425247 to drain 1/2
+		// more quickly (som_game_reprogram)
+		// 
 		//if(mc.sliding&&!SOM::L.swinging)
 		int slid = mc.sliding&&!SOM::L.swinging;
 		{
@@ -5147,6 +5240,9 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 		if(mc.dashing>=1)
 		{
 			int regain = SOM::motions.diff*3333/1000;
+
+			  if(arm_d>1) regain*=2; //???
+
 			mc.gauge_bufs[0]+=min(p,regain);
 			mc.gauge_bufs[1]+=min(m,regain);
 		}
@@ -5172,7 +5268,41 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 	const float running2 = 1-powf(power/5000,2);
 	float dashing2 = mc.dashing*mc.dashing, walking2 = 1-dashing2;
 	if(SOM::hit){ dashing2 = 1; walking2 = 0; }
+
+	float speedwalk = som_mocap_speedwalk(dashing2); //2024
 			
+	const float step2 = step*1.33333f;
+
+	if(running2>=1&&arm_d<=1) //depleted?
+	{
+	//	bool r = mc.attack>=tvh_ms;
+	//	bool l = mc.attack2>=tvh_ms;
+
+	//  if(l&&!r)
+		if(kb[0x2A]&&!kb[0x1D]) //magic?		
+		mc.glances[0] = min(1,mc.glances[0]+step2);
+		else
+		mc.glances[0] = max(0,mc.glances[0]-step2);
+	//	if(r&&!l)
+		if(kb[0x1D]&&!kb[0x2A]) //attack?		
+		mc.glances[1] = min(1,mc.glances[1]+step2);
+		else
+		mc.glances[1] = max(0,mc.glances[1]-step2);
+	}
+	else
+	{
+		mc.glances[0] = max(0,mc.glances[0]-step2);
+		mc.glances[1] = max(0,mc.glances[1]-step2);
+	}
+	mc.glances[2] = 1-(cosf((-mc.glances[0]+mc.glances[1])*M_PI)/2+0.5f);
+	mc.glances[2]*=mc.glances[2];
+	if(mc.glances[2]>=0.9f)
+	kb[0xcf] = 0x80; //recenter
+	mc.glances[2] = copysign(mc.glances[2],-mc.glances[0]+mc.glances[1]);
+	if(fabsf(mc.glances[2])<0.00001f) 
+	mc.glances[2] = 0;
+	mc.glances[2]*=M_PI*lerp(0.5f,0.9f,mc.landspeed);
+
 	//2020: "sliding" goes off on a tangent in circling
 	//maybe only fast turning should be restricted this
 	//way? the dash speed has to be slowed down too. it
@@ -5194,6 +5324,8 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 	const float dash_walk = SOM::dash/walk; //SOM::walk
 	float m_s = lerp(walk,SOM::dash,dashing2*slide2); //SOM::walk
 	float r_s = SOM::_turn*walking2+dash_walk*SOM::_turn*dashing2;
+	
+	m_s*=som_mocap_speedwalk(dashing2); //2024
 		
 	//NEW: slowdown 20% if squat walking and not dashing
 	float slowdown = 1-mc.squat*0.2f;
@@ -5343,6 +5475,8 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 	//REMOVE ME?
 	float crabgain = EX::Joypad::analog_scale(kb[0x4D]?kb[0x4D]:kb[0x4B]);
 
+	bool guard = SOM::motions.swing_move||SOM::L.arm_MDL->ext.d2;
+
 	//includes sneak/jog/sprint
 	/*2021: need fleeing state for attack inputs
 	if(!f4__1||SOM::hit||mc.scaling)*/
@@ -5387,7 +5521,7 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 			//around 45 degrees for new "sliding" feature
 			if(gaits_x>j-1) gait = min(gait,j-1);
 		
-			if(gait>6||gait<j) 
+			if((gait>6||gait<j)&&!guard) //2024
 			{
 				float slow = running2*n*lean;
 
@@ -5735,6 +5869,11 @@ void som_mocap::engine::analog::operator()(float step, BYTE *kb)
 		case 0x49: v-=gait; break; //9
 		}
 	}
+	if(SOM::motions.dx&&!x||SOM::motions.dx<0!=x<0)
+	{
+		mc_speedup.push_back(EX::tick());	
+	}
+	SOM::motions.dx = x; SOM::motions.dz = z;
 	
 	//saving for later
 	float sidestep = x, backstep = z;
@@ -7011,7 +7150,7 @@ float som_mocap::camera::operator()
 			// pi/9 is too little in VR but jumping
 			// seems too much or too fast
 			// 
-			int todolist[SOMEX_VNUMBER<=0x1020602UL];
+			int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		//	if(zoom<70||EX::debug) //VR? //???
 			if(zoom<70||1) //2022
 			dip2 = lerp(pi/9,dip2,(zoom-30)/32);
@@ -7123,7 +7262,7 @@ float som_mocap::camera::operator()
 			//it uses OpenXR to computet the correct roll for the set
 		//	float _[4],Euler[3] = {SOM::uvw[0],SOM::uvw[1],0};
 		//	float _[4],Euler[3] = {0,SOM::uvw[1],0};
-			float v[4],Euler[3] = {0,-SOM::uvw[1],0};
+			float v[4],Euler[3] = {0,-SOM::uvw[1]+mc.glances[2],0};
 			Somvector::map(v).quaternion(Euler).unit<4>();
 			memcpy(SOM::pos,pose+4,sizeof(SOM::pos));
 			Somvector::map(SOM::pos).rotate<3>(v);
@@ -8223,7 +8362,7 @@ static struct som_mocap_BMI055Integrator
 	{
 		if(samplesLeft>=-samplesN)
 		{
-			Ex_output_f6_head[5] = -SOM::uvw[1];			
+			Ex_output_f6_head[5] = -SOM::uvw[1]+som_mocap.glances[2];			
 					
 			return;
 		}
@@ -8308,7 +8447,7 @@ static struct som_mocap_BMI055Integrator
 				//for X to work looking up/down the POV
 				//must be included inside the quaternion		
 				scalar2 Qinv[4] = {-Q[0],-Q[1],-Q[2],Q[3]};
-				scalar2 Euler[3] = {SOM::uvw[0],SOM::uvw[1],0};
+				scalar2 Euler[3] = {SOM::uvw[0],SOM::uvw[1]-som_mocap.glances[2],0};
 				Somvector::multiply(Somvector::map(q).quaternion(Euler),Qinv,Q);
 								
 				//NOTE, THE ANGULAR COMPONENTS HAVE BEEEN SWAPPED
@@ -8493,6 +8632,8 @@ extern void som_mocap_PSVR(SOM::Sixaxis sa[2], int recenter)
 	}
 }
 
+extern void *som_mocap_Tobii_extendedview = 0;
+
 //TODO: CAN USE THIS FOR MORE THAN JUST HEAD-TRACKING!
 extern void som_mocap_403BB0()
 {		
@@ -8563,16 +8704,18 @@ extern void som_mocap_403BB0()
 		frustum_shape[i][1]-=pullback;
 	}
 
-	if(!DDRAW::inStereo) //NEW
-	{
-		s = sinf(-SOM::uvw[1]);
-		c = cosf(-SOM::uvw[1]);
-	}
-	else
+	if(DDRAW::inStereo //NEW
+	||som_mocap_Tobii_extendedview) //2024
 	{
 		s = sinf(Ex_output_f6_head[5]);	
 		c = cosf(Ex_output_f6_head[5]);
 	}
+	else
+	{
+		s = sinf(-SOM::uvw[1]+som_mocap.glances[2]);
+		c = cosf(-SOM::uvw[1]+som_mocap.glances[2]);
+	}
+
 	for(int i=0;i<4;i++)
 	{
 		float &x = SOM::L.frustum[2+2*i+0];
@@ -8584,6 +8727,8 @@ extern void som_mocap_403BB0()
 		z+=SOM::xyz[2];
 	}
 }
+
+static TobiiGameIntegration::ITobiiGameIntegrationApi *som_mocap_Tobii_api = 0;
 
 extern bool som_mocap_PSVR_view(float (&out)[4][4], float (&in)[4][4])
 {
@@ -8625,3 +8770,323 @@ extern bool som_mocap_PSVR_view(float (&out)[4][4], float (&in)[4][4])
 	Somvector::multiply<4,4>(in,m,out);
 	return true;
 }
+extern bool som_mocap_glance_view(float(&out)[4][4],float(&in)[4][4])
+{
+	if(DDRAW::inStereo||som_mocap_Tobii_extendedview) return false;
+
+	float glance = som_mocap.glances[2]; if(!glance) return false;
+
+	float q[4];
+	Somvector::map(q).quaternion<0,1,0>(glance);
+
+	float m[4][4]; 
+	Somvector::map(m).copy_quaternion<4,4>(q);
+	Somvector::multiply<4,4>(in,m,out);
+
+	return true;
+}
+extern bool som_mocap_Tobii_view(float (&out)[4][4], float (&in)[4][4], float (&io)[6])
+{
+	if(!som_mocap_Tobii_extendedview||DDRAW::inStereo) return false;
+
+	if(1) //this is treating the monitor as a window
+	{
+		if(1) //more pivot like? feels better?
+		{
+			float tmp[4][4];
+			Somvector::map(tmp).identity<4,4>();
+			Somvector::map(tmp[3]).remove<3>(Ex_output_f6_head+7);
+			float tmp2[4][4];
+			Somvector::map(tmp2).copy_quaternion<4,4>(Ex_output_f6_head);
+			float m[4][4];
+			Somvector::multiply<4,4>(tmp,tmp2,m);
+			Somvector::multiply<4,4>(in,m,out);
+		}
+		else
+		{
+			float m[4][4];
+			Somvector::map(m).copy_quaternion<4,4>(Ex_output_f6_head);
+			Somvector::map(m[3]).remove<3>(Ex_output_f6_head+7);
+			Somvector::multiply<4,4>(in,m,out);
+		}
+
+		if(EX::INI::Option()->do_tobii2)
+		{
+			float xz[3];
+			xz[0] = -Ex_output_f6_head[7]/4;
+			xz[1] = 0;
+			xz[2] = -Ex_output_f6_head[9]/4;
+			SOM::rotate(xz,0,SOM::uvw[1]);
+			io[0]+=xz[0];
+			io[1]-=Ex_output_f6_head[8]/4;
+			io[2]+=xz[2];
+			io[3]+=(Ex_output_f6_head[4]+SOM::uvw[0])/2;
+			io[4]+=(Ex_output_f6_head[5]+SOM::uvw[1])/2;
+			io[5]+=(Ex_output_f6_head[6]+SOM::uvw[2])/2;
+		}
+		else
+		{
+			float xz[3];
+			xz[0] = Ex_output_f6_head[7]*1.3f;
+			xz[1] = 0;
+			xz[2] = Ex_output_f6_head[9]*1.3f;
+			SOM::rotate(xz,0,SOM::uvw[1]);
+			io[0]+=xz[0];
+			io[1]+=Ex_output_f6_head[8];
+			io[2]+=xz[2];
+			io[3]-=(Ex_output_f6_head[4]+SOM::uvw[0])*1.5f;
+			io[4]-=(Ex_output_f6_head[5]+SOM::uvw[1])*1.5f;
+			io[5]-=(Ex_output_f6_head[6]+SOM::uvw[2])*1.5f;
+		}
+
+		return true;
+	}
+	return false;
+}
+extern void som_mocap_Tobii()
+{
+	som_mocap_Tobii_extendedview = 0;
+
+	if(!som_mocap_Tobii_api||DDRAW::inStereo) return;
+
+	namespace tgi = TobiiGameIntegration;
+
+	tgi::IExtendedView *extendedView =
+	som_mocap_Tobii_api->GetFeatures()->GetExtendedView();
+											   
+	//NOTE: the API still responds when Tobii is disabled!
+	auto *tc = som_mocap_Tobii_api->GetTrackerController();
+	//doesn't work as advertised
+	//if(!tc->IsEnabled()) return;
+	 
+	tc->TrackWindow(SOM::window);
+
+	if(!tc->IsConnected()) return;	
+	
+	som_mocap_Tobii_extendedview = extendedView; //Ex.output.cpp
+	som_mocap_Tobii_api->Update();
+
+	if(extendedView)
+	{
+		tgi::Transformation trans = 
+		extendedView->GetTransformation();		
+		/*
+		float xd = trans.Rotation.PitchDegrees;
+		float yd = trans.Rotation.YawDegrees;
+		float zd = trans.Rotation.RollDegrees;
+		EX::dbgmsg("Tobii %f %f %f",xd,yd,zd);
+		float xp = trans.Position.X;
+		float yp = trans.Position.Y;
+		float zp = trans.Position.Z;
+		EX::dbgmsg("Tobii %f %f %f",xp,yp,zp);
+		*/
+		trans.Rotation.YawDegrees = trans.Rotation.YawDegrees/-180*M_PI;
+		trans.Rotation.PitchDegrees = trans.Rotation.PitchDegrees/180*M_PI;
+		std::swap(trans.Rotation.YawDegrees,trans.Rotation.PitchDegrees);
+		trans.Rotation.RollDegrees = trans.Rotation.RollDegrees/180*M_PI;			
+		trans.Position.X/=-1000; //mm
+		trans.Position.Y/=-1000;
+		trans.Position.Z/=+1000;
+
+		if(1) //HACK: smoothing over Tobii's deadzone :(
+		{			
+			static int dwin = 10, pwin = 60;
+
+			if(0&&Exselector)
+			{
+				Exselector->watch("Tobii Rotation Window [1~20]",&dwin);
+				Exselector->watch("Tobii Position Window [30~90]",&pwin);
+			}
+
+			//ALGORITHM: this is just tossing out samples
+			//around 0 in order to leap over the deadzone
+			
+			enum{ _n=120 };
+			float x = min(1.0f,DDRAW::refreshrate/120.0f);
+			int n = _n*x;
+			//this is being used to introduce temporal bias
+			x = 1.0f/n;
+			//const static float sum[4] = {0.1,0.2,0.3,0.4};
+			static auto *wts = new float[_n][6]();
+			static auto *avg = new tgi::Transformation[_n]();		
+			//preferring a circular buffer? not working
+		//	static int rr = 0; rr = (rr+1)%n;
+			for(int i=n-1;i-->0;)
+			{
+				avg[i] = avg[i+1];
+				for(int j=6;j-->0;)
+				wts[i][j] = wts[i+1][j];
+			}
+			avg[n-1] = trans;
+		//	avg[rr] = trans;			
+		//	for(int j=0;j<6;j++)
+		//	EX::dbgmsg("trans %f",(&trans.Rotation.YawDegrees)[j]*(j<3?dwin:pwin));		
+			for(int j=6;j-->0;)
+			{
+				float v = (&trans.Rotation.YawDegrees)[j];
+			//	v*=j<3?3:30;
+			 	v*=j<3?dwin:pwin;
+			//	float w = powf(min(1,fabsf(v)),3.0f);
+				float w = min(1,max(-1,v))+1;
+				assert(w>=0&&w<=2);
+				w = cosf(w*M_PI)/2+0.5f;
+				assert(w>=0&&w<=1);
+				wts[n-1][j] = w;
+			//	wts[rr][j] = w;
+			}
+			float sum[6] = {};			
+			for(int i=n;i-->0;)
+			for(int j=6;j-->0;)
+			{
+				sum[j]+=wts[i][j]*powf(i*x,2);
+			}
+			memset(&trans,0x00,sizeof(trans));
+			for(int i=n;i-->0;)
+			for(int j=6;j-->0;)
+			{
+				float &v = (&trans.Rotation.YawDegrees)[j];
+				float &w = (&avg[i].Rotation.YawDegrees)[j];
+				v+=w*wts[i][j]*powf(i*x,2);
+			}
+			for(int j=6;j-->0;) if(sum[j]) //zero divide
+			{
+				(&trans.Rotation.YawDegrees)[j]*=1/sum[j];
+			}			
+
+			/*Print sum without i*x included
+			#ifdef EX_DBGMSG_DEFINED
+			{
+				memset(sum,0x00,sizeof(sum));
+				for(int i=n;i-->0;)
+				for(int j=6;j-->0;)
+				{
+					sum[j]+=wts[i][j];
+				}
+				for(int j=0;j<6;j++)
+				EX::dbgmsg("sum %f",sum[j]);			
+			}
+			#endif*/
+		}
+
+		if(EX::INI::Option()->do_tobii2)
+		{
+			float Euler[3];
+			Euler[0] = -trans.Rotation.YawDegrees*1.5f; //pitch
+			Euler[1] = -trans.Rotation.PitchDegrees*1.5f+som_mocap.glances[2]; //yaw
+			Euler[2] = -trans.Rotation.RollDegrees*0.1f;
+			Somvector::map(Ex_output_f6_head).quaternion<1,2,3>(Euler);
+
+			Ex_output_f6_head[4] = Euler[0]-SOM::uvw[0];
+			Ex_output_f6_head[5] = Euler[1]-SOM::uvw[1];
+			Ex_output_f6_head[6] = Euler[2]-SOM::uvw[2];
+
+			Ex_output_f6_head[7] = -trans.Position.X;
+			Ex_output_f6_head[8] = -trans.Position.Y;
+			Ex_output_f6_head[9] = -trans.Position.Z;
+		}
+		else //this is treating the monitor as a window
+		{
+			//NOTE: these adjustments are meant to correspond
+			//to the distance to a window, assuming the Tobii
+			//tracker wants you seated close to your display
+
+			float Euler[3];
+			Euler[0] = trans.Rotation.YawDegrees*0.5f; //pitch
+			Euler[1] = trans.Rotation.PitchDegrees*0.5f+som_mocap.glances[2]; //yaw
+			Euler[2] = trans.Rotation.RollDegrees*0.05f;
+			Somvector::map(Ex_output_f6_head).quaternion<1,2,3>(Euler);
+
+			Ex_output_f6_head[4] = Euler[0]-SOM::uvw[0];
+			Ex_output_f6_head[5] = Euler[1]-SOM::uvw[1];
+			Ex_output_f6_head[6] = Euler[2]-SOM::uvw[2];
+
+			Ex_output_f6_head[7] = trans.Position.X*2;
+			Ex_output_f6_head[8] = trans.Position.Y*2;
+			Ex_output_f6_head[9] = trans.Position.Z*2;
+		}
+	}
+	else memset(Ex_output_f6_head,0x00,sizeof(float)*10);
+}
+extern void som_mocap_Tobii_unpause()
+{
+	//I don't know if this is ever a good idea?
+	//I prefer players not have to deal with it
+
+	if(1) //it makes debugging difficult
+	{
+		if(!som_mocap_Tobii_api) return;
+
+		TobiiGameIntegration::IExtendedView *extendedView =
+		som_mocap_Tobii_api->GetFeatures()->GetExtendedView();
+		
+		auto *tc = som_mocap_Tobii_api->GetTrackerController();
+		if(!tc->IsConnected()) return;
+
+		tc->TrackWindow(SOM::window);
+		som_mocap_Tobii_api->Update();
+		if(extendedView) extendedView->ResetDefaultHeadPose();
+	}
+}
+extern void *som_mocap_Tobii_test()
+{
+	if(som_mocap_Tobii_api) return som_mocap_Tobii_api;
+
+	if(!EX::INI::Option()->do_tobii) return 0;
+
+	HINSTANCE h = LoadLibraryA("tobii_gameintegration_x86.dll");
+	void *p = GetProcAddress(h,"GetApi");
+	if(!p) return 0;
+
+	som_mocap_Tobii_api = 
+	((TobiiGameIntegration::ITobiiGameIntegrationApi*(*)
+	(const char* titleName, 
+	int majorVersion, int minorVersion, int revision, 
+	 const uint16_t* license, uint32_t licenseSize, bool analyticalUse))p)
+	("Sword of Moonlight (Exselector.dll)",
+	TGI_VERSION_MAJOR,TGI_VERSION_MINOR,TGI_VERSION_REVISION,nullptr,0,false);
+
+	if(1&&som_mocap_Tobii_api)
+	{		
+		namespace tgi = TobiiGameIntegration;
+
+		auto *extendedView = som_mocap_Tobii_api->GetFeatures()->GetExtendedView();
+
+		tgi::ExtendedViewSettings set;
+		extendedView->GetSettings(set);	
+		//YUCK: requires tobii_gameintegration_x86.lib
+		//can Exselector.dll host this?
+		set.SetEyeHeadTrackingRatio(EX::INI::Detail()->tobii_eye_head_ratio);
+		//NOTE: this probably has no effect
+		set.SetCenterStabilization(0.0f);
+		/*		
+		float cmp = set.HeadYawLeftDegrees.DeadZoneNorm;
+	if(0)
+	set.SetHeadMultiAxisSettingsValues(
+	tgi::AxisFlags::AllPosition|tgi::AxisFlags::AllRotation,
+	tgi::AxisDirectionFlags::Both,
+	&tgi::AxisSettings::DeadZoneNorm,0,false);
+		cmp = set.HeadYawLeftDegrees.DeadZoneNorm;
+		*/
+		//want these to be equal
+		//by default gaze is too unresponsive at 50%
+	//	set.HeadRotationResponsiveness = 0.9f;
+//		set.GazeResponsiveness = 1.0f;
+	//	set.SetHeadAllRotationAxisSettingsSensitivity(0.5f);
+	//	set.SetHeadAllPositionAxisSettingsSensitivity(0.5f);
+		//this seems to do a corrective roll
+	//	set.RelativeHeadPositionEnabled = false;
+		//set these last
+	//	set.UseHeadTracking = false;
+		set.HeadTrackingAutoReset = false;
+		extendedView->UpdateSettings(set);
+	}
+
+	return som_mocap_Tobii_api;
+}
+/*//shouldn't have to bother with this
+extern void som_mocap_Tobii_shutdown()
+{
+	if(som_mocap_Tobii_api)
+	som_mocap_Tobii_api->Shutdown();
+	som_mocap_Tobii_api = nullptr;
+}*/

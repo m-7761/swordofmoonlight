@@ -272,6 +272,15 @@ SOMPASTE_API const wchar_t *SOMPASTE_LIB(Longname)(wchar_t token)
 {
 	return token>=256?Somproject_longname(token-256):0;
 }
+SOMPASTE_API wchar_t SOMPASTE_LIB(Name)(const wchar_t *longname)
+{
+	return (wchar_t)(256+Somproject_name(longname));
+}
+
+SOMPASTE_API bool SOMPASTE_LIB(Inject)(SOMPASTE p, HWND owner, wchar_t path[MAX_PATH], size_t kind_or_filesize)
+{
+	return Somproject_inject(p,owner,path,kind_or_filesize);
+}
 
 SOMPASTE_API HWND SOMPASTE_LIB(Place)(SOMPASTE p, HWND owner, wchar_t out[MAX_PATH], const wchar_t *in, const wchar_t *title, void *modeless)
 {

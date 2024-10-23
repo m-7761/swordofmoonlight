@@ -878,22 +878,29 @@ struct SOM_MAP_prt
 			size_t i = SOM_MAP.prt.indexed++;
 			if(i>=missing()) return false; //MAP/DATA mismatch?
 			key &r = SOM_MAP.prt.blob[i];
-			if(r.index!=missing()||r.number()!=uglier) return true;			
+			if(r.index!=missing()||r.number()!=uglier)
+			return true;			
 			r.index = number(); return false;
 		}
 							  	
 		short part_number()const
 		{
-			if(isdigit(*profile))
+			auto *p = profile; p:
+
+			if(isdigit(*p))
 			{
 				wchar_t *e;					
-				long l = wcstol(profile,&e,10);
+				long l = wcstol(p,&e,10);
 
 				if(l>=0&&l<1024)
-				if(e-profile==4&&!wcsicmp(e,L".prt"))				
+				if(e-p==4&&!wcsicmp(e,L".prt"))				
 				{
 					return l; //legacy piece
 				}
+			}
+			if(!p[1]&&p==profile) //som_map_append_prt?
+			{
+				p = longname(); goto p; //2024
 			}
 			return 1024+number();
 		}
@@ -1150,7 +1157,8 @@ static struct MapComp_43e638
 	WORD prt,mhm; //msm? what's what???
 	
 	float elevation; 
-	unsigned rotation:2,nonzero:14,icon:8,msb:8;
+	//unsigned rotation:2,box:4,ev:xxx:1,pit:1,:7,icon:8,msb:8;
+	unsigned rotation:2,box:4,ev:8,xxx:1,pit:1,icon:8,msb:8;
 
 	DWORD zero_or_8; //0,8 (mostly 0)
 

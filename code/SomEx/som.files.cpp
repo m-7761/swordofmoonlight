@@ -483,10 +483,10 @@ bool SOM::DATA::Sfx::Dat::open() //static
 	//folder
 	//FILE *f = SOM_FILES_FOPEN("DATA\\Sfx\\Sfx.dat");
 	FILE *f = 0; wchar_t path[MAX_PATH];	
-	if(EX::data(L"Sfx\\Sfx.dat",path))
-	{
-		f = _wfopen(path,L"rb");
-	}
+	swprintf(path,L"%s\\PARAM\\SFX.DAT",EX::cd()); //2024
+	f = _wfopen(path,L"rb");
+	if(!f&&EX::data(L"Sfx\\Sfx.dat",path))
+	f = _wfopen(path,L"rb");
 	if(!f||!fread(p->records,48*1024,1,f))
 	{
 		//2021: don't crash SOM_MAP_art_files
@@ -575,13 +575,22 @@ static VOID CALLBACK som_files_wrote_pr(HWND win, UINT, UINT_PTR idEvent, DWORD)
 		
 		if(p=='p') //parts?
 		{
-			if(tolower(ext[3])!='t'||ext[4]) continue;
-				
+			if(tolower(ext[3])!='t'||ext[4]) continue; 
+					
 			//NOTE: this is really not effecient in terms of 
 			//scanning the PARTS directory (which can be big)
-			auto &k = SOM_MAP.prt[found.cFileName];
-			if(!k||CompareFileTime(&k.writetime,&found.ftLastWriteTime)>=0)
-			continue;
+	app:	auto &k = SOM_MAP.prt[found.cFileName]; if(k)
+			{
+				if(CompareFileTime(&k.writetime,&found.ftLastWriteTime)>=0)
+				continue;
+			}
+			else //TODO: try to add PRT to SOM_MAP?
+			{
+				extern bool som_map_append_prt(wchar_t path[MAX_PATH]);
+				if(!som_map_append_prt(wcscpy(spec+fn,found.cFileName)-fn))
+				continue;
+				goto app;
+			}
 
 			k.writetime = found.ftLastWriteTime;	
 
@@ -648,12 +657,10 @@ static VOID CALLBACK som_files_wrote_pr(HWND win, UINT, UINT_PTR idEvent, DWORD)
 	}
 	else if(p=='p'&&SOM::tool==SOM_MAP.exe) //parts
 	{
-		//2022: just update the palette view preview?
-		//NOTE: icons are more work. I think I will get
-		//around to them before long
-		extern int SOM_MAP_413aa0_inverse(WORD); //2023
-		auto *tp = SOM_MAP_app::CWnd(win);
-		((void(__thiscall*)(void*,int,int))0x417250)(tp,SOM_MAP_413aa0_inverse(workshop_category),1);
+		//this isn't working... can't trace beyond 4300af?
+		//(debugger stops and app is raised to foreground)
+	//	auto *tp = SOM_MAP_app::CWnd(win);
+	//	((void(__thiscall*)(void*,DWORD))0x430080)(tp,SOM_MAP.prt[workshop_category].part_number());		
 	}
 }						
 extern void SOM::PARAM::trigger_write_monitor()
@@ -686,6 +693,14 @@ static VOID CALLBACK som_files_wrote_db(UINT_PTR cat, wchar_t *dir) //RECURSIVE
 	}
 	bool model = wcsstr(w,L"\\model");
 
+	bool prof = wcsstr(w,L"\\prof"); //2024
+
+	if(SOM::tool==SOM_PRM.exe) 
+	{
+		model = map = false;
+	}
+	else prof = false;
+
 	FILETIME time = writ;
 
 	WIN32_FIND_DATAW found; 
@@ -694,9 +709,6 @@ static VOID CALLBACK som_files_wrote_db(UINT_PTR cat, wchar_t *dir) //RECURSIVE
 	HANDLE glob = FindFirstFileW(spec,&found);
 	if(glob!=INVALID_HANDLE_VALUE) do
 	{
-		#ifdef NDEBUG
-		//#error maybe do this in som_files_threadproc?
-		#endif
 		if(found.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)
 		{
 			if('.'!=found.cFileName[0])
@@ -771,6 +783,24 @@ static VOID CALLBACK som_files_wrote_db(UINT_PTR cat, wchar_t *dir) //RECURSIVE
 				{
 				//	som_MPX_refresh_evt(i);					
 				}
+			}
+			else if(prof) //2024: now what?
+			{
+				auto ext = PathFindExtension(found.cFileName);
+				if(wcsicmp(ext,L".prf")) continue;
+
+				wchar_t path[MAX_PATH];
+				swprintf(path,L"%s\\%s",path,found.cFileName);
+
+				HANDLE h = CreateFile(path,SOM_GAME_READ);
+				DWORD sz = GetFileSize(h,0);
+				CloseHandle(h);
+
+				extern HWND &som_tool; //SOM_PRM
+
+				//TODO: update current tab?
+				if(h!=INVALID_HANDLE_VALUE)				
+				Sompaste->database_insert(som_tool,path,sz);				
 			}
 		}
 
@@ -898,6 +928,10 @@ static DWORD WINAPI som_files_threadproc(LPVOID hw)
 {	
 	bool db = SOM::game&&!SOM::retail; assert(!SOM::game||db);
 
+	bool som_prm = SOM::tool==SOM_PRM.exe; //2024
+
+	if(som_prm) db = true;
+
 	//Reminder: read somewhere the Samba team isn't
 	//supporting ReadDirectoryChangesW and that the
 	//implementation of FindFirstChangeNotification
@@ -919,7 +953,7 @@ static DWORD WINAPI som_files_threadproc(LPVOID hw)
 
 	size_t nChangeHandles = 0;
 
-	UINT_PTR m = *EX::user(0)?2:1;
+	UINT_PTR m = som_prm?0:*EX::user(0)?2:1;
 	UINT_PTR n = m;
 	if(SOM::tool==SOM_MAP.exe||db)
 	for(UINT_PTR i=0;*EX::data(i);i++) 

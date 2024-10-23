@@ -164,6 +164,7 @@
 	LOOKUP(DAMAGE_INITIALIZATION_FAILURE,......,total_failures)	
 	LOOKUP(CRITICAL_HIT_POINT_QUANTIFIER,......,critical_hit_point_quantifier)
 	LOOKUP(DO_NOT_HARM_DEFENSELESS_CHARACTERS,.,do_not_harm_defenseless_characters)
+	LOOKUP(DO_NOT_HARM_EQUIPMENT,..............,do_not_harm_equipment)
 	LOOKUP(HIT_HANDICAP_QUANTIFIER,............,hit_handicap_quantifier)
 	LOOKUP(HIT_OFFSET_QUANTIFIER,..............,hit_offset_quantifier)
 	LOOKUP(HIT_OFFSET_QUANTIFIER2,.............,hit_offset_quantifier2)
@@ -236,6 +237,7 @@
 	LOOKUP(ST_MARGIN_MULTIPLIER,...............,st_margin_multiplier)
 	LOOKUP(ST_STATUS_MODE,.....................,st_status_mode)
 	LOOKUP(START_MODE,.........................,start_mode)	
+	LOOKUP(TOBII_EYE_HEAD_RATIO,...............,tobii_eye_head_ratio)
 	LOOKUP(U2_HARDNESS,........................,u2_hardness)
 	LOOKUP(U2_POWER,...........................,u2_power)	
 	LOOKUP(WASD_AND_MOUSE_MODE,................,wasd_and_mouse_mode)
@@ -267,6 +269,11 @@
 	LOOKUP(TILE_VIEW_SUBDIVISIONS,.............,tile_view_subdivisions)	
 	LOOKUP(TIME_MACHINE_MODE,..................,time_machine_mode)
 	LOOKUP(WHITE_SATURATION,...................,white_saturation)
+#endif
+
+#ifdef SOMEX_INI_ENGINE_SECTION
+	LOOKUP(ENGINE_INITIALIZATION_FAILURE,......,total_failures)
+	LOOKUP(DO_KINGSFIELD25,....................,do_KingsField25)
 #endif
 
 #ifdef SOMEX_INI_JOYPAD_SECTION
@@ -377,6 +384,8 @@
 	LOOKUP(DO_STIPPLE2,........................,do_stipple2)
 	LOOKUP(DO_SYNCBGM,.........................,do_syncbgm)	
 	LOOKUP(DO_SYSTEM,..........................,do_system)
+	LOOKUP(DO_TOBII,...........................,do_tobii)
+	LOOKUP(DO_TOBII2,..........................,do_tobii2)
 	LOOKUP(DO_U,...............................,do_u)
 	LOOKUP(DO_U2,..............................,do_u2)
 	LOOKUP(DO_WALK,............................,do_walk)

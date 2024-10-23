@@ -73,7 +73,7 @@ static void Ex_ini_foreach(Ex_ini_e e, T t, mF mf)
 		//2021: [Number] is passing these to Ex.number.cpp
 		//for some reason all spaces are stripped out...
 		//probably should fix lib/swordofmoonlight.h/cpp
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		if(*p=='#') continue; 
 
 		//NEW: '.' reinitializes p+1
@@ -518,7 +518,7 @@ const unsigned char *EX::INI::Action::Section::xtranslate(unsigned short x)const
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -645,7 +645,7 @@ void EX::INI::Adjust::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -724,7 +724,7 @@ void EX::INI::Analog::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -820,7 +820,7 @@ void EX::INI::Author::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -917,7 +917,7 @@ void EX::INI::Bitmap::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -1054,7 +1054,7 @@ void EX::INI::Boxart::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -1292,7 +1292,7 @@ void EX::INI::Button::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -1355,6 +1355,10 @@ void EX::INI::Damage::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 		nc->do_not_harm_defenseless_characters = Ex_ini_xlat_bin_val(q); break;
 
+	case DO_NOT_HARM_EQUIPMENT:
+
+		nc->do_not_harm_equipment = Ex_ini_xlat_bin_val(q); break;
+
 	case HIT_POINT_MODE: EX_INI_MENTION_(int,q,nc->hit_point_mode); break;
 		
 	case HIT_POINT_MODEL: /*unimplemented: it's complicated*/ break; 
@@ -1382,7 +1386,7 @@ void EX::INI::Damage::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -1593,6 +1597,10 @@ void EX::INI::Detail::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	case GAMMA_NPC: nc->gamma_npc = q; break;
 
 	case NWSE_SATURATION: nc->nwse_saturation = q; break;
+
+	case TOBII_EYE_HEAD_RATIO: 
+		
+		EX_INI_MENTION_(dec,q,nc->tobii_eye_head_ratio); break;
 	}
 }
 
@@ -1605,7 +1613,7 @@ void EX::INI::Detail::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -1875,13 +1883,87 @@ bool EX::INI::Editor::Section::sort_(size_t i, const wchar_t **lv, const wchar_t
 
 
 
+#define SOMEX_INI_ENGINE_SECTION
+
+#define LOOKUP(a,b,c) a, \
+
+enum
+{
+	#include "ini.lookup.inl"
+};
+
+#define LOOKUP(a,b,c) (const wchar_t*)a, L###c, \
+
+static const wchar_t *Ex_ini_engine_lookup[] = 
+{
+	#include "ini.lookup.inl"
+
+	0, 0
+};
+
+#define LOOKUP(a,b,c) Ex_ini_engine_lookup[a*2-2]=(const wchar_t*)a; Ex_ini_engine_lookup[a*2-1]=L###c; \
+
+static void Ex_ini_engine_backup() 
+{
+	#include "ini.lookup.inl"
+}
+
+#undef LOOKUP
+
+static int Ex_ini_xlat_engine_section_key(const wchar_t *in, const wchar_t *in_x)
+{		
+	static int array_size = 0;
+
+	if(!array_size) while(Ex_ini_engine_lookup[++array_size*2]);
+
+	return Ex_ini_do_binary_lookup(in,in_x,Ex_ini_engine_lookup+2,array_size-1);
+}
+
+EX::INI::Engine::Engine(int section)
+{		
+	if(section>=1) 
+	{
+		static Section _1; //!
+
+		_section = section==1?&_1:0;
+		
+		EX_INI_INITIALIZE_(Engine,1) //...
+	}
+	else _section = 0;
+}
+void EX::INI::Engine::operator+=(Ex_ini_e in)
+{
+	if(!_section) return;
+
+	_section->times_included++;
+
+	Ex_ini_foreach(in,this,&Engine::mention); //...
+}
+void EX::INI::Engine::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
+{	
+	bool yes = Ex_ini_xlat_bin_val(q);
+
+	Section *nc = _section; nc->total_mentions++;	
+
+	switch(Ex_ini_xlat_engine_section_key(p,d))
+	{
+	case ENGINE_INITIALIZATION_FAILURE: nc->total_failures++; break;
+
+	case DO_KINGSFIELD25: nc->do_KingsField25 = yes; break;
+	}
+}
+
+#undef SOMEX_INI_ENGINE_SECTION
+
+
+
 
 
 #define SOMEX_INI_JOYPAD_SECTION
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -2041,7 +2123,7 @@ void EX::INI::Joypad::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -2390,7 +2472,7 @@ void EX::INI::Keypad::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -2523,7 +2605,7 @@ void EX::INI::Number::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -2754,6 +2836,10 @@ void EX::INI::Option::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	case DO_SIXAXIS: nc->do_sixaxis = yes; break;
 
 	case DO_RUMBLE: nc->do_rumble = yes; break;
+
+	case DO_TOBII2: nc->do_tobii2 = yes; if(!yes) break;
+
+	case DO_TOBII: nc->do_tobii = yes; break;
 	}
 }
 
@@ -2768,7 +2854,7 @@ void EX::INI::Option::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -3062,7 +3148,7 @@ int EX::INI::Output::Section::loglog(int pair, const wchar_t **key, const wchar_
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -3198,7 +3284,7 @@ void EX::INI::Player::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -3281,7 +3367,7 @@ void EX::INI::Sample::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -3470,7 +3556,7 @@ void EX::INI::Script::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum 
+enum 
 {
 	#include "ini.lookup.inl"
 };
@@ -3584,7 +3670,7 @@ void EX::INI::Stereo::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -3729,7 +3815,7 @@ void EX::INI::System::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };
@@ -3830,7 +3916,7 @@ void EX::INI::Volume::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define LOOKUP(a,b,c) a, \
 
-static enum
+enum
 {
 	#include "ini.lookup.inl"
 };

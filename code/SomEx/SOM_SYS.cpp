@@ -3,6 +3,8 @@
 EX_TRANSLATION_UNIT //(C)
 
 #include "som.tool.h" 
+
+#pragma optimize("",off) //2024
 							
 extern HWND &som_tool;
 extern char som_tool_play;
@@ -180,10 +182,23 @@ extern void SOM_SYS_buttonup(HWND dlg) //56200 (145)
 	}
 }			   
 
+static void __cdecl SOM_SYS_4131c0_play_wav(char *a, int, int)
+{
+	if(-1==((int(__cdecl*)(char*,int,int))0x4131C0)(a,0,0))
+	{
+		memcpy(PathFindExtensionA(a)+1,"wav",4);
+		((int(__cdecl*)(char*,int,int))0x4131C0)(a,0,0);
+	}
+}
+
 extern void SOM_SYS_reprogram()
 {
 	extern void som_state_dword(DWORD,DWORD,DWORD);
 
 	//level up table uses no less than five 0s to pad power ups
 	som_state_dword(0x4A464,*(DWORD*)"%05d",*(DWORD*)"%d\0\0");
+
+	//2023: play WAV files
+	//00405BE6 E8 D5 D5 00 00       call        004131C0
+	*(DWORD*)0x405BE7 = (DWORD)SOM_SYS_4131c0_play_wav-0x405BEb;
 }

@@ -6,6 +6,8 @@
 typedef struct tagRECT RECT; 
 typedef struct HFONT__ *HFONT;
 
+namespace Widgets95{ class node; }
+
 /**SINGLETON
  * There is a single global pointer to an object of this
  * type returned by Sword_of_Moonlight_Extension_Library.
@@ -62,6 +64,21 @@ public:
 	//svg_viewport and svg_view for the view's number.
 	virtual void svg_end(BOOL(*xr_f)(int view)=0);
 
+	//2024: put this variable in a Widgets95 live GUI.
+	//put ~ in parentheses to define spinner's limits.
+	virtual Widgets95::node *watch(const char *name, const type_info &type, void *var, bool reg=false);
+
+	template<typename T>
+	inline Widgets95::node *watch(const char *name, T *var)
+	{
+		return watch(name,typeid(*var),var); 
+	}
+	template<typename T>
+	inline Widgets95::node *register_watch(const char *name, T *var)
+	{
+		return watch(name,typeid(*var),var,true); 
+	}
+
 public: //END CURRENT VERSION
 
 		  //// IMPLEMENTATION ////
@@ -73,6 +90,8 @@ public: //END CURRENT VERSION
 		Exselector():_nvgc(){}
 
 		NVGcontext *_nvgc;
+
+		int fillmode;
 
 		#endif
 };

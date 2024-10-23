@@ -49,6 +49,9 @@ namespace EX
 	#ifdef _DEBUG //sprintf is very slow
 	#define EX_DBGMSG_DEFINED
 	extern void dbgmsg(const char*,...); //debugging
+	#elif defined(RELWITHDEBINFO)
+	#define EX_DBGMSG_DEFINED
+	extern void dbgmsg(const char*,...); //debugging
 	#else
 	inline void dbgmsg(...){} //NEW
 	#endif //REMOVE ME?

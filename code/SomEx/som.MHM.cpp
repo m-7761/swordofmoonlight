@@ -152,24 +152,12 @@ extern DWORD som_MHM_ambient2(DWORD io, float pos[3+2])
 	return flr==-FLT_MAX?io:hi;
 }
 
-//REMOVE ME
-/*2021: DISABLING TO SUPPORT som_logic_4079d0 
-//the exterior sets slopes are just below 0.5
-//const double som_MHM_climb = //0.5 is 60 degrees
-SOM::Climber::EXPERIMENT?0.33333:0.78539818525314331;
-//const double som_MHM_climb2 = 0.78539818525314331; //4583F0
-static DOUBLE &som_MHM_climbable()
-{
-	//this is the surface normal's Y component
-	//38.242479460944857685992133288343 degrees
-	//0.66745718071979400640308477328519 radians
-	return *(DOUBLE*)0x4583F0; //0.78539818525314331
-}*/
 //2022: actually sin(0.785398) is always performed on this number
 //static const float som_MHM_climb = 0&&EX::debug?0.5f:0.785398f;
 //static const float som_MHM_climb = 0.70710679664085749076f; //sin(0.785398); //45 degrees
 //try to give artists some leeway since full precision is 44.9999
-static const float som_MHM_climb = 0.70710f;
+//static const float som_MHM_climb = 0.70710f;
+extern float som_MHM_climb = 0.70710f;
 
 //2018: basic layer system
 #ifdef _DEBUG
@@ -930,9 +918,6 @@ static BYTE som_MHM_4159A0(SOM::Clipper &c)
 			}
 			else //slope
 			{
-				/*0.785398 (*(double*)0x4583f0)
-				//if(polynorm[1]>som_MHM_climbable()) //climbable slope
-				if(polynorm[1]>sin(som_MHM_climbable())) //2022*/
 				if(polynorm[1]>som_MHM_climb)
 				{						
 					if(polycoord[1]>c.slopefloor) //extensions
@@ -1121,65 +1106,10 @@ static void som_MHM_rotate(float &x, float &z, int aim)
 	case 3: std::swap(x,z); z = -z; break;
 	}
 }
-/*BYTE SOM::Climber::push_back(float pos[3], float r)
-{
-	if(!SOM::Climber::EXPERIMENT
-	||-1==SOM::climber.current) return 0;
-
-	assert(som_MHM_current.empty());
-	som_MHM_current.vector::push_back(SOM::climber.current);
-
-	som_MHM::Polygon &p = current_MHM->poliesptr[current&0x3FFF];
-	
-	float *n = current_MHM->normsptr+3*p.normal;
-
-	float nx = n[0], nz = n[2];	
-	som_MHM_rotate(nx,nz,current>>14&0x3);
-	
-	float dist = reach(n[1]);
-	r = r*pow(dist,2);
-		
-	float pc[3],pn[3];
-	if(0==((BYTE(__cdecl*)(som_MHM*,DWORD,FLOAT*,FLOAT,FLOAT,FLOAT*,FLOAT*))0x416A50)		
-	(current_MHM,current&0x3FFF,current_coords,1,r,pc,pn))
-	return 0;
-	som_MHM_rotate(pc[0],pc[2],current>>14&0x3);	
-	pc[0]+=2*(current>>16&0xFF); 
-	pc[2]+=2*(current>>24&0xFF);
-
-	//EX::dbgmsg("push back: %f %f\n%f\n%f",r,dist,pc[0],pc[2]); 
-
-	float zero = 0; //renormalize? 
-	((void(*)(float*,float*,float*))0x4466c0)(&nx,&zero,&nz);
-	
-	r+=0.002f;
-	pos[0] = pc[0]+r*nx; 
-	pos[1]-=r*n[1];
-	pos[2] = pc[2]+r*nz; return 1;
-}*/
 
 BYTE SOM::Clipper::clip(float out[3]) //PC
 {		
-	BYTE hit;
-
-	/*2021: want to extend to NPC use
-	if(mask&4&&mask&8) //EXPERIMENTAL //8?
-	if(SOM::Climber::EXPERIMENT&&!SOM::emu)
-	//som_MHM_climbable() = som_MHM_climb;
-	som_MHM_climbable() = asin(som_MHM_climb);*/
-	{			
-	//	if(!SOM::emu)
-	//	som_MHM_4159A0_mask = mask; //mask|0x8000; 
-		{
-			hit = som_MHM_4159A0(*this);				
-		}
-	//	som_MHM_4159A0_mask = 0; 
-	//	som_MHM_current.clear();
-	}
-	/*if(SOM::Climber::EXPERIMENT)
-	som_MHM_climbable() = som_MHM_climb2; //38.24 degrees
-	SOM::climber.prior = SOM::climber.current;*/
-
+	BYTE hit = som_MHM_4159A0(*this);
 	if(!hit) return false;
 	if(out) memcpy(out,pclipos,sizeof(pclipos));
 	return hit;	
@@ -1217,10 +1147,6 @@ static VOID __cdecl som_MHM_416cd0(FLOAT *_1, FLOAT *_2, FLOAT *_3, DWORD _4, DW
 	//_6 is 0? _7 is 1/0/2? _1~_3 are xyz, transformed to local space?
 	//_6 is tile elevation. _7 is rotation, 0~3
 	som_MHM_current.xy = _5<<24|_4<<16; //_7<<14; //_7 is just for SOM::climber
-
-	/*REMOVE ME? _layer owns bits 13,14,15!
-	int compile[!SOM::Climber::EXPERIMENT];
-	if(SOM::Climber::EXPERIMENT) som_MHM_current.xy|=_7<<14;*/
 
 	((void(__cdecl*)(FLOAT*,FLOAT*,FLOAT*,DWORD,DWORD,FLOAT,DWORD))0x416CD0)(_1,_2,_3,_4,_5,_6,_7);				
 }
@@ -1437,9 +1363,6 @@ static BYTE __cdecl som_MHM_416a50(som_MHM *edi, DWORD _2, FLOAT *_3, FLOAT _4, 
 		 	
 	float *n = edi->normsptr+3*esi.normal;
 	float ny = n[1];
-	/*0.785398 (*(double*)0x4583f0)
-	//bool climbable = ny>som_MHM_climbable();
-	bool climbable = ny>sin(som_MHM_climbable());*/
 	bool climbable = ny>som_MHM_climb;
 	if(mask&1)
 	{	
@@ -1472,10 +1395,6 @@ static BYTE __cdecl som_MHM_416a50(som_MHM *edi, DWORD _2, FLOAT *_3, FLOAT _4, 
 		if(!climbable) return 0;
 	}
 		
-	//apparently this subroutine changes behavior according to 4583F0
-	//double test = som_MHM_climbable();
-	//som_MHM_climbable() = som_MHM_climb2;
-
 	//2022: there's always been a bug in 416a50 that glitches where 2
 	//cliffs connect side-by-side
 	BYTE out = 0; if(som_MHM_416a50_renormalize)
@@ -1569,8 +1488,6 @@ static BYTE __cdecl som_MHM_416a50(som_MHM *edi, DWORD _2, FLOAT *_3, FLOAT _4, 
 		}
 	}
 
-	//som_MHM_climbable() = test;
-
 	if(out)
 	{	
 		if(som_MHM_current.find(_2))
@@ -1582,24 +1499,6 @@ static BYTE __cdecl som_MHM_416a50(som_MHM *edi, DWORD _2, FLOAT *_3, FLOAT _4, 
 		//by x2msm's subdivision feature
 		//float *n = edi->normsptr+3*esi.normal;
 //		if(!n[0]&&!n[1]&&!n[2]) return 0;
-
-//		if(mask&1) //extensions
-		//if(!climbable)
-		{		
-			/*if(0x8000&mask) //PC?
-			if(SOM::Climber::EXPERIMENT)
-			//if(ny>som_MHM_climb&&ny<som_MHM_climb2) 
-			if(ny>som_MHM_climb&&ny<som_MHM_climb) 
-			{
-				if(SOM::climber.prior!=SOM::climber.current
-				 ||SOM::climber.prior==-1)
-				{
-					SOM::climber.current = som_MHM_current.xy|_2;
-					SOM::climber.current_MHM = edi;
-					memcpy(SOM::climber.current_coords,_6,3*sizeof(float));
-				}
-			}*/
-		}
 
 		som_MHM_416a50_slopetop = esi.box[1][1]-_6[1];
 	}
@@ -2152,9 +2051,6 @@ bool SOM::Clipper::clip(som_MHM *h, som_MDO *o, som_MDL *l, float hit[3], float 
 				}
 				else
 				{
-					/*0.785398 (*(double*)0x4583f0)
-					//if(polynorm[1]>som_MHM_climbable()) //climbable slope
-					//if(polynorm[1]>sin(som_MHM_climbable())) //2022*/
 					if(polynorm[1]>som_MHM_climb)
 					{
 						if(polycoord[1]>c.slopefloor) //extensions

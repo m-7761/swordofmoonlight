@@ -159,6 +159,7 @@ extern void SOM::Pause(int ch)
 		DDRAW::isPaused = true;
 	}
 }
+extern void som_mocap_Tobii_unpause();
 extern void SOM::Unpause(int ch)
 {
 	if(DDRAW::xr&&ch!='user') return;
@@ -181,6 +182,8 @@ extern void SOM::Unpause(int ch)
 	unsigned t = EX::tick()-som_status_pausetick;
 	if(SOM::eventick!=0) //cancelled?
 	SOM::eventick+=t;
+
+	som_mocap_Tobii_unpause();
 }
 
 //static DWORD som_status_interlace; //REMOVE ME
@@ -273,7 +276,7 @@ static bool som_status_ddraw_is_waiting()
 
 			case WM_SYSCOMMAND: //helping? taskbar is getting stuck :(
 
-				SOM::Unpause(); //testing
+				SOM::Unpause('auto'); //testing
 			}
 			//if(!TranslateAccelerator(EX::window,haccel,&msg))
 			{
@@ -1062,7 +1065,7 @@ static DX::IDirectDrawSurface7 *som_status_autolock2 = 0;
 
 //extern: som.state.cpp
 extern SOM::Texture *som_status_mapmap = 0;
-extern void som_status_automap(int i, int j, int x, int y)
+extern void som_status_automap(int i, int j, int x, int y, int sh)
 {	
 	static DX::DDSURFACEDESC2 image, icons = {sizeof(icons)};	
 
@@ -1127,7 +1130,19 @@ extern void som_status_automap(int i, int j, int x, int y)
 	BYTE *src = (BYTE*)icons.lpSurface+i*bytes+j*icons.lPitch;	
 	BYTE *dst = (BYTE*)image.lpSurface+x*bytes+y*image.lPitch; 	
 	for(int k=3;k-->0;dst+=image.lPitch,src+=icons.lPitch)
-	memcpy(dst,src,3*bytes); //3x3
+	{
+		//memcpy(dst,src,3*bytes); //3x3
+	//	for(int i=3*bytes;i-->0;)
+	//	dst[i] = max(dst[i],src[i]); //2024: trying to show layers?
+		for(int i=3,j=0;i-->0;j+=4)
+		{
+			dst[j+0] = max(dst[j+0],src[j+0]>>sh);
+			dst[j+1] = max(dst[j+1],src[j+1]>>sh);
+			dst[j+2] = max(dst[j+2],src[j+2]>>sh);
+			dst[j+3] = max(dst[j+3],src[j+3]);
+		}
+
+	}
 }
 
 static unsigned char som_status_map_edge[4];
@@ -1159,33 +1174,46 @@ static int som_status_map_x(RECT &map)
 
 static void som_status_map(bool automap)
 {
-	typedef SOM::MPX::Layer::tile tile;
 	som_MPX &mpx = *SOM::L.mpx->pointer;
-	tile *p = (tile*)mpx[SOM::MPX::tile];
+
+	int curl = SOM::mapL; 
+	auto &ll = ((SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0])[curl];
+	if(!ll.tiles) 
+	curl = SOM::mapL = 0; 
 
 	RECT edge = {3*99,3*99,0,0};
 
-	//Reminder: 419020 interleaves these 100 at
-	//a time (assuming 100x100 in doing so)
-	for(int y=297;y>=0;y-=3)
-	for(int x=0;x<300;x+=3,p++) if(0xFFFF!=p->msm)
-	{	
-		if(automap)
-		{
-			int rot = p->rotation;
-			int ico = p->icon; 
-			int i = ico%20*3;
-			int j = ico/20*3;
-			if((rot&1)==1) i+=64;
-			if((rot&2)==2) j+=64;		
-			som_status_automap(i,j,x,y);
-		}
+	int &ls = mpx[SOM::MPX::layer_selector];
+	for(;ls>=-6;ls--)
+	{
+		auto &l = ((SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0])[ls];
+		auto *p = l.tiles;
+		if(!p) continue;
 
-		if(x<edge.left) edge.left = x;
-		if(y<edge.top) edge.top = y;
-		if(x>edge.right) edge.right = x;
-		if(y>edge.bottom) edge.bottom = y;
+		//Reminder: 419020 interleaves these 100 at
+		//a time (assuming 100x100 in doing so)
+		for(int y=297;y>=0;y-=3)
+		for(int x=0;x<300;x+=3,p++) if(0xFFFF!=p->msm)
+		{	
+			if(automap)
+			{
+				int rot = p->rotation;
+				int ico = p->icon; 
+				int i = ico%20*3;
+				int j = ico/20*3;
+				if((rot&1)==1) i+=64;
+				if((rot&2)==2) j+=64;		
+				som_status_automap(i,j,x,y,ls!=curl);
+			}
+
+			if(x<edge.left) edge.left = x;
+			if(y<edge.top) edge.top = y;
+			if(x>edge.right) edge.right = x;
+			if(y>edge.bottom) edge.bottom = y;
+		}
 	}
+	ls = 0;
+
 	som_status_map_edge[0] = 0xFF&edge.left/3;
 	som_status_map_edge[1] = 0xFF&edge.top/3;
 	som_status_map_edge[2] = 0xFF&(100-1-edge.right/3);
@@ -1194,7 +1222,7 @@ static void som_status_map(bool automap)
    
 //REMOVE ME?
 static int som_status_map_icon_bmp = -1;
-static void som_status_mapmap2__automap()
+extern void som_status_mapmap2__automap()
 {	
 	//Now a som_status_mapmap2 subroutine...
 	assert(!som_status_mapmap);
@@ -1441,6 +1469,8 @@ extern void som_status_map_xy(int dx, int dy)
 
 	assert(EX::context()==0);
 	
+	EX::INI::Player pc;
+
 	RECT map; int x = som_status_map_x(map);
 	map.left+=x*som_status_map_edge[0];
 	map.top+=x*som_status_map_edge[1];
@@ -1464,37 +1494,73 @@ extern void som_status_map_xy(int dx, int dy)
 
 		//EX::dbgmsg("xy %d %d",xy.x,xy.y);
 
+		bool hover2 = false;
+
+		const float r = pc->player_character_shape;
+		const float h = pc->player_character_height;
+
+		bool warp = !rb&&GetKeyState(VK_LBUTTON)>>15&&SOM::warped!=SOM::frame;		
+		
+		float elevation = -10000;
+
 		som_MPX &mpx = *SOM::L.mpx->pointer;
-		typedef SOM::Struct<4> tile;
-		tile *p = (tile*)mpx[SOM::MPX::tile];
-
-		p+=xy.x+xy.y*100; //assuming 100x100!
-
-		if(p<p+10000)
+		int &ls = mpx[SOM::MPX::layer_selector];
+		for(int pass=1;pass<=2;pass++)
+		for(ls=0;ls>=-6;ls--)
 		{
-			hover = -1!=p->s[1];
-		}
-		else assert(0);
+			if(pass==1&&ls!=SOM::mapL) continue;
 
-		if(hover&&!rb
-		&&GetKeyState(VK_LBUTTON)>>15
-		&&SOM::warped!=SOM::frame)
-		{	
-			//find heighest MHM polygon?						
-			float r = EX::INI::Player()->player_character_shape;
-			float h = EX::INI::Player()->player_character_height;
+			auto &l = ((SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0])[ls];
+			auto *p = l.tiles;
+			if(!p) continue;
+
+			p+=xy.x+xy.y*100; //assuming 100x100!
+
+			if(p<p+10000)
+			{
+				if(0xffff==p->msm) continue; 
+			}
+			else assert(0);
+
+			hover2 = true;
+
+			//find heighest MHM polygon?
 			SOM::L.shape = *SOM::stool = r;
-			float xyz[3] = { 2*xy.x-1,p->f[1]-h*2,2*xy.y-1 };						
+			float xyz[3] = { 2*xy.x-1,p->elevation-h*2,2*xy.y-1 };						
 			xyz[0]+=(EX::x-map.left)%x/float(x)*2;
 			xyz[2]-=(EX::y-map.top)%x/float(x)*2;
-			//HACK? I DON'T UNDERSTAND THIS. Can be Z is just not centered.
+			//HACK? I DON'T UNDERSTAND THIS. Can be Z is just not centered
 			xyz[2]+=2; 
+
+			int swap = ls; ls = 0; //YUCK
+
 			//NOTE: the range is -2*h,h so to drop down into moats but not 
-			//to go so high to jump onto the roofs of man scale structures.
+			//to go so high to jump onto the roofs of man scale structures
 			if(SOM::clipper.clip(xyz,h*3,r,14,0.000001f))						
 			xyz[1] = max(SOM::clipper.floor,SOM::clipper.slopefloor)+0.001f;
-			else xyz[1] = p->f[1];
-			//find heighest object top?
+			else xyz[1] = p->elevation;
+
+			elevation = max(elevation,xyz[1]);
+
+			ls = swap;
+
+			if(pass==1) break; //mapL?
+		}
+		ls = 0;
+
+		if(!hover2) hover = false;
+
+		//find heighest object top?
+		if(hover&&warp)
+		{			
+			SOM::L.shape = *SOM::stool = r;
+			float xyz[3] = { 2*xy.x-1,elevation-h*2,2*xy.y-1 };						
+			xyz[0]+=(EX::x-map.left)%x/float(x)*2;
+			xyz[2]-=(EX::y-map.top)%x/float(x)*2;
+			//HACK? I DON'T UNDERSTAND THIS. Can be Z is just not centered
+			xyz[2]+=2; 
+			xyz[1] = elevation;
+			
 			float _[3];
 			for(int i=SOM::L.ai3_size;i-->0;)
 			if(((BYTE(__cdecl*)(FLOAT*,FLOAT,FLOAT,DWORD,DWORD,FLOAT*,FLOAT*))0x40DFF0)

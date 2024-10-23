@@ -562,7 +562,7 @@ static HRESULT dx_d3d9X_present()
 	else
 	{	
 		if(q->xr) cmp = Widgets95::xr::swap_buffers();
-		else if(q->wgl) cmp = SwapBuffers(wglGetCurrentDC());
+		else if(q->wgl) cmp = SwapBuffers(q->wgldc); //wglGetCurrentDC()
 		else{ cmp = false; assert(cmp); }
 	}
 
@@ -2404,7 +2404,7 @@ static void* &dx_d3d9X_dxGL_arb(int adapter)
 	}
 	return arb;
 }
-static HGLRC dx_d3d9X_dxGL_init(int adapter)
+static HGLRC dx_d3d9X_dxGL_init(int adapter, HDC *hdc)
 {
 	//2020: I've pulled this out for xr_NOGLE_OpenGL_WIN32
 	void* &arb = dx_d3d9X_dxGL_arb(adapter);
@@ -2470,7 +2470,7 @@ static HGLRC dx_d3d9X_dxGL_init(int adapter)
 	//2020: I've pulled this out for xr_NOGLE_OpenGL_WIN32
 	if(once) dx_d3d9X_dxGL_load();
 	
-	return c;
+	*hdc = dc; return c;
 }
 extern int DDRAW::stereo_status_OpenXR()
 {
@@ -2856,6 +2856,7 @@ extern bool DDRAW::stereo_locate_OpenXR(float nz, float fz, float io[4+3], float
 		glBindTexture(GL_TEXTURE_2D,q->stereo_fovea);
 		glPixelStorei(0x0CF5,1); //GL_UNPACK_ALIGNMENT (damn you OpenGL!!!)
 		glTexSubImage2D(GL_TEXTURE_2D,0,0,0,w,h,0x8D94,GL_UNSIGNED_BYTE,need_f); //GL_RED_INTEGER
+		glPixelStorei(0x0CF5,4);
 
 		glBindTexture(GL_TEXTURE_2D,0);
 
@@ -3225,6 +3226,8 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 	}
 	else assert(0); //2021
 	
+	HDC dc = 0; //2024
+
 	HGLRC wgl = 0;
 
 	Widgets95::xr *xr = 0;
@@ -3281,7 +3284,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 
 			if(!xr) //OBSOLETE?
 			{
-				wgl = dx_d3d9X_dxGL_init(queryX->adapter);
+				wgl = dx_d3d9X_dxGL_init(queryX->adapter,&dc);
 				out = !wgl;
 			}
 					
@@ -3332,6 +3335,7 @@ retry:		if(out=proxy9->CreateDeviceEx(query9->adapter,dev,wth,behavior,&pps,mode
 
 		if(X) p->queryGL->xr = xr;
 		if(X) p->queryGL->wgl = wgl;
+		if(X) p->queryGL->wgldc = dc;
 	}
 	
 	UINT ww = w, hh = h;
@@ -5811,6 +5815,10 @@ extern void dx_d3d9X_updating_texture2(DDRAW::IDirectDrawSurface7 *p, int x, int
 
 			auto f = desc.Format==D3DFMT_A8?GL_RED:GL_RGBA; //GL_R8
 
+			//NOTE: OpenXR code had set this to 1 (foveated rendering)
+			//you need to know lock.Pitch expects 4 (for GL_R8)
+			//glPixelStorei(0x0CF5,4); //GL_UNPACK_ALIGNMENT
+
 			//GL_ARB_clip_control?
 			//interesting article?
 			//https://developer.nvidia.com/content/depth-precision-visualized
@@ -6376,7 +6384,7 @@ void DDRAW::IDirect3DDevice::QueryX::_delete_operatorGL()
 	if(gl.stereo_fovea) glDeleteTextures(1,&gl.stereo_fovea);
 
 	delete gl.xr; 
-	if(gl.wgl) ReleaseDC(DDRAW::window,wglGetCurrentDC());
+	if(gl.wgl) ReleaseDC(DDRAW::window,gl.wgldc); //wglGetCurrentDC()
 	if(gl.wgl) wglDeleteContext(gl.wgl);
 }
 void DDRAW::IDirect3DDevice::QueryGL::StateBlock::apply_nanovg()

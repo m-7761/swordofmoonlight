@@ -1,0 +1,237 @@
+    if not exist ..\..\bin mkdir ..\..\bin
+-------- Reseting test binaries to initial state. -----------------------
+    ..\..\bin\setdll.exe -r ..\..\bin\sleepold.exe
+Removing extra DLLs from binary files.
+  ..\..\bin\sleepold.exe:
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should load detour self ----------------------------------------
+    ..\..\bin\sleepbed.exe
+sleepbed.exe: Starting.
+sleepbed.exe: ExeEntry=0000000000403E90, DllEntry=0000000000000000
+  Sleep = 0000000078D705C0
+    0000000078D705C0: 33d2
+    0000000078D705C2: e9d9feff ff                                     [0000000078D704A0]
+    0000000078D705C7: 90
+
+sleepbed.exe: Detoured Sleep().
+sleepbed.exe: After detour.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: ff2582fa 28e7
+    0000000078D705C6: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000078D705C7: 90
+
+sleepbed.exe: Calling Sleep for 1 second.
+sleepbed.exe: Calling SleepEx for 1 second.
+sleepbed.exe: Calling Sleep again for 1 second.
+sleepbed.exe: Calling TimedSleep for 1 second.
+sleepbed.exe: Calling UntimedSleep for 1 second.
+sleepbed.exe: Done sleeping.
+
+sleepbed.exe: Removed Sleep() detour (0), slept 3000 ticks.
+sleepbed.exe: GetSleptTicks() = 3000
+
+
+-------- Should load slept.dll statically -------------------------------
+    ..\..\bin\sleepnew.exe
+slept.dll: Starting.
+slept.dll: ExeEntry=0000000000403120, DllEntry=0000000010003690
+  Sleep = 0000000078D705C0
+    0000000078D705C0: 33d2
+    0000000078D705C2: e9d9feff ff                                     [0000000078D704A0]
+    0000000078D705C7: 90
+
+sleepnew.exe: Starting.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: ff2582fa 28e7
+    0000000078D705C6: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000078D705C7: 90
+
+sleepnew.exe: Calling Sleep for 1 second.
+sleepnew.exe: Calling SleepEx for 1 second.
+sleepnew.exe: Calling Sleep again for 1 second.
+sleepnew.exe: Calling TimedSleep for 1 second.
+sleepnew.exe: Calling UntimedSleep for 1 second.
+sleepnew.exe: Done sleeping.
+
+sleepnew.exe: GetSleptTicks() = 3000
+
+slept.dll: Detoured Sleep().
+slept.dll: Removed Sleep() detour (0), slept 3000 ticks.
+
+-------- Should not load slept.dll --------------------------------------
+    ..\..\bin\sleepold.exe
+sleepold.exe: Starting.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: 33d2
+    0000000078D705C2: e9d9feff ff                                     [0000000078D704A0]
+    0000000078D705C7: 90
+  SleepEx = 0000000078D704A0
+    0000000078D704A0: 89542410
+    0000000078D704A4: 4c8bdc
+    0000000078D704A7: 4881ec98 000000
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+
+-------- Adding slept.dll to sleepold.exe -------------------------------
+    ..\..\bin\setdll.exe -d:..\..\bin\slept.dll ..\..\bin\sleepold.exe
+Adding C:\detours\2.1\bin\slept.dll to binary files.
+  ..\..\bin\sleepold.exe:
+    C:\detours\2.1\bin\slept.dll
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should load slept.dll statically -------------------------------
+    ..\..\bin\sleepold.exe
+slept.dll: Starting.
+slept.dll: ExeEntry=0000000000403550, DllEntry=0000000010003690
+  Sleep = 0000000078D705C0
+    0000000078D705C0: 33d2
+    0000000078D705C2: e9d9feff ff                                     [0000000078D704A0]
+    0000000078D705C7: 90
+
+sleepold.exe: Starting.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: ff2582fa 28e7
+    0000000078D705C6: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000078D705C7: 90
+  SleepEx = 0000000078D704A0
+    0000000078D704A0: 89542410
+    0000000078D704A4: 4c8bdc
+    0000000078D704A7: 4881ec98 000000
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+slept.dll: Detoured Sleep().
+slept.dll: Removed Sleep() detour (0), slept 2000 ticks.
+
+-------- Replacing slept.dll with dslept.dll in sleepold.exe ------------
+    ..\..\bin\setdll.exe -r ..\..\bin\sleepold.exe
+Removing extra DLLs from binary files.
+  ..\..\bin\sleepold.exe:
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+    ..\..\bin\setdll.exe -d:..\..\bin\dslept.dll ..\..\bin\sleepold.exe
+Adding C:\detours\2.1\bin\dslept.dll to binary files.
+  ..\..\bin\sleepold.exe:
+    C:\detours\2.1\bin\dslept.dll
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should load dslept.dll instead of slept.dll --------------------
+    ..\..\bin\sleepold.exe
+dslept.dll: Starting.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: 33d2
+    0000000078D705C2: e9d9feff ff                                     [0000000078D704A0]
+    0000000078D705C7: 90
+  SleepEx = 0000000078D704A0
+    0000000078D704A0: 89542410
+    0000000078D704A4: 4c8bdc
+    0000000078D704A7: 4881ec98 000000
+
+  WinMain = 0000000000403550
+    0000000000403550: 4883ec28
+    0000000000403554: e8e77a00 00                                     [000000000040B040]
+    0000000000403559: 4883c428
+  WinMain after attach = 0000000000403550
+    0000000000403550: ff2522cb bf5f
+    0000000000403556: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000000403557: cc                                                  [FFFFFFFFFFFFFFFF]
+  WinMain trampoline = 0000000060000050
+    0000000060000050: 4883ec28
+    0000000060000054: e8e7af40 a0                                     [000000000040B040]
+    0000000060000059: ff251100 0000
+dslept.dll: TimedSleep = 00000000100012FC
+dslept.dll: UntimedSleep = 00000000100012BC
+dslept.dll: Detoured Sleep().
+dslept.dll: Detoured SleepEx().
+  SleepEx = 0000000078D704A0
+    0000000078D704A0: ff2502fc 28e7
+    0000000078D704A6: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000078D704A7: 4881ec98 000000
+
+dslept.dll: Calling WinMain
+sleepold.exe: Starting.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: ff2582fa 28e7
+    0000000078D705C6: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000078D705C7: 90
+  SleepEx = 0000000078D704A0
+    0000000078D704A0: ff2502fc 28e7
+    0000000078D704A6: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000078D704A7: 4881ec98 000000
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+dslept.dll: Removed Sleep() detours (0), slept 3000 ticks.
+
+-------- Removing dslept.dll from sleepold.exe --------------------------
+    ..\..\bin\setdll.exe -r ..\..\bin\sleepold.exe
+Removing extra DLLs from binary files.
+  ..\..\bin\sleepold.exe:
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should not load dslept.dll or slept.dll ------------------------
+    ..\..\bin\sleepold.exe
+sleepold.exe: Starting.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: 33d2
+    0000000078D705C2: e9d9feff ff                                     [0000000078D704A0]
+    0000000078D705C7: 90
+  SleepEx = 0000000078D704A0
+    0000000078D704A0: 89542410
+    0000000078D704A4: 4c8bdc
+    0000000078D704A7: 4881ec98 000000
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+
+-------- Should load slept.dll dynamically using withdll.exe ------------
+    ..\..\bin\withdll.exe -d:..\..\bin\slept.dll ..\..\bin\sleepold.exe
+withdll.exe: Starting: `..\..\bin\sleepold.exe'
+withdll.exe:   with `C:\detours\2.1\bin\slept.dll'
+
+withdll.exe:   marked by `C:\detours\2.1\bin\detoured.dll'
+
+slept.dll: Starting.
+slept.dll: ExeEntry=0000000000403550, DllEntry=0000000010003690
+  Sleep = 0000000078D705C0
+    0000000078D705C0: 33d2
+    0000000078D705C2: e9d9feff ff                                     [0000000078D704A0]
+    0000000078D705C7: 90
+
+sleepold.exe: Starting.
+  Sleep = 0000000078D705C0
+    0000000078D705C0: ff2582fa 28e7
+    0000000078D705C6: cc                                                  [FFFFFFFFFFFFFFFF]
+    0000000078D705C7: 90
+  SleepEx = 0000000078D704A0
+    0000000078D704A0: 89542410
+    0000000078D704A4: 4c8bdc
+    0000000078D704A7: 4881ec98 000000
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+slept.dll: Detoured Sleep().
+slept.dll: Removed Sleep() detour (0), slept 2000 ticks.
+
+-------- Test completed. ------------------------------------------------

@@ -39,5 +39,7 @@ SOM_932W_(LocalTime) = L"現地時間";
 
 SOM_932W_(tile_view_patch)[5] = {L"外部配置",L"レイヤ"}; //ライン
 
+SOM_932W_(open_arm_prf) = L"ﾌﾟﾛﾌｨｰﾙを開く(&O)";
+
 #undef SOM_932W_
 #endif SOM_932_INCLUDED

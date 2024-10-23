@@ -36,7 +36,7 @@ BEGIN
 			VALUE "FileDescription", "Sword of Moonlight Client Library"
             VALUE "FileVersion", SOMPASTE_VSTRING
             VALUE "InternalName", "Sompaste.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2012-2021"
+            VALUE "LegalCopyright", "Copyright (C) 2012-2024"
             VALUE "OriginalFilename", "Sompaste.dll"
             VALUE "ProductName", "Sompaste"
             VALUE "ProductVersion", SOMPASTE_VSTRING

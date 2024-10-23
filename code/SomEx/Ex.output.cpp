@@ -31,9 +31,6 @@ EX_TRANSLATION_UNIT //(C)
 #include "som.status.h"
 #include "som.extra.h"
 
-#include "../Exselector/Exselector.h" //OpenGL font?
-extern class Exselector *Exselector;
-
 namespace DSOUND
 {
 	extern int doReverb_i3dl2[2];
@@ -1627,8 +1624,11 @@ static void Ex_output_f5_system_information()
 	EX_OUTPUT_PRINT_F(L"E= %0.2f m",EX::e)
 	EX_OUTPUT_PRINT_F(L"%.2f/%.2f c",SOM::arch,fabsf(SOM::slope)) //-0?
 
-	#ifdef EX_DBGMSG_DEFINED
+	#ifdef EX_DBGMSG_DEFINED	
 	if(/*EX::debug&&*/*Ex_output_dbgmsg)
+	#ifdef RELWITHDEBINFO
+	if(EX::INI::Launch()->do_ask_to_attach_debugger)
+	#endif
 	{	
 		Ex_output_format&=~DT_SINGLELINE; //2017
 		{
@@ -1776,7 +1776,7 @@ static void Ex_output_f6_player_information()
 	//if(powmax!=pow)
 	{
 		powmax = pow; 
-		pow = float(min(powmax?pow:5000,5000))/5000*20;				
+		pow = float(min(powmax?pow:5000,5000))/5000*20+0.5f;	
 	}
 	//else pow = 20; 
 
@@ -1790,9 +1790,9 @@ static void Ex_output_f6_player_information()
 	if(SOM::L.pcstatus[SOM::PC::mp])
 	{
 		magmax = mag;
-		float wtf = min(magmax?mag:5000,5000);
-		assert(wtf<=5000); //WTH: the outer assert (below) is failing?!?!?!?!?!
-		mag = wtf/5000*20;	
+		float wth = min(magmax?mag:5000,5000);
+		assert(wth<=5000); //WTH: the outer assert (below) is failing?!?!?!?!?!
+		mag = wth/5000*20+0.5f;	
 	}
 	else mag = 20;
 
@@ -1878,14 +1878,21 @@ static void Ex_output_f6_player_information()
 	EX_OUTPUT_PRINT_F(L"%+8.2f |",Ex_output_f6_zero(SOM::eye[2]))
 	EX_OUTPUT_PRINT_F(L"%+8.2f |",Ex_output_f6_zero(SOM::eye[1]))
 	EX_OUTPUT_PRINT_F(L"%+8.2f |",SOM::eye[3]?SOM::eye[3]:-0.001f)
-	if(DDRAW::inStereo)
+	extern void *som_mocap_Tobii_extendedview;
+	if(DDRAW::inStereo||som_mocap_Tobii_extendedview)
 	{
+		float rel[10];
+		memcpy(rel,Ex_output_f6_head,sizeof(rel));
+		rel[4]+=SOM::uvw[0];
+		rel[5]+=SOM::uvw[1];
+		rel[6]+=SOM::uvw[2];
+
 		EX_OUTPUT_PRINT(L"setcoords |")		
 		int n = 7;
-		for(int i=7;i<10;i++) if(Ex_output_f6_head[i]) //6DOF?
+		for(int i=7;i<10;i++) if(rel[i]) //6DOF?
 		n = 10;
 		for(int i=4;i<n;i++)
-		EX_OUTPUT_PRINT_F(L"%+8.2f |",Ex_output_f6_zero(Ex_output_f6_head[i])) 		
+		EX_OUTPUT_PRINT_F(L"%+8.2f |",Ex_output_f6_zero(rel[i])) 		
 	}	
 
 	//0: thinking looks better without?
@@ -2066,15 +2073,17 @@ static void Ex_output_f7_enemy_information()
 
 			if(mdl&&EX::debug) //debugging
 			{
-				end+=swprintf_s(end,out+out_s-end,L"\nclip %d (%d)",
-				mdl->ext.clip.layers&0x3f,mdl->ext.clip.noentry);
 				/*
+				end+=swprintf_s(end,out+out_s-end,L"\nclip %d (%d)",
+				mdl->ext.clip.layers&0x3f,mdl->ext.clip.noentry);				
 				end+=swprintf_s(end,out+out_s-end,L"\nclip %f (%f)",
 				mdl->ext.clip.soft2[3],mdl->ext.clip.reshape2);
 				end+=swprintf_s(end,out+out_s-end,L"\nclinging %f (%f)",
-				mdl->ext.clip.clinging,mdl->ext.clip.npcstep);*/
+				mdl->ext.clip.clinging,mdl->ext.clip.npcstep);
 				end+=swprintf_s(end,out+out_s-end,L"\nfalling %f (%f)",
-				mdl->ext.clip.falling,mdl->ext.clip.falling2);
+				mdl->ext.clip.falling,mdl->ext.clip.falling2);*/
+				end+=swprintf_s(end,out+out_s-end,L"\nfeelers %d",
+				mdl->ext.clip.feelers);
 			}
 		}
 	}

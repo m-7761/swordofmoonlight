@@ -570,13 +570,22 @@ static LRESULT CALLBACK Ex_window_proc(HWND hwnd, UINT msg, WPARAM w, LPARAM l)
 			LOWORD(w)==WA_INACTIVE?
 			EX::deactivating_cursor():EX::activating_cursor();
 		}
+		break;
+
+	case WM_ACTIVATEAPP: 
 
 		if(Ex_window_visible)
 		if(EX::INI::Window()->do_auto_pause_window_while_inactive)
 		{
-			(LOWORD(w)==WA_INACTIVE?EX::pause:EX::unpause)('auto');		
-		}
+			//HACK: Exselector windows created in separate
+			//threads are considered to be their own "app"
+			HANDLE h = OpenThread(THREAD_QUERY_LIMITED_INFORMATION,0,l);
+			DWORD pid = GetProcessIdOfThread(h);
+			CloseHandle(h);
+			if(pid==GetCurrentProcessId()) return 0; //ignore?
 
+			(!w?EX::pause:EX::unpause)('auto');		
+		}
 		break;
 	 	 
 	case WM_SETCURSOR: EX::inside = false; 

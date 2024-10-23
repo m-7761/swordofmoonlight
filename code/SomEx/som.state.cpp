@@ -147,7 +147,7 @@ SOM::cursorX = 0, SOM::cursorY = 0, SOM::cursorZ = 0,
 SOM::capture = 0, 
 SOM::analogMode = 0, SOM::thumb1 = 0, SOM::thumb2 = 0,
 SOM::buttonSwap = 0,
-SOM::map = 0, SOM::mapX = 0, SOM::mapY = 0, SOM::mapZ = 0,
+SOM::map = 0, SOM::mapX = 0, SOM::mapY = 0, SOM::mapZ = 0, SOM::mapL = 0,
 SOM::ipd = -1, SOM::stereo = 0, SOM::stereoMode = 0,
 SOM::zoom = 0, //50 is the legacy value
 SOM::masterVol = 255, //16
@@ -276,6 +276,7 @@ extern bool SOM::config_ini()
 	_(mapX)
 	_(mapY)
 	_(mapZ)
+	_(mapL)
 #undef _
 	return true;
 }
@@ -1370,6 +1371,7 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 									//snd = 528;
 									snd = 96; pitch = -10; 
 								}
+								snd = SOM::SND(snd); //2024: build sound table?
 
 								//randomizing
 								1&SOM::frame?pitch--:muffle-=150;
@@ -1487,6 +1489,7 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 			}
 		}
 	}
+	
 	//2018: Defer to hit_point_quantifier?
 	auto &hpq2 = &hp->hit_point_quantifier2
 	?hp->hit_point_quantifier2:hp->hit_point_quantifier,
@@ -1527,9 +1530,99 @@ static VOID __cdecl som_state_404470(DWORD _1, DWORD _2, LONG *out, BYTE *out2)
 		float offset = *(SHORT*)(ebp);		
 		float rating = *(BYTE*)(ebx+esi+4);
 
-		if(shield) offset+=shield[esi];
+		//2024: equipment breaking?
+		static unsigned broken = 0; 
+		if(!EX::INI::Damage()->do_not_harm_equipment
+		 &&DDRAW::noTicks-broken>500)
+		{
+			broken = DDRAW::noTicks;
+
+			extern int som_hacks_equip_broke; //message
+
+			if(attack.source==(void*)0x19C1A18) //hitting
+			{
+				int e = SOM::L.pcequip[0];
+				extern int *som_game_nothing();
+				int *nothing = som_game_nothing();
+				if(e==som_game_nothing()[0])
+				e = SOM::L.pcequip[3];
+
+				auto &n = ((BYTE*)&SOM::L.pcstore[e])[1];
+											 				
+				if(n>1) //weapon break?
+				{					
+					float x = n/250.0f;
+					x = 1-powf(x,0.25f); //sqrt //DUPLICATE
+
+					rating*=1+x;
+
+					int r = SOM::rng()%(126-n/2)/2; //zero divide
+
+					if(0==r)
+					{
+						n--; som_hacks_equip_broke = 1; //message
+					}
+				}
+			}
+			else if(_2==player_2) //hit?
+			{
+				float new_offset = 0; 
+
+				for(int i=7;i-->1;) //equipment (minus weapon)
+				{
+					int e = SOM::L.pcequip[i];
+
+					auto &n = ((BYTE*)&SOM::L.pcstore[e])[1];
+
+					if(n>1) //equipment break?
+					{							
+						float x = n/250.0f;										
+						x = 1-powf(x,0.25f); //sqrt //DUPLICATE
+
+						BYTE *rats = SOM::L.item_prm_file[e].uc+300+i;
+
+						new_offset+=*rats*(1+x); 
+
+						int r = SOM::rng()%(126-n/2)/2;	//zero divide
+
+						if(0==r)
+						{
+							n--; som_hacks_equip_broke = i+1; //message
+						}
+					}
+				}										
+				if(shield) //offset+=*shield[esi];
+				{
+					int eq = SOM::motions.swing_move?0:5;
+
+					int e = SOM::L.pcequip[3==SOM::motions.swing_move?0:5];
+			
+					auto &n = ((BYTE*)&SOM::L.pcstore[e])[1];
+
+					float x = n/250.0f;
+					x = 1-powf(x,0.25f); //sqrt //DUPLICATE
+
+					new_offset+=(1+x)*shield[esi];
+
+					if(n>1) //equipment break?
+					{
+						int r = SOM::rng()%(126-n/2); //zero divide
+
+						if(0==r)
+						{
+							n--; som_hacks_equip_broke = SOM::motions.swing_move?1:6; //message
+						}
+					}
+				}
+
+				offset = new_offset; //TODO: secure/test me
+			}
+
+			broken = SOM::frame;
+		}		
+
 		rating*=y; //2024
-		
+		 		
 		//if(!rating) continue; //todo: extension to bypass this?
 		/*		
 		004045CE 7D 0E            jge         004045DE 
@@ -2183,7 +2276,7 @@ static DWORD __cdecl som_state_42bca0() //42AE60
 				{
 					//42bca0 detects the closest object, and perhaps inert objects
 					//should be given lower priority (this isn't event activation)
-					int todolist[SOMEX_VNUMBER<=0x1020602UL];
+					int todolist[SOMEX_VNUMBER<=0x1020704UL];
 
 					switch(type[1])
 					{
@@ -3091,7 +3184,7 @@ static BYTE __cdecl som_state_automap448930(DWORD h,DWORD i,DWORD j,DWORD di,DWO
 	//448930 blts to the screen
 
 	extern SOM::Texture *som_status_mapmap;
-	extern void som_status_automap(int,int,int,int);
+	extern void som_status_automap(int,int,int,int,int);
 	som_status_mapmap =	SOM::L.textures+h;
 	
 	static unsigned frame0 = 0;
@@ -3112,7 +3205,7 @@ static BYTE __cdecl som_state_automap448930(DWORD h,DWORD i,DWORD j,DWORD di,DWO
 		x = 0.5f+(float)x/som_state_automap_dimens[0];
 		y = 0.5f+(float)y/som_state_automap_dimens[1];
 		
-		som_status_automap(i,j,3*x,3*y); //fill out		
+		som_status_automap(i,j,3*x,3*y,0); //fill out		
 	}
 
 	return 0; //failure? automap ignores the result
@@ -3959,7 +4052,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	//TODO: these could change dynamically so
 	//that they should be reset on the event
 	//cycle
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	SOM::L.shape = pc->player_character_shape; //0.25			
 	SOM::L.hitbox = pc->player_character_shape2; //0.25
 	SOM::L.hitbox2 = pc->player_character_shape3; //0.25
@@ -3974,7 +4067,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	//long as this .text section variable is to be used
 	*(DWORD*)&SOM::L.hold = pc->tap_or_hold_ms_timeout; //750
 
-	SOM::L.abyss = ad->abyss_depth; //-10
+	SOM::L.abyss = -fabsf(ad->abyss_depth); //-10
 	//ALLOW F3 TO RECOVER FROM ABYSS (to avoid reload)
 	//(note: this code is zeroing HP, not calling a subroutine)
 	//004257D6 66 89 1D 2C 1C 9C 01 mov         word ptr ds:[19C1C2Ch],bx
@@ -4306,7 +4399,7 @@ extern void som_state_reprogram_image() //SomEx.cpp
 	{
 		*range = pc->player_character_radius-1.5f;
 		//44ce30 does event test (return to this)
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		//2020: it's possible this is doing nothing
 		//since I changed do_fix_boxed_events after
 		//learning 42bca0 tests from  the center of

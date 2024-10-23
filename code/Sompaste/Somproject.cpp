@@ -36,7 +36,7 @@ namespace Somproject_cpp
 		}
 	};
 
-	enum{ ITEM=0, MY, OBJ, ENEMY, NPC, MAP, selectors };
+	enum{ ITEM=0, MY, OBJ, ENEMY, NPC, MAP, SFX, selectors };
 
 	struct profile
 	{
@@ -338,26 +338,40 @@ namespace Somproject_cpp
 			//*setmask|=1ULL<<it->second; return it->first.size();
 			setmask->set(it->second); return it->first.size(); //NEW
 		}
-		void add(int locator, const wchar_t *title, size_t filesize, setmask *setbits=0, bool insert=true)
+		bool add(int locator, const wchar_t *title, size_t filesize, setmask *setbits=0, bool insert=true)
 		{
 			profile prf; prf.locator = locator;			
 
-			switch(filesize)
+			if(filesize<selectors)
+			{
+				prf.selector = filesize;
+			}
+			else switch(filesize)
 			{																	   
 			//+97: with extended balloon tip
-			case 88:  case 88+97: prf.selector = ITEM; break;
-			case 40:  case 40+97: prf.selector = MY;   break;
-			case 108: case 108+97: prf.selector = OBJ;  break;
+			case 88: case 88+97: prf.selector = ITEM; break;
+			case 40: case 40+97: prf.selector = MY; break;
+			case 108: case 108+97: prf.selector = OBJ; break;
 
 			//PRT already includes balloon tip
-			case 228: prf.selector = MAP;  break;
+			case 228: prf.selector = MAP; break;
 
-			default: assert(filesize>=384);
+			default: 
 				
-				if(filesize<384) return; //reserved
+				//2024: this is screening SFX profiles
+				if(filesize%4==3)
+				{
+					prf.selector = SFX;
+				}
+				else
+				{				
+					assert(filesize>=384);
+				
+					if(filesize<384) return false; //reserved
 
-				//NPCs go up to 416+97=513
-				prf.selector = filesize>=564?ENEMY:NPC; 
+					//NPCs go up to 416+97=513
+					prf.selector = filesize>=564?ENEMY:NPC; 
+				}
 			}
 
 			prf.title[prf.title_s-1] = '\0'; 
@@ -387,7 +401,7 @@ namespace Somproject_cpp
 			{
 				ins.second = false;
 				ins.first = set.find(prf);
-				if(ins.first==set.end()) return;
+				if(ins.first==set.end()) return false;
 			}
 			else ins = set.insert(std::make_pair(prf,0));
 
@@ -404,6 +418,8 @@ namespace Somproject_cpp
 				//this longname is being kept, so cue up a new temporary
 				if(!ins.first->first.title[1]) longnames.push_back(L"");
 			}
+
+			return ins.second;
 		}	
 								
 		typedef std::pair<const profile*,int> id;
@@ -802,6 +818,52 @@ extern HWND Somproject(SOMPASTE p, HWND owner, wchar_t inout[MAX_PATH], const wc
 extern const wchar_t *Somproject_longname(long name)
 {
 	return name<Somproject_cpp::longnames.size()?Somproject_cpp::longnames[name].c_str():0;
+}
+extern wchar_t Somproject_name(const wchar_t *longname) //EXPERIMENTAL
+{
+	auto &b = Somproject_cpp::longnames.back();
+	assert(b.empty());
+
+	if(b.empty()) b.assign(longname); 
+	else Somproject_cpp::longnames.push_back(longname);
+
+	size_t ret = Somproject_cpp::longnames.size()-1;
+	
+	Somproject_cpp::longnames.push_back(L""); //add expects an empty one on the back
+	
+	return (wchar_t)ret;
+}
+
+extern bool Somproject_inject(SOMPASTE p, HWND owner, wchar_t path[MAX_PATH], size_t kind_or_filesize)
+{
+	wchar_t *longname = PathFindFileNameW(path);
+	if(!*longname) return false;
+
+	wchar_t swap = longname[-1]; longname[-1] = '\0';
+
+	wchar_t place[MAX_PATH]; Somplace(p,owner,place,path,L"",0);
+
+	int l = 0;
+	for(auto&ea:Somproject_data.net)
+	{
+		if(!wcsicmp(ea.directory,place)) break;
+		else l++; 
+	}
+	if(l==Somproject_data.net.size())
+	{
+		Somproject_cpp::location ll;
+		wcscpy(ll.directory,place);
+		Somproject_data.net.push_back(ll);
+	}
+
+	bool ret = Somproject_data.add(l,longname,kind_or_filesize);
+
+	longname[-1] = swap;
+
+	if(ret) Somproject_data.hit = 0;
+	if(ret) Somproject_data.filters.clear(); //OVERKILL
+
+	return ret;
 }
 
 extern HWND Somplace(SOMPASTE p, HWND owner, wchar_t out[MAX_PATH], const wchar_t *in, const wchar_t *title, void *modeless)

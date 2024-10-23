@@ -362,6 +362,7 @@ namespace DDRAW
 	psPresentState  = psF+1, //1/w\1/h\fx\fy
 	psColorFactors  = psF+2, //color/alpha select
 	psColorFunction = psF+3, //texture+color function	
+	psConstant = psF+4, //2024: debugging with Exselector
 	psCorrections   = psF+7, //bright/dim //psCorrectionsXY	
 	//making optional below
 	psColorkey_nz   = psF+8, //w=tex0 has ckey?1:0 XYZ unused!		
@@ -2488,7 +2489,7 @@ public:
 
 	  //TODO: wgl CAN SAFELY BE REMOVED//
 
-		Widgets95::xr *xr; HGLRC wgl; //dx95/dxGL
+		Widgets95::xr *xr; HGLRC wgl; HDC wgldc; //dx95/dxGL
 
 		const void *effects_hlsl; //xr::effects
 		const void *effects_cbuf;

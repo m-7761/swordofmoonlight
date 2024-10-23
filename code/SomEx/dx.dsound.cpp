@@ -721,6 +721,8 @@ HRESULT DSOUND::IDirectSound::CreateSoundBuffer(DX::LPCDSBUFFERDESC x, DX::LPDIR
 			DSOUND::PrimaryBuffer = p;
 		}
 
+		p->bytes = x->dwBufferBytes; //2024
+
 		*y = p; p->proxy = dsb;
 	}
 	else *y = q; 
@@ -1213,17 +1215,17 @@ HRESULT DSOUND::IDirectSoundBuffer::SetFrequency(DWORD x)
 
 	if(master) //??? //DSOUND::Piano only?
 	{	
-		float current = (int)master->frequency;
+		float current = (int)master->avg_freq;
 		
-		float samples = master->frequency-current;
+		float samples = master->avg_freq-current;
 		
 		if(samples==0.0f)
 		{
 			if(current==0.0f)
 			{	
-				master->frequency = x; //first sample			
+				master->avg_freq = x; //first sample			
 			}
-			else master->frequency = 0.5f+int((current+x)/2.0f); //second sample
+			else master->avg_freq = 0.5f+int((current+x)/2.0f); //second sample
 		}
 		else //subsequent samples
 		{
@@ -1231,9 +1233,9 @@ HRESULT DSOUND::IDirectSoundBuffer::SetFrequency(DWORD x)
 			
 			if(samples<100) 
 			{
-				master->frequency = 1.0f/(samples+1)+int((current*samples+x)/(samples+1));	
+				master->avg_freq = 1.0f/(samples+1)+int((current*samples+x)/(samples+1));	
 			}
-			else master->frequency = current; //reset
+			else master->avg_freq = current; //reset
 		}
 	}
 	
@@ -2170,7 +2172,7 @@ extern void DSOUND::Piano(int key)
 			if(p->master->capture) buffer = p->master->capture;
 
 			if(buffer->SetVolume(0)!=DS_OK //MAX
-			 ||buffer->SetFrequency(p->master->frequency)!=DS_OK 
+			 ||buffer->SetFrequency(p->master->avg_freq)!=DS_OK 
 			 ||buffer->SetCurrentPosition(0)!=DS_OK
 			 ||buffer->Play(0,0,0)!=DS_OK)
 			{

@@ -54,8 +54,11 @@ static void som_clipc_platform(int obj, float step[6])
 	}
 	for(int i=3;i-->0;) p[i]+=step[i]; p[4]+=step[4];
 }
+extern float som_clipc_climb2 = 0.0f;
 static void __cdecl som_clipc_426D60(FLOAT _1) 
 {		
+	extern float som_MHM_climb;
+
 	float *p = SOM::L.pcstate, *p2 = SOM::L.pcstate2;
 
 	//assert(_1); //2018: bug?
@@ -134,7 +137,12 @@ static void __cdecl som_clipc_426D60(FLOAT _1)
 		som_clipc_climbing = SOM::L.pcstep?SOM::L.pcstepladder:0.0f;
 //		assert(!test1||som_clipc_climbing);
 //		float test3 = test1?test2:0;
-		((void(__cdecl*)(FLOAT))0x426D60)(_1);
+		{
+		//	som_MHM_climb = 0.70710f;
+		//	som_MHM_climb = 0.70710f-0.37f*som_clipc_climb2; //UNUSED
+			((void(__cdecl*)(FLOAT))0x426D60)(_1);
+		//	som_MHM_climb = 0.70710f;
+		}
 		if(SOM::L.pcstep) SOM::ladder = SOM::frame;
 		else SOM::L.pcstepladder = 0; //courtesy				
 
@@ -305,6 +313,50 @@ static void __cdecl som_clipc_426D60(FLOAT _1)
 			}
 		}
 	}
+
+	//2024: layers?
+	int x,z; float abyss = 10000;
+	if(((BYTE(__cdecl*)(FLOAT,FLOAT,int*,int*))0x415bc0)
+	(SOM::xyz[0],SOM::xyz[2],&x,&z)) 
+	{
+		som_MPX &mpx = *SOM::L.mpx->pointer;
+		int &ls = mpx[SOM::MPX::layer_selector];
+		for(;ls>=-6;ls--)
+		{
+			auto &l = ((SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0])[ls];
+			auto *p = l.tiles;
+			if(!p) continue;
+
+			p+=z*100+x;
+
+			if(SOM::xyz[1]<p->elevation-0.1f
+			&&SOM::xyz[1]>=p->elevation-pc->player_character_height)
+			{
+				if(p->hit)
+				{
+					if(!SOM::L.damage_flash)
+					{
+						SOM::L.damage_flash = 10; //425788
+
+						auto &hp = SOM::L.pcstatus[SOM::PC::hp];
+						if(hp) hp--;
+					}
+				}
+				if(p->xxx)
+				{
+					SOM::L.bad_status_mask|=1; //poison
+					SOM::L.status_timers[0] = 900; //458508
+					SOM::L.status_timers2[0] = 900; //????
+				}
+			}
+			abyss = min(abyss,p->elevation);
+		}
+		ls = 0;
+	}
+	if(abyss!=10000&&SOM::xyz[1]<abyss+SOM::L.abyss)
+	{
+		SOM::die();
+	}
 }
 
 typedef BYTE __cdecl som_clipc_40dff0_t(FLOAT*,FLOAT,FLOAT,DWORD,DWORD,FLOAT*,FLOAT*);
@@ -454,7 +506,7 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 			SOM::Clipper pclip(_1,SOM::L.fence,_3,/*14*/12); //5
 			if(mhm->types124[2]
 			&&pclip.clip(mhm,mdo,mdl,_6,_7)
-			&&pclip.elevator!=1)
+			&&pclip.elevator!=1) //???
 			{
 				float e = som_clipc_opposite(_3/*+oo1*2*/,pclip.elevator);	
 				_1[1]+=e;
@@ -550,6 +602,11 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 				if(SOM::motions.aloft) 	
 				if(slope&&som_clipc_426D60_y>pclip.slopefloor)
 				out = som_clipc_426D60_y<=pclip.floor; //0   
+
+				//DUPLICATE //2024 //EXPERIMENTAL
+				float sn = pclip.slopenormal[1]-0.70710f;
+				sn = _copysign(powf(fabsf(sn),0.25f),sn);
+				som_clipc_climb2 = max(0,min(1,som_clipc_climb2+sn*SOM::motions.step*8));
 
 				SOM::slope = slope;
 
@@ -887,6 +944,13 @@ static BYTE __cdecl som_clipc_4159A0_w_40dff0 //2022
 		if(slope<0) slope = 0; //-0? 
 		if(out&&SOM::clipper.slopefloor<SOM::clipper.floor)
 		_5[1] = SOM::clipper.floor+oo1; 
+
+		//DUPLICATE //2024 //EXPERIMENTAL
+		float sn = SOM::clipper.slopenormal[1]-0.70710f;
+		sn = _copysign(powf(fabsf(sn),0.25f),sn);
+		som_clipc_climb2 = max(0,min(1,som_clipc_climb2+sn*SOM::motions.step*8));
+
+	//	EX::dbgmsg("sn: %f (%f)",sn,SOM::clipper.slopenormal);
 		
 		//enable jumping on slope polygons
 		if(SOM::motions.aloft) 	
@@ -1291,7 +1355,7 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 //a full investigation even though I'm going to publish v1.2.2.14 anyway
 //NOTE: surmounting_staging solves this problem okay in a roundabout way
 //#error fix me
-int todolist[SOMEX_VNUMBER<=0x1020602UL]; //I think this can be removed?
+int todolist[SOMEX_VNUMBER<=0x1020704UL]; //I think this can be removed?
 #endif
 			//REMINDER: it's too messy to try to rule out crawlspaces
 			//return false;
@@ -1545,5 +1609,12 @@ extern void som_clipc_reprogram() //som_clipc_reprogram_image
 			//00426E73 D9 1D CC 1D 9C 01    fstp        dword ptr ds:[19C1DCCh]
 			memset((void*)0x426E6F,0x90,4);
 		}*/
+	}
+
+	if(1) //2024: disable layers-unaware code //som_clipc_426D60
+	{
+		//004256ed a0 5f 08 4c 00       MOV        AL,[DAT_004c085f_F3_mode]                                                = ??
+         
+		memcpy((void*)0x4256ed,"\xb0\x01\x90\x90\x90",5); //mov al,1
 	}
 }

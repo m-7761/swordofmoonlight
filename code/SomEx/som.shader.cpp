@@ -52,7 +52,8 @@ EX_TRANSLATION_UNIT //(C)
 #define cSkyRegister "float4 skyRegister : register(c0);"
 #define cRcpViewport "float4 rcpViewport : register(c1);"
 #define cColFactors  "float4 colFactors  : register(c2);"
-#define cColFunction "float4 colFunction : register(ps,c3);"	  
+#define cColFunction "float4 colFunction : register(ps,c3);"
+#define cPsConstant  "float4 psConstant  : register(ps,c4);"
 #define cColCorrect  "float2 colCorrect  : register(ps,c7);"
 #define cColColorkey "float4 colColorkey : register(ps,c8);"
 #define cVolRegister "float4 volRegister : register(ps,c10);"
@@ -364,6 +365,7 @@ static const char *som_shader_effects_vs = //HLSL
 };
 static const char *som_shader_effects_ps = //HLSL 
 {
+	cPsConstant //2024
 	cRcpViewport
 	cColCorrect
 	cColColorize  
@@ -384,6 +386,11 @@ static const char *som_shader_effects_ps = //HLSL
 	#endif
 	float4 sample(float2 uv)
 	{
+		#ifdef DPIXELATE //EXPERIMENTAL
+		float2 sharp = fmod(uv,rcpViewport.xy*4);
+		uv-=sharp;
+		#endif
+
 		#if SOM_SHADER_MAPPING2 && 3<=SHADER_MODEL
 		float4 mip0 = float4(skyRegister.xy,0.0,0.0);
 		float4 mip1 = float4(skyRegister.zw,0.0,0.0);
@@ -480,7 +487,10 @@ static const char *som_shader_effects_ps = //HLSL
 				//it's pretty annoying on HUD elements on high
 				//contrast backgrounds with texture AA
 				//sum = min(1,pow(abs(cmp0-cmp1),1.5)*5);
+				//2024: Exselector->watch WASN'T ANY HELP HERE
+			//	sum = min(vec4(1.0),pow(abs(cmp0-cmp1),vec4(1.5))*psConstant.x);
 				sum = min(vec4(1.0),pow(abs(cmp0-cmp1),vec4(1.5))*3.0);
+				//
 				#endif
 			
 			#if 1 || !defined(DDEBUG) //TESTING
@@ -527,6 +537,13 @@ static const char *som_shader_effects_ps = //HLSL
 			sum+=tex2D(sam1,uv); 
 			#endif	
 		#endif
+
+		#ifdef DPIXELATE //EXPERIMENTAL
+			//this creates a screendoor effect similar to what you
+			//see when you sharpen a pixelated image
+		sum.rgb+=sharp.x*16-rcpViewport.x*32+sharp.y*16-rcpViewport.y*32;
+		#endif
+
 		return sum;
 	})
 		

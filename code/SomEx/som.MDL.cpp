@@ -78,7 +78,7 @@ extern DWORD som_MDL_449d20_swing_mask(bool atk)
 	return o;
 }
 
-extern BYTE som_MDL_transform_hard(DWORD*);
+extern BYTE som_MDL_transform_hard(SOM::MDL&);
 extern BYTE som_MDL_4418b0(SOM::MDL&,float*,DWORD);
 void som_MDL_restart_soft(SOM::MDL &mdl)
 {
@@ -690,10 +690,6 @@ static int som_MDL_animate_hard(SOM::MDL &mdl, float wt=1, bool cp_accum=0) //44
 }
 static void som_MDL_animate(SOM::MDL &mdl)
 {
-	//NOTE: this is (I believe) identical to the original
-	//445410, maybe it was a waste of time to write, but
-	//the subroutines aren't
-
 	int mode = 7&*mdl->file_head;
 	if(!mode) return;
 
@@ -896,7 +892,7 @@ static void som_MDL_animate(SOM::MDL &mdl)
 	if(!uptodate)
 	{
 		if(mode&3)		
-		som_MDL_transform_hard((DWORD*)&mdl);
+		som_MDL_transform_hard(mdl);
 
 		//2021: som_scene_swing needs to modify the skeleton 
 		//after animation, before it's applied to a MDO mesh
@@ -990,7 +986,18 @@ static void som_MDL_animate_post(SOM::MDL &mdl)
 
 			auto &ext = els[i].extra();
 
-			if(mode&4)
+			if(ext.skin&1) wt:
+			{
+				if(mdo->ext.wt) //zero ahead of summing
+				{
+					for(int j=els[i].vertcount;j-->0;dst++)	
+					{
+						memset(dst->pos,0x00,6*sizeof(float)); //pos+lit
+					}
+				}
+				else assert(0);
+			}
+			else if(mode&4)
 			{
 				//NOTE: som_MDL_440030 adjusts these indices to
 				//index into anim_vertices
@@ -1010,8 +1017,8 @@ static void som_MDL_animate_post(SOM::MDL &mdl)
 			}
 			else mixed: if(se->tnl)
 			{
-				if(ext.part==0xff) continue; //PARANOID
-					
+				if(ext.part==0xff) continue; //PARANOIA
+
 				assert(mode&3);
 
 				auto &m = mdl.skeleton[ext.part].xform;
@@ -1035,6 +1042,71 @@ static void som_MDL_animate_post(SOM::MDL &mdl)
 					{
 						((void(*)(float*,float,float,float,float*,float*,float*))0x449ea0)
 						(*m,base->pos[0],base->pos[1],base->pos[2],dst->pos+0,dst->pos+1,dst->pos+2);
+					}
+				}
+			}			
+		}
+
+		if(BYTE*p=mdo->ext.wt)
+		{
+			BYTE *e = p+mdo->ext.wt_size;			
+
+			assert(~mode&4&&mode&3);
+
+			const float l_200 = 1/200.0f;
+
+			while(p<e)
+			{
+				unsigned pt = p[0], ch = p[1], wt = p[2], ct = p[3];
+				auto *i = (WORD*)(p+4);
+				p+=4+2*ct;
+
+				float w = wt*l_200; assert(w<=1.0f);
+
+				auto base = els[ch].vb_ptr;
+				auto se = mdl.ext.mdo_elements+ch;			
+				auto dst = se->vdata;
+
+				assert(els[ch].extra().skin&1);
+				int _vc = els[ch].vertcount;
+
+				auto &m = mdl.skeleton[pt].xform;
+				auto &m4x3 = Somvector::map<4,3>(m);
+				auto &m3x3 = Somvector::map<3,3>(m);
+
+				float pos[3],lit[3];
+				{
+					assert(*i<_vc);
+					
+					Somvector::multiply<4>(base[*i].pos,m4x3,pos);				
+					Somvector::multiply<3>(base[*i].lit,m3x3,lit);
+				//	memcpy(pos,base[*i].pos,sizeof(pos));
+				//	memcpy(lit,base[*i].lit,sizeof(lit));
+				}
+				for(int j=3;j-->0;)
+				{
+					pos[j]*=w; lit[j]*=w;
+				}
+
+				for(;ct-->0;i++)
+				{
+					int ii = *i;
+
+					assert(ii<_vc);
+
+					for(int j=3;j-->0;)
+					{
+						//dst[ii].pos[j] = pos[j];
+						//dst[ii].lit[j] = lit[j];
+						dst[ii].pos[j]+=pos[j];
+						dst[ii].lit[j]+=lit[j];
+					}
+
+					if(ct) //YUCK: compute unique normals
+					{
+						Somvector::multiply<3>(base[i[1]].lit,m3x3,lit);
+						for(int j=3;j-->0;) 
+						lit[j]*=w;
 					}
 				}
 			}
@@ -1155,32 +1227,36 @@ static void __cdecl som_MDL_449f70_scale(FLOAT m[4][4], FLOAT *sm, FLOAT *rtm)
 
 	((void(__cdecl*)(void*,void*,void*))0x449f70)(m,m2,rtm);
 }
-extern BYTE __cdecl som_MDL_transform_hard(DWORD *mdl)
+extern BYTE __cdecl som_MDL_transform_hard(SOM::MDL &mdl) //445410
 {
-	if(0) return ((BYTE(__cdecl*)(void*))0x445410)(mdl);
+	//NOTE: this is (I believe) identical to the original
+	//445410, maybe it was a waste of time to write, but
+	//the subroutines aren't
 
-	auto *head = *(SWORDOFMOONLIGHT::mdl::header_t**)(*mdl+12);
+	if(0) return ((BYTE(__cdecl*)(void*))0x445410)(&mdl);
 
-	if(!mdl||!*mdl||!*(int*)(*mdl+0x80))
+	//auto *head = (SWORDOFMOONLIGHT::mdl::header_t*)mdl->file_head;
+
+	if(!&mdl||!mdl.mdl_data||!mdl->hard_anim_buf)
 	{
 		assert(0); //return 0; //probably unnecessary
 	}
-	for(int it=0,n=*(int*)(*mdl+0x84);n-->0;it+=0x110)
+	for(int i=0,n=mdl->skeleton_size;n-->0;i++) //skeleton_size
 	{
-		auto x = mdl[0x12]+it; if(!*(char*)x)
+		auto *x = mdl.skeleton+i; if(!x->mapped)
 		{
 			//3 identity matrices are loaded here
-			if(0&&*(DWORD*)(x+0x2c)==0x3F800000)
+			if(0&&*(DWORD*)x->nonlocal==0x3F800000)
 			{
-				//assert(*(DWORD*)(x+0x2c)==0x3F800000);
-				assert(*(DWORD*)(x+0x6c)==0x3F800000);
-				assert(*(DWORD*)(x+0xac)==0x3F800000);
+				//assert(*(DWORD*)x->nonlocal==0x3F800000);
+				assert(*(DWORD*)x->local==0x3F800000);
+				assert(*(DWORD*)x->xform==0x3F800000);
 			}
 			else //ARM.MDL needed this at one point???
 			{
-				((void(__cdecl*)(DWORD))0x449cf0)(x+0x2c);
-				((void(__cdecl*)(DWORD))0x449cf0)(x+0x6c);
-				((void(__cdecl*)(DWORD))0x449cf0)(x+0xac);
+				((void(__cdecl*)(void*))0x449cf0)(x->nonlocal);
+				((void(__cdecl*)(void*))0x449cf0)(x->local);
+				((void(__cdecl*)(void*))0x449cf0)(x->xform);
 			}
 		}
 		else //similar to som_MDL_440f30_drawing (440ab0)
@@ -1188,9 +1264,9 @@ extern BYTE __cdecl som_MDL_transform_hard(DWORD *mdl)
 			//SUBROUTINE
 			//Note, this is considerably more effecient than 445410 
 			//auto &Euler = *(float(*)[3])(mdl+4);
-			float *r = (float*)(x+8);
+			float *r = x->uvw;
 			const float rad = 0.01745329f;			
-			auto &m = *(float(*)[4][4])(x+0x2c);
+			auto &m = x->nonlocal;
 			
 			//NOTE: this differs from the usual convention
 			float Euler[3] = {r[0]*rad,-r[1]*rad,r[2]*rad}; if(0) 
@@ -1202,31 +1278,34 @@ extern BYTE __cdecl som_MDL_transform_hard(DWORD *mdl)
 			}
 			else Somvector::map(m).rotation<3,4,'xyz'>(Euler);
 
-			m[3][0] = *(float*)(x+0x20);
-			m[3][1] = -*(float*)(x+0x24);
-			m[3][2] = *(float*)(x+0x28);			
+			m[3][0] = +x->xyz[0];
+			m[3][1] = -x->xyz[1];
+			m[3][2] = +x->xyz[2];
 			m[3][3] = 1;
-			/*som_MDL_reprogram knocks this out (NOP)
+			//som_MDL_reprogram knocks this out (NOP)
 			//I think the plan was to repurpose this matrix
-			for(int i=0x14;i<=0x1c;i+=4)
-			if(*(DWORD)(x+i)!=0x3F800000) //1,1,1 usually
+		//	for(int i=3;i-->0)
+		//	if(*(DWORD*)(x->scale+i)!=0x3F800000) //1,1,1 usually
 			{
-				break; //UNFINISHED (scale matrix is x+0x6c)
-			}*/
+		//		break; //UNFINISHED (scale matrix is x+0x6c)
+			}
 		}
 	}
-	for(int it=0,n=head->primchans;n-->0;it+=0x110)
+	//2024: primchans here prevents processing of skeletons without 
+	//geometry (on the end?) which are needed for skin animation
+	//for(int i=0,n=head->primchans;n-->0;i++)
+	for(int i=0,n=mdl->skeleton_size;n-->0;i++)
 	{
 			//NOTE: som_MDL_449f70_scale modifies this behavior
 
-		int x = mdl[0x12]+it; if(*(char*)x)
+		auto *x = mdl.skeleton+i; if(x->mapped)
 		{
 			//TODO: 449f70 is not efficient for matrix multiplies
 			//(it lets the destination be among the factors)
 
-			auto &dst = *(float(*)[4][4])(x+0xac);
-			auto &src = *(float(*)[4][4])(x+0x6c);
-			auto &mul = *(float(*)[4][4])(x+0x2c);
+			auto &dst = x->xform;
+			auto &src = x->local; //scaling matrix?
+			auto &mul = x->nonlocal;
 			//if(som_MDL_440f30_440ab0)
 			{
 				//FIX ME
@@ -1236,17 +1315,17 @@ extern BYTE __cdecl som_MDL_transform_hard(DWORD *mdl)
 			}
 			//else Somvector::multiply<4,4>(mul,src,dst);
 
-			x = *(int*)(x+4);
+			int bp = x->parent;
 
-			while(-1<x&&x<*(int*)(*mdl+0x84)) //skeleton_size
+			while(-1<bp&&bp<(int)mdl->skeleton_size) //skeleton_size
 			{
-				auto y = x*0x110+mdl[0x12]; //skeleton
-				if(!*(char*)y) break;
+				auto *y = mdl.skeleton+bp; //skeleton
+				if(!y->mapped) break;
 
 				//Somvector::map(dst).premultiply?
-				((void(__cdecl*)(void*,void*,DWORD))0x449f70)(*dst,*dst,y+0x2c);
+				((void(__cdecl*)(void*,void*,void*))0x449f70)(*dst,*dst,y->nonlocal);
 
-				x = *(int*)(y+4);
+				bp = y->parent;
 			}
 		}
 	}
@@ -1328,6 +1407,114 @@ static void som_MDL_440ab0_transforms(SOM::MDL &mdl) //440ab0
 		for(int j=3;j-->0;) m[i][j]*=mdl.scale[i]; break;
 	}
 }
+static void __cdecl som_MDL_445cd0(SOM::MDO *o) //updating MDO
+{
+	auto *d = o->mdo_data();
+	if(d->ext.uv_tick) d->ext_uv_uptodate();
+
+	((void(__cdecl*)(void*))0x445cd0)(o);
+}
+static void __cdecl som_MDL_445cd0_init(SOM::MDO *o) //initialize MDO
+{
+	//2022: set sort bit and assign som_BSP pointers?
+	extern void som_bsp_make_mdo_instance(SOM::MDO*);
+	som_bsp_make_mdo_instance(o);
+	
+	som_MDL_445cd0(o);
+}
+extern void som_MDO_446010(SOM::MDO &mdo, void *tes) //2024
+{		
+	som_MDL_445cd0(&mdo); //TODO: OPTIMIZE ME
+
+	if(mdo.fade2!=mdo.fade)
+	{
+		auto *mats = mdo.materials;			
+		for(int i=mdo->material_count;i-->0;)
+		{
+			float alpha = mdo->materials_ptr[i][3];
+			auto *d = SOM::L.materials[mats[i]].f+1;
+			assert(d[4]==d[0]&&d[5]==d[1]&&d[6]==d[2]);
+			d[3] = d[7] = mdo.fade*alpha; 
+		}
+
+		mdo.fade2 = mdo.fade; 
+	}
+	if(mdo.fade==0) return;
+
+	auto *se = mdo.elements;
+	int i = mdo->chunk_count;
+	for(se+=i-1;i-->0;se--)
+	{
+		if(!se->icount) continue; //tnl?
+
+		auto &el = mdo->chunks_ptr[i];
+			
+		if(el.extradata)
+		{
+			auto &ext = el.extra();
+
+			//EXTENSION
+			//NOTE: because of the enemy "recovery time"
+			//stat (during which no animatin plays) this
+			//can't be done in som_MDL_animate_post (and
+			//probably other reasons too)
+			if(mdo->ext.uv_tick)
+			if(ext.uv_fx&&el.extrasize>=3)
+			{
+				//NOTE: could do this for every model every
+				//frame, but only doing it in respond to 
+				//drawing is less overhead
+				mdo->ext_uv_uptodate();
+
+				auto dst = se->vdata;			
+				auto base = el.vb_ptr;
+				for(int j=el.vertcount;j-->0;)
+				{
+					dst[j].uv[0] = base[j].uv[0];
+					dst[j].uv[1] = base[j].uv[1];
+				}
+			}
+		}
+
+		enum //MDO
+		{
+			//I think 10000000 is ZWRITEENABLE and for 
+			//the sky models it needs to be overridden
+			//(currently skies aren't MDL+MDO enabled)
+			bm_none =0x58002124, //src (1d1b070)
+			bm_alpha=0x68002654, //src*alpha+(1-alpha)*dst (1d1b074)
+			bm_add  =0x60002254, //src*alpha+dst (1d1b078)
+		};
+	
+		//REMOVE ME?
+		//TODO? probably this can be done
+		//only if faded in the above code
+		DWORD blend_mode; if(el.blendmode)
+		{
+			blend_mode = bm_add;
+		}
+		//NOTE: SOM::L.materials is off limits for tools
+		//NOTE: SOM::L.materials[mdl.ext.mdo_materials[i]].f[1+3] will
+		//be 1.0 if this is false
+		else if(mdo.fade!=1.0f||1.0f!=mdo->materials_ptr[el.matnumber][3])
+		{
+			blend_mode = bm_alpha;
+		}
+		else blend_mode = bm_none;
+
+		se->flags = blend_mode;
+		if(bm_none==blend_mode) //opaque?
+		{
+			//((BYTE(__cdecl*)(void*))0x44d810)(se);
+			som_MDL_x44d810(se);
+		}
+		else //transparent?
+		{
+			extern void som_scene_push_back(void*,void*);
+			som_scene_push_back(tes,se);
+		}
+	}
+}
 
 //HACK: this is an expedient way to avoid doing even
 //more plumbing on Obj/Ene/NpcEdit since the current
@@ -1368,6 +1555,7 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 	auto mdl2 = (DWORD*)&mdl;
 	bool faded,solid = mdl2[10]==0x3F800000;
 	float fade = mdl.fade;
+	float fade2 = mdl.fade2;
 	if(faded=mdl2[10]!=mdl2[11])
 	{
 		if(0x3f800000==mdl2[10]&&SOM::tool) //TOOL?
@@ -1406,14 +1594,6 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 		}
 		else if(auto*mats=mdl.ext.mdo_materials) //MDO?
 		{
-			if(EX::debug&&!mdl2[10]) //TESTING
-			{
-				//these may depend on getCaps somehow?
-				auto test = (DWORD*)0x1d1b070;
-				assert(bm_none==test[0]
-				&&bm_alpha==test[1]&&bm_add==test[2]);
-			}
-
 			auto *mdo = mdl->ext.mdo;
 			for(int i=mdo->material_count;i-->0;)
 			{
@@ -1443,8 +1623,9 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 			d[3] = d[7] = fade*alpha[i];
 		}
 
-		mdl2[11] = mdl2[10];
+		mdl.fade2 = mdl.fade; 
 	}
+	if(mdl.fade==0) return;
 
 	#if 1
 	#define MDL_BACKWARDS
@@ -1489,7 +1670,7 @@ static void som_MDL_440ab0_unanimated(SOM::MDL &mdl, void *tes)
 					}
 				}
 			
-				if(3&mode&&ext.part!=0xFF&&~se->tnl) //tnl?	
+				if(3&mode&&ext.part!=0xFF&&!se->tnl) //tnl?	
 				{
 					auto &m2 = mdl.skeleton[ext.part].xform;
 					Somvector::multiply<4,4>(m2,m,se->worldxform);
@@ -2320,6 +2501,21 @@ static SOM::MHM *som_MDL_mhm(char *a, char *ext) //MHM?
 
 	CloseHandle(f); return h;
 }
+static BYTE *som_MDL_wt(char *a, char *ext, DWORD &sz) //MHM?
+{
+	memcpy(ext,".wt",5);
+	//FILE *f = fopen(a,"rb");
+	HANDLE f = CreateFileA(a,SOM_TOOL_READ);
+	if(f==INVALID_HANDLE_VALUE) 
+	return 0;
+
+	sz = GetFileSize(f,0);	
+	BYTE *buf = new BYTE[sz];	
+	DWORD rd;
+	ReadFile(f,buf,sz,&rd,0);
+
+	CloseHandle(f); return buf;
+}
 extern SOM::MDO::data *__cdecl som_MDO_445660(char *a) //MDO?
 {
 	assert(!som_art_CreateFile_w); //_0?
@@ -2350,6 +2546,11 @@ extern SOM::MDO::data *__cdecl som_MDO_445660(char *a) //MDO?
 	if(e&_mhm&&SOM::game) //2022
 	{
 		(*ret).ext.mhm = som_MDL_mhm(a,ext);
+	}
+	if(e&_wt&&SOM::game) //2024
+	{
+		assert(0);
+	//	(*ret).ext.wt = som_MDL_wt(a,ext,(*ret).ext.wt_size);
 	}
 
 	som_art_CreateFile_w = 0; 
@@ -2462,6 +2663,14 @@ static void som_MDL_42e5c0_SFX_art(char *a, DWORD esi)
 	case 0: sfx_type = cached; return;
 	}
 
+	//2024: moving away from numeric only names
+	extern char* *som_SFX_models;
+	if(som_SFX_models[i]) 
+	{
+		char ext2[8]; memcpy(ext2,ext,5);
+		sprintf(PathFindFileNameA(a),"%s%s",som_SFX_models[i],ext);
+	}
+
 	//NOTE: this is just determining the type
 	//but there's no real way to know without
 	//converting it
@@ -2528,7 +2737,13 @@ extern void *som_MDL_401300_maybe_mdo(char *a, int *ee)
 			if(auto*mdl=som_MDL_440030_sub(a,e))
 			{
 				ins = mdl; mdl->ext.refs = 1;
-			}
+				
+				if(e&_wt&&SOM::game) //2024
+				{
+					assert(mdl->ext.mdo);
+					assert(mdl->ext.mdo->ext.wt);
+				}
+			}		
 		}
 		else if(auto*mdo=som_MDO_x445660(a))
 		{
@@ -2702,9 +2917,15 @@ extern SOM::MDL::data *__cdecl som_MDL_440030(char *a) //MDL+MDO?
 				//partial number to use it
 				if(SOM::tool!=SfxEdit.exe)
 				{
-					//simulate the error message
-					DWORD x = SOM::tool==NpcEdit.exe?0x4038f0:0x403910;				
-					((void(*)(DWORD,DWORD))x)(0x6f,0x30);
+					if(0) //2024: crashes NpcEdit on missing model
+					{
+						//NOTE: this code looks good for NpcEdit???						
+						//simulate the error message ("unable to save")						
+						//NOTE: IT SEEMS LoadStringA(111) CRASHES NpcEdit
+						DWORD x = SOM::tool==NpcEdit.exe?0x4038f0:0x403910;				
+						((void(*)(DWORD,DWORD))x)(111,MB_ICONEXCLAMATION);
+					}
+					else MessageBeep(-1); //AMPUTATING :(
 				}
 			}					
 		}
@@ -2797,9 +3018,12 @@ static SOM::MDL::data *som_MDL_440030_sub(char *a, int e) //MDL+MDO?
 	auto l = som_MDL_x440030(a);
 	if(o) som_MDL_x45f350[4] = (void*)0x442650; //som_db.exe?!
 
-	som_art_CreateFile_w = 0; //POINT-OF-NO-RETURN
+	if(!l)
+	{		
+		som_art_CreateFile_w = 0; //POINT-OF-NO-RETURN
 
-	if(!l) return 0;
+		return 0;
+	}
 
 	if(l->ext.mdo=o)
 	{
@@ -2817,10 +3041,14 @@ static SOM::MDL::data *som_MDL_440030_sub(char *a, int e) //MDL+MDO?
 
 				DWORD pt = ext.part;
 
+				if(ext.skin)
+				{
+					pt = pt; //breakpoint
+				}
+
 				//UNFINISHED
 				//
 				// have to handle incompatible (accidental) combos
-				//				
 				if(pt!=0xff&&pt>=channels)
 				{
 					okay = false; assert(0);
@@ -2862,7 +3090,6 @@ static SOM::MDL::data *som_MDL_440030_sub(char *a, int e) //MDL+MDO?
 						*p+=vs;
 					}
 				}
-				else assert(0);
 			}
 		}
 	}
@@ -2875,10 +3102,18 @@ static SOM::MDL::data *som_MDL_440030_sub(char *a, int e) //MDL+MDO?
 		v[i]*=0.00097656f; //1/1024
 	}
 
-	if(e&_mhm) 
+	if(e&_mhm&&SOM::game) 
 	{
 		l->ext.mhm = som_MDL_mhm(a,ext); //2022
+	}	
+	if(e&_wt&&SOM::game) //2024
+	{
+		auto *o = l->ext.mdo; assert(!o->ext.wt);
+		if(!o->ext.wt)
+		o->ext.wt = som_MDL_wt(a,ext,o->ext.wt_size);
 	}
+
+	som_art_CreateFile_w = 0; //POINT-OF-NO-RETURN
 
 	return l;
 }
@@ -2939,12 +3174,10 @@ static DWORD __cdecl som_MDL_447fc0_cpp(SOM::MDL &mdl) //MDO?
 			// 
 			//extern bool som_scene_alit;
 			//if(som_scene_alit) //merge?
-			if(SOM::field) //arm.mdl needs to hide elements
-				#ifdef NDEBUG
-		//		#error fix me (animation isn't working???)
-				#endif				
-			if(0) //if(0||!EX::debug)
-			{
+			if(SOM::field) //HACK: ARM.MDL hides elements :(
+
+				if(1) //wt FILE MUST BE MERGED? vb_cap?
+			{				
 				//TODO: figure this out
 				DWORD vb_cap = som_scene::vbuffer_size;
 				if(!vb_cap) vb_cap = 4096;
@@ -2954,7 +3187,12 @@ static DWORD __cdecl som_MDL_447fc0_cpp(SOM::MDL &mdl) //MDO?
 				int n = mdo->chunk_count;
 				if(n-->=2) for(int i=0;i<n;i++)
 				{
-					auto &se = ses[i];
+					//assume skin is already chunked
+					if(mdo->chunks_ptr[i].extradata)
+					if(mdo->chunks_ptr[i].extra().skin&1)
+					break;
+
+					auto &se = ses[i];					
 					auto &se2 = ses[i+1];						
 					se2.flags = 0; //HACK
 					if(se2.texture==se.texture
@@ -3336,21 +3574,7 @@ static void __cdecl som_MDL_413770(DWORD fps)
 		((void(__cdecl*)(void*,int,float,float))0x445b40)(d,0,0,fps*0.000025f); //0.025
 	}
 }
-static void __cdecl som_MDL_445cd0(SOM::MDO *o) //updating MDO
-{
-	auto *d = o->mdo_data();
-	if(d->ext.uv_tick) d->ext_uv_uptodate();
 
-	((void(__cdecl*)(void*))0x445cd0)(o);
-}
-static void __cdecl som_MDL_445cd0_init(SOM::MDO *o) //initialize MDO
-{
-	//2022: set sort bit and assign som_BSP pointers?
-	extern void som_bsp_make_mdo_instance(SOM::MDO*);
-	som_bsp_make_mdo_instance(o);
-	
-	som_MDL_445cd0(o);
-}
 extern som_scene_picture *som_MDL_42f7a0_se = 0; //debugging
 extern som_scene_picture *__cdecl som_MDL_42f7a0(int _1, int _2) //initialize SFX
 {
@@ -3862,7 +4086,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		if(1) //shield still looks better with this at 60fps
 		{
 			//2024: preferring variable playback (ext.speed)
-			int todolist[SOMEX_VNUMBER<=0x1020602UL];
+			int todolist[SOMEX_VNUMBER<=0x1020704UL];
 
 			som_MDL::fps = 2; //can't be more than 2 for BYTE
 		}
@@ -4162,7 +4386,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		#ifdef NDEBUG
 //		#error this is just for the candle flame... there's more
 		#endif
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		//2023: yuck
 		//0043A432 E8 69 53 FF FF       call        0042F7A0
 		*(DWORD*)0x43A433 = (DWORD)som_MDL_42f7a0-0x43A437;
@@ -4230,7 +4454,7 @@ bool SOM::MDL::control_point(float avg[3], int c, int f, int cp, bool s2)
 
 	//2024: this is for "kage_bbox" to work
 	//I'm not sure this isn't more correct?
-	if(f) f-=1;
+	if(!s2&&f>(c?0:1)) f-=1;
 
 	BYTE *fp = (BYTE*)cps+cps[2+cp]+cps[c+34]+f*12;
 	memcpy(avg,fp,12);

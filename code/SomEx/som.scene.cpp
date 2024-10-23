@@ -395,27 +395,34 @@ static BYTE __cdecl som_scene_44d810(som_scene_element *se, const DWORD batch_os
 		assert(se->ai!=150||se->npc<2);
 	}*/
 	
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
 	//2021: HIGHLY DUBIOUS
 	//testing: sufficient?
-	if(som_scene_lit&&!DDRAW::isLit) //REMOVE ME?
+	if(som_scene_lit)
 	{
-		assert(se->fmode==3); //2022
+		if(!DDRAW::isLit) //REMOVE ME?
+		{
+			//assert(se->fmode==3); //2022 //2024
 
-		if(1||!EX::debug) //trying for a while without?
-		{
-			som_scene_lighting(1); //2022
-		}
-		else //2022: Moratheia? (nearby man's statue)
-		{
-			//I think this is triggered leaving picture menu drawn
-			//with som_hacks_Blt_fan
+			if(1||!EX::debug) //trying for a while without?
+			{
+				som_scene_lighting(1); //2022
+			}
+			else //2022: Moratheia? (nearby man's statue)
+			{
+				//I think this is triggered leaving picture menu drawn
+				//with som_hacks_Blt_fan
 			
-			//assert(sss::lighting_desired==1); //2022
-			EX_BREAKPOINT(0)
-		}
+				//assert(sss::lighting_desired==1); //2022
+				EX_BREAKPOINT(0)
+			}
+		}	
+	}
+	else if(DDRAW::isLit) //2024: happened in som_scene_sky
+	{
+		//som_scene_lighting(0); //inverse does not apply
 	}
 
 	//som_scene_44d810_flush/batch_os?
@@ -662,20 +669,17 @@ struct som_scene_static
 {
 	static DWORD bes,tes,red;
 	static bool lit;
-	
-	//#ifdef _DEBUG //RelWithDebInfo
+	static SOM::Struct<> *ai;
 	#ifndef NDEBUG
 	static bool paranoia; 
-	static DWORD ai;
 	#endif
 };
 DWORD som_scene_static::bes;
 DWORD som_scene_static::tes,som_scene_static::red;
 bool som_scene_static::lit;
-//#ifdef _DEBUG //RelWithDebInfo
+SOM::Struct<> *som_scene_static::ai;
 #ifndef NDEBUG
 bool som_scene_static::paranoia;
-DWORD som_scene_static::ai;
 #endif
 extern DWORD &som_scene_batchelements_hold = som_scene_static::bes; //YUCK
 template<class T>
@@ -689,7 +693,8 @@ struct som_scene_logger : som_scene_static
 		if(som_scene_batchelements)
 		bes = som_scene_batchelements->se_commit;
 		tes = som_scene_transparentelements->se_commit;
-		SOM::Struct<> *ai = T::prologger(EDI);
+	//	SOM::Struct<> *ai = T::prologger(EDI);
+		ai = T::prologger(EDI);
 		lit = som_scene_lit;
 
 		/*#ifdef _DEBUG
@@ -740,6 +745,7 @@ struct som_scene_logger : som_scene_static
 			else som_scene_gamma_n = T::NPC!=1; 
 		}
 
+		if(som_scene_lit)
 		if(!som_scene_batchelements)
 		som_scene_ambient2_vset9(som_scene_lit);
 	}
@@ -757,6 +763,8 @@ struct som_scene_logger : som_scene_static
 		if(T::NPC&&som_scene_red_r) som_scene_red(0);
 
 		if(T::NPC) som_scene_gamma_n = false; //KF2?
+
+		T::epilogger(*ai); //2024
 	}
 	static void transparent_or_batch(DWORD &tes, som_scenery *e) //2021
 	{
@@ -823,6 +831,8 @@ struct som_scene_logger : som_scene_static
 	}
 };
 
+extern void som_MDO_446010(SOM::MDO&,void*); //2024
+
 //2021
 struct som_scene_money //singleton 
 :
@@ -848,6 +858,10 @@ som_scene_logger<som_scene_money>
 		}
 		return gold;
 	}
+	static void epilogger(SOM::Struct<>&) //2024
+	{
+		//NOP
+	}
 	static void draw() //42B220
 	{
 		for(int i=0;i<32;i++) if(SOM::L.gold[i].c[0])
@@ -867,7 +881,7 @@ som_scene_logger<som_scene_objects>
 	enum{ NPC=0 };
 	static SOM::Struct<> *prologger(DWORD edi)
 	{
-		auto &obj = *(SOM::Struct<46>*)(edi-68); 
+		auto &ai = *(SOM::Struct<46>*)(edi-68); 
 
 		if(som_scene_alit) //NECESSARY???
 		{
@@ -876,14 +890,20 @@ som_scene_logger<som_scene_objects>
 			//TODO: could use further investigation			
 			//Moratheia's Scala caves triggers this.
 			//I suppose it's a box with 0 thickness.
-			//assert(obj.f[28]||!obj.f[26]); //cylinders?
+			//assert(ai.f[28]||!ai.f[26]); //cylinders?
 			//2020: I think height is first (26)
-			//som_scene_lit[3] = 0.5f*max(obj.f[27],obj.f[28]); //26
-			som_scene_lit[3] = obj.f[29]; //computed radius?
-			som_scene_lit[4] = obj.f[26]; //27
+			//som_scene_lit[3] = 0.5f*max(ai.f[27],ai.f[28]); //26
+			som_scene_lit[3] = ai.f[29]; //computed radius?
+			som_scene_lit[4] = ai.f[26]; //27
 		}
-		return (SOM::Struct<>*)&obj;
+
+		return (SOM::Struct<>*)&ai;
 	}
+	static void epilogger(SOM::Struct<> &ai) //2024
+	{
+		//NOP
+	}
+	/*2024: rewriting
 	static void draw()	//42B220
 	{
 		__asm //TODO? TRANSLATE INTO C++			
@@ -905,7 +925,7 @@ som_scene_logger<som_scene_objects>
 		//Phantom Rod alpha	
 		xor         edx,edx  
 		mov         edi,1Eh  
-		div /*eax,*/edi  
+		div edi //eax
 		mov         dword ptr [esp+2Ch],esi  
 		mov         dword ptr [esp+28h],edx  
 		fild        qword ptr [esp+28h]  
@@ -929,7 +949,7 @@ som_scene_logger<som_scene_objects>
 		test        al,al  
 		je          _0042B4E7  
 		cmp         byte ptr [esi],0  
-		je          _0042B4E7  
+		je          _0042B4E7
 		mov         eax,dword ptr [esi-1Ah]  
 		test        eax,eax  
 		jne         _0042B2CA  
@@ -1084,7 +1104,9 @@ som_scene_logger<som_scene_objects>
 		push        eax
 		//draw MDO
 		//call        00446010
-		mov eax,00446010h __asm call eax
+//		mov eax,00446010h __asm call eax
+		mov eax,som_MDO_446010 __asm call eax //2024
+
 		add         esp,8  
 
 		//REMOVE ME
@@ -1163,7 +1185,69 @@ som_scene_logger<som_scene_objects>
 		add         esp,24h  
 		//ret  
 		}
+	}*/
+	static void draw()
+	{
+		float pr = 1.0f; 
+		int prt = *(DWORD*)0x1a193f8; //phantom rod timer
+		if(prt)
+		{
+			pr = *(float*)0x3e567750;
+			pr = 2*M_PI-prt%30*pr;
+			pr = (cosf(pr)+1)*0.5f;
+		}
+
+		som_MPX &mpx = *SOM::L.mpx->pointer;
+		auto *l = (SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
+
+		int n = SOM::L.ai3_size;
+		for(int i=0;i<n;i++)
+		{
+			auto &ai = SOM::L.ai3[i];
+			auto *m = (SOM::MDL*)ai[SOM::AI::mdl3];
+			auto *o = (SOM::MDO*)ai[SOM::AI::mdo3];
+			if(!m&&!o||!ai[SOM::AI::obj_valid]||!ai[SOM::AI::obj_shown])
+			continue;			
+
+			auto *p = (float*)&ai[SOM::AI::xyz3];
+			int x,z;
+			if(!((BYTE(__cdecl*)(float,float,int*,int*))0x415bc0)(p[0],p[2],&x,&z)
+			||!l->tiles[z*100+x].msb) continue;
+			
+			//select lamps?	
+			((BYTE(__cdecl*)(float*,DWORD))0x411210)(p,3);			
+			
+			auto obj = ai[SOM::AI::object];
+			auto *prm = SOM::L.obj_prm_file[obj].uc;
+			auto *pr2 = SOM::L.obj_pr2_file[(WORD&)prm[36]].uc;
+
+			if(1==pr2[62]) //billboard
+			{
+				p[4] = atan2f(SOM::cam[2]-p[2],SOM::cam[0]-p[0])+M_PI_2;
+			}
+			if(0==pr2[105]) //map-only visible?
+			{
+				prolog((DWORD)p);
+
+				if(m)
+				{
+					memcpy(m->xyzuvw,p,6*sizeof(float));
+					if(prm[31]) m->fade = pr;
+					((BYTE(__cdecl*)(void*,void*))0x440ab0)(m,som_scene_transparentelements);
+				}
+				if(o)
+				{
+					memcpy(&o->f[13],p,3*sizeof(float));
+					memcpy(&o->f[19],p+3,3*sizeof(float));
+					if(prm[31]) o->fade = pr;
+					som_MDO_446010(*o,som_scene_transparentelements);
+				}
+
+				epilog();
+			}
+		}
 	}
+
 }som_scene_objects; //singleton
 //ENEMIES
 struct som_scene_enemies //singleton 
@@ -1195,6 +1279,11 @@ som_scene_logger<som_scene_enemies>
 
 		return (SOM::Struct<>*)&enemy;
 	}	
+	static void epilogger(SOM::Struct<>&) //2024
+	{
+		//NOP
+	}
+	/*2024: rewriting
 	static void draw() //408090
 	{
 		DWORD x4C7834 = (DWORD)SOM::L.ai+0x6c;
@@ -1363,7 +1452,41 @@ som_scene_logger<som_scene_enemies>
 		add         esp,8  
 		//ret  
 		}
+	}*/
+	static void draw()
+	{
+		som_MPX &mpx = *SOM::L.mpx->pointer;
+		auto *l = (SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
+
+		int n = SOM::L.ai_size;
+		for(int i=0;i<n;i++)
+		{
+			auto &ai = SOM::L.ai[i];
+			auto *m = (SOM::MDL*)ai[SOM::AI::mdl];
+			if(!m||ai[SOM::AI::stage]!=3&&ai[SOM::AI::stage]!=4) continue;			
+
+			auto *p = (float*)&ai[SOM::AI::xyz];
+			int x,z;
+			if(!((BYTE(__cdecl*)(float,float,int*,int*))0x415bc0)(p[0],p[2],&x,&z)
+			||!l->tiles[z*100+x].msb) continue;
+			//select lamps?	
+			((BYTE(__cdecl*)(float*,DWORD))0x411210)(p,3);			
+			
+			prolog((DWORD)p);
+			((BYTE(__cdecl*)(void*,void*))0x440ab0)(m,som_scene_transparentelements);
+			if(auto*k=(SOM::MDL*)ai[SOM::AI::kage_mdl])
+			{
+				k->xyzuvw[0] = m->xyzuvw[0];
+				k->xyzuvw[1] = m->xyzuvw[1]+0.01f;
+				k->xyzuvw[2] = m->xyzuvw[2];
+				k->xyzuvw[4] = m->xyzuvw[4]; //EXTENSION
+				k->fade = m->fade;
+				((BYTE(__cdecl*)(void*,void*))0x440ab0)(k,som_scene_transparentelements);
+			}
+			epilog();
+		}
 	}
+
 }som_scene_enemies; //singleton
 //NPCS
 struct som_scene_NPCs //singleton 
@@ -1396,6 +1519,11 @@ som_scene_logger<som_scene_NPCs>
 
 		return (SOM::Struct<>*)&npc;
 	}
+	static void epilogger(SOM::Struct<>&) //2024
+	{
+		//NOP
+	}
+	/*2024: rewriting 
 	static void draw()	//429B10
 	{
 		__asm //TODO: TRANSLATE INTO C++
@@ -1545,7 +1673,41 @@ som_scene_logger<som_scene_NPCs>
 		add         esp,8  
 		//ret  
 		}
+	}*/
+	static void draw()
+	{
+		som_MPX &mpx = *SOM::L.mpx->pointer;
+		auto *l = (SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
+
+		int n = SOM::L.ai2_size;
+		for(int i=0;i<n;i++)
+		{
+			auto &ai = SOM::L.ai2[i];
+			auto *m = (SOM::MDL*)ai[SOM::AI::mdl2];
+			if(!m||ai[SOM::AI::stage2]<3) continue;			
+
+			auto *p = (float*)&ai[SOM::AI::xyz2];
+			int x,z;
+			if(!((BYTE(__cdecl*)(float,float,int*,int*))0x415bc0)(p[0],p[2],&x,&z)
+			||!l->tiles[z*100+x].msb) continue;
+
+			//select lamps?	
+			((BYTE(__cdecl*)(float*,DWORD))0x411210)(p,3);						
+			prolog((DWORD)p);
+			((BYTE(__cdecl*)(void*,void*))0x440ab0)(m,som_scene_transparentelements);
+			if(auto*k=(SOM::MDL*)ai[SOM::AI::kage_mdl2])
+			{
+				k->xyzuvw[0] = m->xyzuvw[0];
+				k->xyzuvw[1] = m->xyzuvw[1]+0.01f;
+				k->xyzuvw[2] = m->xyzuvw[2];
+				k->xyzuvw[4] = m->xyzuvw[4]; //EXTENSION
+				k->fade = m->fade;
+				((BYTE(__cdecl*)(void*,void*))0x440ab0)(k,som_scene_transparentelements);
+			}
+			epilog();
+		}
 	}
+
 }som_scene_NPCs; //singleton
 //ITEMS
 struct som_scene_items //singleton 
@@ -1563,6 +1725,11 @@ som_scene_logger<som_scene_items>
 		}
 		return 0;
 	}
+	static void epilogger(SOM::Struct<>&) //2024
+	{
+		//NOP
+	}
+	/*2024: rewriting
 	static void draw()	//4103B0
 	{
 		__asm //TODO: TRANSLATE INTO C++
@@ -1640,7 +1807,8 @@ som_scene_logger<som_scene_items>
 		//556FD0 is render stuff for 446010
 		//The data structures are pretty strange
 		//call        00446010  
-		mov eax,00446010h __asm call eax
+		//mov eax,00446010h __asm call eax
+		mov eax,som_MDO_446010 __asm call eax //2024
 			
 		//REMOVE ME
 		//debugging stats?
@@ -1694,7 +1862,41 @@ som_scene_logger<som_scene_items>
 		add         esp,8  
 		//ret  
 		}
+	}*/
+	static void draw()
+	{
+		som_MPX &mpx = *SOM::L.mpx->pointer;
+		auto *l = (SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0];
+
+		for(int i=0;i<256;i++)
+		{
+			auto &ea = SOM::L.items[i];
+
+			//if(!*(DWORD*)&ea) continue; //leaves ghost items behind
+
+			if(!ea.nonempty) continue;
+
+			int x,z;
+			if(!((BYTE(__cdecl*)(float,float,int*,int*))0x415bc0)(ea.x,ea.z,&x,&z)
+			||!l->tiles[z*100+x].msb) continue;
+
+			//select lamps?	
+			((BYTE(__cdecl*)(float*,DWORD))0x411210)(&ea.x,3);
+
+			auto &prm = SOM::L.item_prm_file[ea.prm];
+
+			if(SOM::MDO*o=SOM::L.items_MDO_table[prm.us[0]][ea.mdo])
+			{
+				prolog((DWORD)&ea.x);
+			   			
+				som_MDO_446010(*o,som_scene_transparentelements);
+
+				epilog();
+			}
+			else assert(o); //EXTENSION
+		}
 	}
+
 }som_scene_items; //singleton
 //MAGICS
 struct som_scene_magics //singleton 
@@ -1707,12 +1909,33 @@ som_scene_logger<som_scene_magics>
 		if(som_scene_alit) //NECESSARY???
 		{
 			som_scene_lit = som_scene_lit5;
-			memcpy(som_scene_lit,(void*)(edi+4),sizeof(FLOAT)*3);
+			auto *p = (som_scene_picture*)edi;
+			if(p>=SOM::L.SFX_images&&p<SOM::L.SFX_images+512)
+			{
+				som_scene_lit[0] = p->vdata[0].x;
+				som_scene_lit[1] = p->vdata[0].y;
+				som_scene_lit[2] = p->vdata[0].z;
+				som_scene_lit[0]+=p->vdata[2].x;
+				som_scene_lit[1]+=p->vdata[2].y;
+				som_scene_lit[2]+=p->vdata[2].z;
+				som_scene_lit[0]*=0.5f;
+				som_scene_lit[1]*=0.5f;
+				som_scene_lit[2]*=0.5f;
+			}
+			else //SFX_models
+			{
+				memcpy(som_scene_lit,((SOM::MDL*)edi)->xyzuvw,sizeof(FLOAT)*3);
+			}
 			som_scene_lit[3] = som_scene_lit[4] = 1;
 		}
 		assert(edi); return 0;
 	}
-	static void draw()	//42EC40
+	static void epilogger(SOM::Struct<>&) //2024
+	{
+		//NOP
+	}
+	/*2024: this is mysteriously broken today???
+	static void draw_old() //42EC40
 	{
 		__asm //TODO: TRANSLATE INTO C++
 		{
@@ -1732,6 +1955,12 @@ som_scene_logger<som_scene_magics>
 		push        ecx  
 
 	call prolog //passing ECX
+
+	//for 1 run I fixed it by breaking these up
+	//into 2 lines, but after that, subsequent
+	//runs jumped to a crazy address on call
+	//prolog (above) (below eax was receiving
+	//a wrong address when combined into 1 line)
 
 		//call        00440AB0  
 		mov eax,00440AB0h __asm call eax
@@ -1810,7 +2039,30 @@ som_scene_logger<som_scene_magics>
 		pop         ebx  
 		//ret  
 		}
+	}*/
+	static void draw() //42EC40
+	{
+		int n = SOM::L.SFX_models_size;
+		for(int i=0;i<n;i++)
+		{
+			DWORD edi = (DWORD)SOM::L.SFX_models[i];
+			prolog(edi);
+			((BYTE(__cdecl*)(DWORD,void*))0x440ab0)(edi,som_scene_transparentelements);
+			epilog();
+		}
+		n = SOM::L.SFX_images_size;
+		for(int i=0;i<n;i++)
+		{
+			DWORD edi = (DWORD)&SOM::L.SFX_images[i];
+			prolog(edi);
+			//these are not all transparent
+			//causes confusion around sky and DDRAW::isLit?!
+			if(0) som_scene_44d810((som_scene_element*)edi); //EXTENSION
+			else som_scene_transparentelements->push_back((som_scene_element*)edi);
+			epilog();
+		}
 	}
+
 }som_scene_magics; //singleton
 
 static bool som_scene_skyfirst()
@@ -2792,12 +3044,17 @@ namespace som_scene_shadows
 						t = 1-t; first = true;
 					}
 				}
+				
+				//this is a contrast filter to eliminate visible strobing
+				//t = t*0.9f+0.1f;
+				//this formulation seems to work really well
+				float c = fabs(t-0.5f); t = (0.5f-t)*c*c+t;
 
-				t = t*0.9f+0.1f;
 				tween = t;
 
 				//TODO: do this in SOM::MDL::control_point?
-				int skip = l->c==0&&l->mdl_data->hard_anim_buf; //YUCK
+			//	int skip = l->c==0&&l->mdl_data->hard_anim_buf; //YUCK
+				enum{ skip=0 };
 
 				memcpy(_kage_bbox2[0],ba[0].bbox,sizeof(_kage_bbox2[0]));	
 				memcpy(_kage_bbox2[1],ba[1].bbox,sizeof(_kage_bbox2[0]));	
@@ -2807,11 +3064,11 @@ namespace som_scene_shadows
 				//TODO? maybe x2mdl should consult the CP file
 				//when figuring out the center of its shadow??
 				//(it seems there's only be a correspondance!)
-				l->control_point(cp,l->c,ba[0].t+skip,-1,!!true);
+				l->control_point(cp,l->c,ba[0].t+skip,-1,!true);
 				_kage_bbox2[0][0]-=cp[0];
 				_kage_bbox2[0][2]-=cp[1];
 				_kage_bbox2[0][4]-=cp[2];		
-				l->control_point(cp,l->c,ba[1].t+skip,-1,!!true);				
+				l->control_point(cp,l->c,ba[1].t+skip,-1,!true);				
 				_kage_bbox2[1][0]-=cp[0];
 				_kage_bbox2[1][2]-=cp[1];
 				_kage_bbox2[1][4]-=cp[2];
@@ -2987,7 +3244,7 @@ static float som_scene_depth2(float a[3], float b[3])
 static void __cdecl som_scene_44d5a0(som_scenery *ts) //depth-sort
 {
 	//TODO! MAKE lightselector MORE ACCURATE
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 
 	EX::INI::Option op;
 
@@ -3132,7 +3389,7 @@ extern int som_scene_volume_select(DWORD txr, int vg=-1)
 	if(1&&som_scene_batchelements) return -1;
 	#else
 	//batch?
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	#endif
 
 	if(SOM::volume_textures&&txr!=65535)	
@@ -3795,6 +4052,9 @@ static int som_scene_4412E0_frame()
 }
 static BYTE __cdecl som_scene_4412E0_swing(SOM::MDL &mdl, DWORD id)
 {
+	extern void som_game_moveset(int,int);
+	for(int j=4;j-->0;) som_game_moveset(0,j);
+
 	//HACK: this is a SOM::PARARM::Item.arm record
 	//NOTE: currently the glove overwrites weapons
 	if(auto*mv=SOM::movesets[0][0]) 
@@ -4034,9 +4294,15 @@ extern void som_scene_swing(bool clear, float alpha)
 	sss::push();
 
 	som_scene_gamma_n = true; //KF2?
-	 		
-	//select lamps?
+	
+	//select lamps?	//2024 //EXTENSION?
 	((BYTE(__cdecl*)(float*,DWORD))0x411210)(SOM::L.pcstate,3);
+
+	som_scene_lighting(1); //2024
+	som_scene_lit = som_scene_lit5;
+	memcpy(som_scene_lit,SOM::xyz,sizeof(FLOAT)*3);
+	som_scene_lit[3] = som_scene_lit[4] = 1;
+		
 	if(som_scene_ambient2)
 	{
 		//2022: I'm not sure why forcing this to refresh (-1)
@@ -4082,11 +4348,12 @@ extern void som_scene_swing(bool clear, float alpha)
 		mdl.xyzuvw[1] = y; yy-=y;
 		mdl.xyzuvw[2] = z; zz-=z;
 		SOM::rotate(mdl.xyzuvw,u+SOM::L.pcstate[3],SOM::L.pcstate[4]);		
-		//mdl.xyzuvw[0]+=SOM::L.pcstate[0]; //???
-		mdl.xyzuvw[0]+=SOM::xyz[0];
+		//2024: pcstate holds swing adjustments
+		mdl.xyzuvw[0]+=SOM::L.pcstate[0]; //???
+	//	mdl.xyzuvw[0]+=SOM::xyz[0];
 		mdl.xyzuvw[1]+=SOM::L.pcstate[1]+1.5f+SOM::L.bobbing;
-		//mdl.xyzuvw[2]+=SOM::L.pcstate[2]; //???
-		mdl.xyzuvw[2]+=SOM::xyz[2];
+		mdl.xyzuvw[2]+=SOM::L.pcstate[2]; //???
+	//	mdl.xyzuvw[2]+=SOM::xyz[2];
 		mdl.xyzuvw[3] =-SOM::L.pcstate[3]-u;
 		mdl.xyzuvw[4] = SOM::L.pcstate[4]+3.141593f;
 		mdl.xyzuvw[5] = SOM::L.pcstate[5];
@@ -4095,15 +4362,15 @@ extern void som_scene_swing(bool clear, float alpha)
 		mdl.update_animation();
 		mdl.update_transform();
 		enum{ cp_skeleton=1 }; //YUCK
-		extern BYTE __cdecl som_MDL_transform_hard(DWORD*);
-		som_MDL_transform_hard((DWORD*)&mdl);
+		extern BYTE __cdecl som_MDL_transform_hard(SOM::MDL&);
+		som_MDL_transform_hard(mdl);
 
 		float cp[2][3] = {}; if(!legacy) //Moratheia?
 		{
 			if(mdl.d>1)
-			mdl.control_point(cp[0],mdl.c,mdl.d,false);		
+			mdl.control_point(cp[0],mdl.c,mdl.d);
 			if(mdl.ext.d2)
-			mdl.control_point(cp[1],mdl.ext.c2,mdl.ext.d2,true);
+			mdl.control_point(cp[1],mdl.ext.c2,mdl.ext.d2);
 			//2022: I think I inverted the Y axis in cpgen
 			//at some point (rightly so--I think) but with
 			//the old CP file I had this was right side up
@@ -4113,7 +4380,8 @@ extern void som_scene_swing(bool clear, float alpha)
 			//cp[0][i]*=l024;
 			if(~sm&1<<30)
 			{
-				cp[0][0]+=cp[1][0]; //recenter weapon?
+				//2024: changing to half
+				cp[0][0]+=cp[1][0]*0.5f; //recenter weapon?
 				cp[1][0]-=xx;//*l024; //HACK				
 				cp[1][1]-=yy;//*l024; //HACK
 				cp[1][2]-=zz;//*l024; //HACK
@@ -4311,6 +4579,8 @@ extern void som_scene_swing(bool clear, float alpha)
 	}
 	//else mdl.update_animation(); //sync f/d??
 
+	som_scene_lit = 0;
+
 	som_scene_gamma_n = false; //KF2?
 	
 	som_scene_44d810_flush(); //Clear? //SEPARATEALPHABLENDENABLE
@@ -4425,8 +4695,22 @@ static void __cdecl som_scene_425d50()
 			//be a constant setting
 			//if(mdl.d>1) mdl.d+=dir*inc;
 			//if(mdl.ext.d2>1) mdl.ext.d2+=dir2*inc;
-			if(mdl.d>1) mdl.advance(dir);
-			if(mdl.ext.d2>1) mdl.advance2(dir2);
+			if(mdl.d>1)
+			{
+				mdl.advance(dir);
+			}
+			if(dir2<0&&mdl.d>1)
+			{
+				//keep shield raise so animation stays in
+				//combinated mode for its entire lifetime
+				if(mdl.ext.d2-mdl.ext.s2-3>mdl.ext.speed2) 
+				{
+					mdl.advance2(dir2);
+				}
+			}
+			else if(mdl.ext.d2>1) mdl.advance2(dir2);
+
+			EX::dbgmsg("d2: %d (%f)",mdl.ext.d2,mdl.ext.s2);
 		}
 		
 		if(weapon&&mdl.d)
@@ -4612,7 +4896,10 @@ static int __cdecl som_scene_428220_magic_shield(INT32 esi, DWORD timer)
 		{
 			puVar2->uc[12] = timer; puVar2->uc[1] = 10; //index-2
 
-			SOM::se(0x37b,0);
+			//891 is magic shield sound
+			WORD snd = SOM::SND(0x37b); //2024: build sound table?
+
+			SOM::se(snd,0); //0x37b
 		}
 		else goto err;
 	}
@@ -5052,7 +5339,7 @@ extern void som_scene_reprogram()
 		//UNFINSHED
 		#ifdef NDEBUG
 		//#error do_red? som_scene_volume_select?
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		#endif
 	}
 	//TEARDOWN
@@ -5363,7 +5650,6 @@ extern void som_MPY_4133E0_layers() //2023
 	auto &flags = mpx[SOM::MPX::flags];
 	int bsp1 = flags&1; 
 	bool bsp = bsp1==1;
-	//if(som_MPY_nobsp||!EX::INI::Option()->do_bsp) //2023
 	if(som_MPY_nobsp) //2024
 	bsp = false;
 	flags&=~1;
@@ -5501,7 +5787,7 @@ extern void som_MPY_413f10()
 			for(DWORD j=jj;j<jjN;j++) //this makes std::sort with ffff easier
 			{
 				auto &yx = dl[j];
-				float xyz[3] = {2*yx[1],0,2*yx[0]};
+				float xyz[3] = {2.0f*yx[1],0,2.0f*yx[0]};
 				DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
 				if(int msb=lp->tiles[k].msb)
 				{
@@ -5549,7 +5835,7 @@ extern void som_MPY_413f10()
 			for(DWORD j=0;j<jN;j++) //this makes std::sort with ffff easier
 			{
 				auto &yx = dl[j];
-				float xyz[3] = {2*yx[1],0,2*yx[0]};
+				float xyz[3] = {2.0f*yx[1],0,2.0f*yx[0]};
 				DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
 			//	for(int l=0;l>lN;l--) 
 				{		
@@ -5680,14 +5966,13 @@ extern void som_MPY_413f10_mhm()
 		for(DWORD j=jj;j<jjN;j++) //this makes std::sort with ffff easier
 		{
 			auto &yx = dl[j];
-			float xyz[3] = {2*yx[1],0,2*yx[0]};
+			float xyz[3] = {2.0f*yx[1],0,2.0f*yx[0]};
 			DWORD k = 100*yx[0]+yx[1]; assert(k<=10000);
 			if(int msb=lp->tiles[k].msb)
 			{
 				for(int l=0;l>lN;l--) if(msb&1<<-l)
 				{
-					auto &t = lp[l].tiles[k];					
-					if(t.mhm!=0xffff)
+					auto &t = lp[l].tiles[k]; if(t.mhm!=0xffff)
 					{
 						auto &h = *pp[t.mhm]; if(h.polies) //debugging
 						{

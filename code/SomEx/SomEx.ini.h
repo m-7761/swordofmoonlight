@@ -672,7 +672,8 @@ EX_INI_SECTION(Damage)
 	hit_penalty_quantifier;
 
 	EX_INI_OPTION(0)
-	do_not_harm_defenseless_characters;
+	do_not_harm_defenseless_characters,
+	do_not_harm_equipment; //UNDOCUMENTED
 	
 	//DOCUMENT ME
 	//2020: want to cover animation #22 and new do_red
@@ -819,6 +820,8 @@ EX_INI_SECTION(Detail)
 	//levels for the opaque and translucent
 	//materials plus absolute opacity level
 	EX_INI_NUMBER(0,0,INF) nwse_saturation; //DOCUMENT ME
+
+	EX_INI_FIGURE(0.75) tobii_eye_head_ratio; //DOCUMENT ME
 };
 EX_INI_SECTION(Editor)
 {
@@ -880,7 +883,10 @@ EX_INI_SECTION(Editor)
 	//NEW: separators are indicated by an empty *lv 
 	bool sort_(size_t,const wchar_t**lv=0,const wchar_t**rv=0)const;
 };
-
+EX_INI_SECTION(Engine) //2024
+{
+	EX_INI_OPTION(0) do_KingsField25;
+};
 EX_INI_SECTION(Joypad)
 {
 	//TODO: recognize GUIDs
@@ -1086,13 +1092,16 @@ EX_INI_SECTION(Option)
 	//TODO: kf2_hud?
 	do_kf2,do_nwse,do_reverb, //DOCUMENT US
 
-	do_alphasort; //2023 (UNDOCUMENTED)
+	do_alphasort, //2023 (UNDOCUMENTED)
+
+	do_tobii2;
 
 	//probably best to NOT document these
 	EX_INI_OPTION(1)		
 	do_sfx,
 	do_sixaxis,
-	do_rumble;
+	do_rumble,
+	do_tobii;
 
 	//do_shadow, //2023 (UNDOCUMENTED)
 	enum{ do_shadow=1 }; //TODO: OpenGL requires GL_RED

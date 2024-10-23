@@ -77,8 +77,9 @@ extern SOM::Kage *som_kage_ico(wchar_t *w, char *a)
 
 			bi->bmiHeader.biHeight/=2; //remove mask?
 
-			assert(p->w==bi->bmiHeader.biWidth||!p->w); //256?
-			assert(p->h==bi->bmiHeader.biHeight||!p->h); //256?
+			//these can now go over 256
+			//assert(p->w==bi->bmiHeader.biWidth||!p->w); //256?
+			//assert(p->h==bi->bmiHeader.biHeight||!p->h); //256?
 			assert(p->bpp==bi->bmiHeader.biBitCount);
 
 			isz = bi->bmiHeader.biSizeImage = //p->w*p->h*p->bpp/8;
@@ -97,22 +98,24 @@ extern SOM::Kage *som_kage_ico(wchar_t *w, char *a)
 				auto *a = &v->back()-3;
 
 				for(int j=4;j-->0;)
-				for(int i=7;i-->0;)
 				{
-					RGBQUAD &px = bi->bmiColors[7*j+i];
-					(i?a[j].bbox[i-1]:a[j].t) = (float&)px; 
-					memset(&px,0xffffffff,sizeof(px));
+					a[j].t = (float&)bi->bmiColors[9*j];
+					for(int i=6;i-->0;)
+					a[j].bbox[i] = (float&)bi->bmiColors[9*j+i+1]; 
+					a[j].w = (float&)bi->bmiColors[9*j+7]; 
+					a[j].h = (float&)bi->bmiColors[9*j+8]; 
 				}
+				memset(bi->bmiColors,0xffffffff,4*9*4);
 
 				int w = bi->bmiHeader.biWidth;
 				int h = bi->bmiHeader.biHeight; //remove mask
 
 				//HACK: removing excess bytes
-				float xm = 0, zm = 0;
+			//	float xm = 0, zm = 0;
 				for(int j=0;j<4;j++)
 				{
-					xm = max(xm,a[j].bbox[1]);
-					zm = max(zm,a[j].bbox[5]);
+				//	xm = max(xm,a[j].bbox[1]);
+				//	zm = max(zm,a[j].bbox[5]);
 
 					if(a[j].t>1) a[j].t =
 					1+(a[j].t-1)*SOM::MDL::fps;
@@ -120,9 +123,9 @@ extern SOM::Kage *som_kage_ico(wchar_t *w, char *a)
 				for(int j=0;j<4;j++)
 				{
 					auto &aj = a[j];
-					aj.w = aj.bbox[1]/xm*(w-8)+8;
-					aj.h = aj.bbox[5]/zm*(h-8)+8;
-					assert(aj.w<=w&&aj.h<=h);
+				//	aj.w = aj.bbox[1]/xm*(w-8)+8;
+				//	aj.h = aj.bbox[5]/zm*(h-8)+8;
+				//	assert(aj.w<=w&&aj.h<=h);
 					aj.data_s = aj.w*aj.h;
 					a[j].data = aj.data_s?new BYTE[aj.data_s]:nullptr;
 				}

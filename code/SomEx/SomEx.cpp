@@ -243,7 +243,12 @@ extern int EX::is_needed_to_initialize()
 	(L"%TEMP%\\Swordofmoonlight.net\\SomEx-"
 	EX_WCSTRING(SOMEX_VERSION)L"-",EX::exe()); 
 	(void)_cr;
-
+	
+	if(EX::debug //2024: Exselector->watch?
+	||EX::INI::Launch()->do_ask_to_attach_debugger)
+	{
+		SomEx_load_Exselector();
+	}
 	EX::INI::initialize(); //gross initialization
 
 	float f = EX::reevaluating_number(0,L"_MODE"); 
@@ -396,7 +401,7 @@ extern int EX::is_needed_to_initialize()
 	SOM::cursorY = SOM::config("cursorY",0);
 	SOM::cursorZ = SOM::config("cursorZ",0);
 	SOM::capture = SOM::config("capture",0);
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	//2022: no longer working (January) (maybe just
 	//a temporary Windows 10 bug?) (is this function
 	//only called once?)
@@ -405,7 +410,7 @@ extern int EX::is_needed_to_initialize()
 	{
 		//TESTING: this shows the up arrow... I wish
 		//it would timeout
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		SOM::f10();
 	}
 
@@ -413,6 +418,7 @@ extern int EX::is_needed_to_initialize()
 	SOM::mapX = SOM::rescue(L"mapX",SOM::width/2);
 	SOM::mapY = SOM::rescue(L"mapY",SOM::height/2);
 	SOM::mapZ = SOM::rescue(L"mapZ",1); 
+	SOM::mapL = SOM::rescue(L"mapL",0); 
 	
 	SOM::escape(0); //hack: SOM::analogMode
 	SOM::superMode = SOM::config("superMode",!0); //2021	
@@ -799,14 +805,17 @@ static bool SomEx_tool(wchar_t *exe, wchar_t *ext)
 	wcscpy(SomEx_exe,guess); return true;
 }
 
-static void SomEx_assert_IsDebuggerPresent() 
+extern void SomEx_assert_IsDebuggerPresent() 
 {
 	//NEW: pierce topmost splash screen
 	//OLD: assert(IsDebuggerPresent());	
 	//if(EX::debug&&!IsDebuggerPresent()) 
 	//#ifdef _DEBUG //RelWithDebInfo //2021
 	#if 0 || !defined(NDEBUG) || defined(RELWITHDEBINFO) //2022
-	if(EX::INI::Launch()->do_ask_to_attach_debugger) //2024
+	//it's too soon to set this up so the launcher
+	//is setting this variable to yes or no before
+//	if(EX::INI::Launch()->do_ask_to_attach_debugger) //2024
+	if('n'!=*Sompaste->get(L"do_ask_to_attach_debugger"))
 	if(!IsDebuggerPresent())
 	{
 		//memos: CreateThread and DebugBreak are
@@ -839,7 +848,10 @@ static void SomEx_assert_IsDebuggerPresent()
 				for(MSG msg;1;)
 				switch(MsgWaitForMultipleObjects(1,&pi.hProcess,0,INFINITE,QS_ALLINPUT))
 				{
-				case 0: CloseHandle(pi.hProcess); /*__asm int 3*/ return;
+				case 0: CloseHandle(pi.hProcess); //__asm int 3; //newline is required!?
+					
+					return; //breakpoint
+
 				case 1: while(PeekMessageW(&msg,0,0,0,PM_REMOVE)) DispatchMessageW(&msg);
 				}
 			}
@@ -979,7 +991,7 @@ static bool SomEx(bool reload=false)
 					{
 					case 88: case 88+97: exe = L"ItemEdit"; break;
 						//todo? have SfxEdit convert it?
-					case 40: case 40+97:
+					case 40: case 40+97: case 243:
 						/*msg = "     "
 						"Legacy personal magic PRF file doesn't have workshop tool.";
 						goto msg;*/
@@ -1061,7 +1073,7 @@ static bool SomEx(bool reload=false)
 			else wcscpy(SomEx_exe,L"SOM_DB");
 		}
 		else wcscpy(SomEx_exe,L"SOM_MAIN");
-
+						
 		out = true;
 	}	
 
@@ -1370,8 +1382,8 @@ SOMEX_API HMODULE Sword_of_Moonlight(const wchar_t *cwd)
 				PathFindFileNameW(SOM::Tool::project()));
 				fputs(game,new_som);
 				fputs("\r\n0\r\n\r\nEX=%EX%; Ex.ini",new_som);
-				SOM::xcopy(L"Ex.ini",L"data\\my\\prof\\Ex.ini");
 				fclose(new_som);
+				SOM::xcopy(L"Ex.ini",L"data\\my\\prof\\Ex.ini");
 			}
 			else assert(0);
 	
@@ -1423,6 +1435,11 @@ SOMEX_API HMODULE Sword_of_Moonlight(const wchar_t *cwd)
 	else //SOM::launch_legacy_exe(); 
 	{
 		assert(cwd!=0);
+
+		//2024: capture this here because launched
+		//app can't access the Ex.ini file so soon{
+		Sompaste->set(L"do_ask_to_attach_debugger",					  
+		EX::INI::Launch()->do_ask_to_attach_debugger?L"yes":L"no");
 
 		SOM::launch_legacy_exe(); 
 
@@ -3672,14 +3689,14 @@ static EX::Joypad::Configuration SomEx_mouse_configuration()
 	0,//dd
 	0,//dl
 	//left mode1:forward mode2:event
-	mode?0x4c:0x39, //b1 DIK_NUMPAD5/SPACE
+	(WORD)(mode?0x4c:0x39), //b1 DIK_NUMPAD5/SPACE
 	//right mode1:backward mode2:attack
-//	mode?0x50:0x2a, //b2 DIK_NUMPAD2/LSHIFT
-	mode?0x50:0x1D, //b2 DIK_NUMPAD2/LSHIFT //2020
+//	(WORD)(mode?0x50:0x2a), //b2 DIK_NUMPAD2/LSHIFT
+	(WORD)(mode?0x50:0x1D), //b2 DIK_NUMPAD2/LSHIFT //2020
 	//middle
 	0x48,//b3 Look center (DIK_NUMPAD8)	
 	0x0F,//b4 bonus: TAB
-	mode?0x39:0x1D,//b5 //bonus: SPACE/MAGIC
+	(WORD)(mode?0x39:0x1D),//b5 //bonus: SPACE/MAGIC
 	0,//b6
 	0,//b7
 	0,//b8

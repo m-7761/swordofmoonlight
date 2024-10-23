@@ -258,6 +258,7 @@ extern bool Ex_mipmap_point_filter;
 
 //REMOVE ME?
 static DWORD WINAPI som_hacks_thread_main(void*);
+extern void *som_mocap_Tobii_test();
 extern void SOM::kickoff_somhacks_thread()
 {
 	//static int one_off = 0; if(one_off++) return; //??? 
@@ -471,6 +472,9 @@ extern void SOM::kickoff_somhacks_thread()
 
 	PostMessage(0,0,0,0); //AttachThreadInput
 	CreateThread(0,0,som_hacks_thread_main,(LPVOID)GetCurrentThreadId(),0,0);
+		
+	//I don't know where to put this
+	if(som_mocap_Tobii_test()) EXLOG_HELLO(0) << "Tobii API present";
 }						
 static bool som_hacks_detectXInputDevices = true;
 static DWORD WINAPI som_hacks_thread_main(void* attachtid)
@@ -1281,7 +1285,7 @@ static void *som_hacks_CreateSurface4(HRESULT*hr, DDRAW::IDirectDraw4*in, DX::LP
 			x->dwWidth = x->dwHeight = 256*
 			EX::INI::Editor()->texture_subsamples;
 
-			int todolist[SOMEX_VNUMBER<=0x1020602UL];
+			int todolist[SOMEX_VNUMBER<=0x1020704UL];
 			//NOTE: this still covers 0~7 for 32-bit textures, it's
 			//always been that way... can't think why it should be
 			//so. 2021: I've changed the colorkey to 0~0 except for
@@ -2290,7 +2294,7 @@ static void *som_hacks_Blt(HRESULT*hr,DDRAW::IDirectDrawSurface7*in,LPRECT&x,DX:
 					}
 				}
 				float &a = men[0x28], &b = men[0x29], aa = a, bb = b;
-				a = 1.6; b = 1.6; //matches frameG1.bmp
+				a = 1.6f; b = 1.6f; //matches frameG1.bmp
 				extern float som_game_menucoords[2];
 				float &c = som_game_menucoords[0], &d = som_game_menucoords[1], cc = c, dd = d;				
 				c = 3; d = 2.5f;
@@ -3055,7 +3059,7 @@ static void *som_hacks_BeginScene(HRESULT*,DDRAW::IDirect3DDevice7*)
 {	
 	if(!SOM::field) return 0; //2022
 
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	/*2022: this is causing a glitch on the first frame after 
 	//changing maps???
 	//NOTE: som_hacks_onflip had some code to ignore the first
@@ -3547,6 +3551,7 @@ static void *som_hacks_Clear(HRESULT *hr,DDRAW::IDirect3DDevice7*p,DWORD&x,DX::L
 }
 
 extern int som_hacks_inventory_item = 0;
+extern float som_hacks_inventory_accum[3] = {};
 extern float som_hacks_inventory[4][4] = 
 {	{1,0,0,0},{0,1,0,0},{0,0,1,0},
 
@@ -3644,119 +3649,101 @@ static void *som_hacks_SetTransform(HRESULT*,DDRAW::IDirect3DDevice7 *p,DX::D3DT
 			return 0; //don't want to change compass in VR right now
 		}
 
+		float swing[6]; bool have_swing = false;
+
 		//this is getting ridiculous
 		if(y->m!=som_hacks_inventory) //blacklist
 		if(y->m!=SOM::analogcam&&y->m!=SOM::steadycam)
 		if(y->m!=som_hacks_view.m&&!DDRAW::ofApplyStateBlock)
 		{	
-			if(1) //if(SOM::L.view_matrix_xyzuvw)
-			{	
-				y = (DX::LPD3DMATRIX)SOM::analogcam;
+			y = (DX::LPD3DMATRIX)SOM::analogcam;
 
-				if(som_hacks_pcstated) //occasionally necessary
-				{
-					som_hacks_pcstated = false; //paranoia (see below) 
-					memcpy(SOM::L.pcstate,som_hacks_pcstate,sizeof(float)*6);
-				}
-				
-				const float gap = 1;
-				if(SOM::newmap!=SOM::frame) //2022
-				if(SOM::newmap==SOM::frame||gap/*<delta*/ //human scale
-				//NOTE: this is not the reason _pcstate/d exists in the 
-				//first place, but they are convenient here nonetheless
-				//NOTE: while we could try to catch warp events as they
-				//happen it might be useful to authors to nudge players
-				 <=som_hacks_distance(SOM::L.pcstate,som_hacks_pcstate)
-				//don't warp if traveling more than gap at a min 15 FPS 
-				 &&gap>som_hacks_length(SOM::doppler)/15)
-				{
-					if(SOM::newmap!=SOM::frame) 
-					{	
-						//EXPERIMENTING
-						//2017: It's come time to not expect the clipper to kick the
-						//player around for legit reasons. This is to solve problems
-						//with two objects sucking the player into their middle zone
-						//and vomitting them back up on the other side. Mainly doors
-						//can do this. And yes, it would be better to fix the object
-						//code. But this is better than nothing.
-
-				//		/*2020: this is becoming a liability for vertical doors when
-						//shutting on your head. the original clipping issues may've
-						//been fixed already by subsequent fixes
-						if(1&&SOM::warped!=SOM::frame&&!SOM::emu)
-						{
-							if(SOM::frame-SOM::warped>5) //being suppressed
-							{
-								if(EX::debug) MessageBeep(MB_ICONWARNING);
-							}
-
-							SOM::warped = SOM::frame;
-				//			memcpy(SOM::L.pcstate,som_hacks_pcstate,sizeof(float)*3);
-				//			goto put_back;
-						}
-					}
-					SOM::warp(SOM::L.pcstate,som_hacks_pcstate);
-				//	put_back:;
-				}				
-				memcpy(som_hacks_pcstate,SOM::L.pcstate,sizeof(float)*6);
-				som_hacks_pcstated = true;
-
-				//where SOM believes the center of the sky to be
-				float swing[6], skyanchor = 
-				SOM::motions.place_camera(SOM::analogcam,SOM::steadycam,swing);				
-				/*OBSOLETE?
-				som_hacks_sky[0] = SOM::L.pcstate[0];
-				som_hacks_sky[1] = SOM::L.pcstate[1]+skyanchor;
-				som_hacks_sky[2] = SOM::L.pcstate[2];				
-				*/
-
-				//SOM will use this to construct its arm
-				memcpy(SOM::L.pcstate,swing,sizeof(swing));
-			}								 
-			else //obsolete: 2 4x4 inverses is gratuitous
+			if(som_hacks_pcstated) //occasionally necessary
 			{
-				assert(0);
+				som_hacks_pcstated = false; //paranoia (see below) 
+				memcpy(SOM::L.pcstate,som_hacks_pcstate,sizeof(float)*6);
+			}
+				
+			const float gap = 1;
+			if(SOM::newmap!=SOM::frame) //2022
+			if(SOM::newmap==SOM::frame||gap/*<delta*/ //human scale
+			//NOTE: this is not the reason _pcstate/d exists in the 
+			//first place, but they are convenient here nonetheless
+			//NOTE: while we could try to catch warp events as they
+			//happen it might be useful to authors to nudge players
+				<=som_hacks_distance(SOM::L.pcstate,som_hacks_pcstate)
+			//don't warp if traveling more than gap at a min 15 FPS 
+				&&gap>som_hacks_length(SOM::doppler)/15)
+			{
+				if(SOM::newmap!=SOM::frame) 
+				{	
+					//EXPERIMENTING
+					//2017: It's come time to not expect the clipper to kick the
+					//player around for legit reasons. This is to solve problems
+					//with two objects sucking the player into their middle zone
+					//and vomitting them back up on the other side. Mainly doors
+					//can do this. And yes, it would be better to fix the object
+					//code. But this is better than nothing.
 
-				D3DXMATRIX inv; 
-				//the inverse of the view is the view itself
-				if(D3DXMatrixInverse(&inv,0,(D3DXMATRIX*)y))
-				{				
-					float bob = inv._42-SOM::xyz[1]-1.5f; 					
-					float pov = -1.5f+EX::INI::Player()->player_character_stature;
-
-					SOM::eye[3] = bob;											
-					SOM::steadycam[3][1] = -bob+SOM::eye[3]+pov; //_baseline_adjustment;
-					inv._42 = inv._42+SOM::steadycam[3][1];
-
-					SOM::eye[0] = inv._41; 
-					SOM::eye[1] = inv._42-SOM::eye[3]; 
-					SOM::eye[2] = inv._43;
-					
-					for(int i=0;i<3;i++) SOM::eye[i]-=SOM::xyz[i];
-									
-					/*//obsolete: but can be useful for visualizing the frustum
-					if(SOM::L.frustum&&SOM::context==SOM::Context::playing_game)
+			//		/*2020: this is becoming a liability for vertical doors when
+					//shutting on your head. the original clipping issues may've
+					//been fixed already by subsequent fixes
+					if(1&&SOM::warped!=SOM::frame&&!SOM::emu)
 					{
-						EX::INI::Option op;	EX::INI::Bugfix bf;
-						if(op->do_frustum&&bf->do_fix_frustum_in_memory)
-						{							
-							p->GetTransform(DX::D3DTRANSFORMSTATE_PROJECTION,DDRAW::getD3DMATRIX);
-							som_hacks_updatefrustum(&inv,(D3DXMATRIX*)DDRAW::getD3DMATRIX); 
+						if(SOM::frame-SOM::warped>5) //being suppressed
+						{
+							if(EX::debug) MessageBeep(MB_ICONWARNING);
 						}
-					}*/
 
-					som_hacks_view = *(DX::D3DMATRIX*)
-					D3DXMatrixInverse((D3DXMATRIX*)y,0,&inv);
-
-					y = &som_hacks_view;
+						SOM::warped = SOM::frame;
+			//			memcpy(SOM::L.pcstate,som_hacks_pcstate,sizeof(float)*3);
+			//			goto put_back;
+					}
 				}
+				SOM::warp(SOM::L.pcstate,som_hacks_pcstate);
+			//	put_back:;
+			}				
+			memcpy(som_hacks_pcstate,SOM::L.pcstate,sizeof(float)*6);
+			som_hacks_pcstated = true;
+
+			//where SOM believes the center of the sky to be
+			float skyanchor = 
+			SOM::motions.place_camera(SOM::analogcam,SOM::steadycam,swing);				
+			/*OBSOLETE?
+			som_hacks_sky[0] = SOM::L.pcstate[0];
+			som_hacks_sky[1] = SOM::L.pcstate[1]+skyanchor;
+			som_hacks_sky[2] = SOM::L.pcstate[2];				
+			*/
+
+			//SOM will use this to construct its arm
+			memcpy(SOM::L.pcstate,swing,sizeof(swing));
+			have_swing = true; //2024
+		}
+		if(DDRAW::inStereo)
+		{
+			if(!DDRAW::xr) //PSVR?
+			{
+				extern bool som_mocap_PSVR_view(float(&out)[4][4],float(&in)[4][4]);
+				if(som_mocap_PSVR_view(som_hacks_view.m,y->m))
+				y = &som_hacks_view;
 			}
 		}
-		if(DDRAW::inStereo) if(!DDRAW::xr) //PSVR?
+		else
 		{
-			extern bool som_mocap_PSVR_view(float(&out)[4][4],float(&in)[4][4]);
-			if(som_mocap_PSVR_view(som_hacks_view.m,y->m))
-			y = &som_hacks_view;
+			extern bool som_mocap_glance_view(float(&out)[4][4],float(&in)[4][4]);
+			extern bool som_mocap_Tobii_view(float(&out)[4][4],float(&in)[4][4], float(&io)[6]);
+			if(som_mocap_Tobii_view(som_hacks_view.m,y->m,swing))
+			{
+				y = &som_hacks_view;
+
+				//SOM will use this to construct its arm
+				if(have_swing)
+				memcpy(SOM::L.pcstate,swing,sizeof(swing));
+			}
+			else if(som_mocap_glance_view(som_hacks_view.m,y->m))
+			{
+				y = &som_hacks_view;
+			}
 		}
 		break;
 	}
@@ -5421,6 +5408,7 @@ static void som_hacks_switch_lamps(const float *center, float radius, float heig
 	som_hacks_lamps_switch[3] = sphere;
 	som_hacks_lamps_switch[4] = sphere;
 }
+extern float *som_scene_lit; 
 extern DWORD som_hacks_primode = 0;
 static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice7*&in, va_list va, void *vb)
 {
@@ -5445,7 +5433,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		//TODO
 		//instead of 50, raise the item up higher, and pull it forward as necessary
 		//to approximate 50, both WRT SOM::zoom and VR mode
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		//NOTE: 50 is the original value, but using 62 (kf2) just to scale down some
 		//since 1m is a little bit in your face... in VR mode I think the value gets
 		//overriden... 1m is chosen for VR. this branch is in case an extension puts
@@ -5487,6 +5475,10 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		//	EX::dbgmsg("ms %f %f %f %f",ms.quatX,ms.quatY,ms.quatZ,ms.quatW);
 		//	EX::dbgmsg("is %f %f %f",is.accelX,is.accelY,is.accelZ);
 
+		//	som_hacks_inventory_accum[0]+=0.01f*(ms.accelX);
+		//	som_hacks_inventory_accum[1]+=0.01f*(ms.accelY);
+		//	som_hacks_inventory_accum[2]+=0.01f*(ms.accelZ);
+
 			float swap[16];
 			memcpy(swap,som_hacks_inventory,16*sizeof(float));
 
@@ -5497,8 +5489,13 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 			float q2[4] = {ms.quatX,ms.quatY,-ms.quatZ,-ms.quatW};
 			Somvector::map(m).copy_quaternion<4,4>(q2);
 			Somvector::map(som_hacks_inventory).postmultiply<4,4>(m);
+		//	som_hacks_inventory[3][0]+=som_hacks_inventory_accum[0];
+		//	som_hacks_inventory[3][1]+=som_hacks_inventory_accum[1];
+		//	som_hacks_inventory[3][2]+=som_hacks_inventory_accum[2];
 			in->SetTransform(DX::D3DTRANSFORMSTATE_VIEW,(DX::D3DMATRIX*)som_hacks_inventory);
 			memcpy(som_hacks_inventory,swap,16*sizeof(float));
+
+		//	EX::dbgmsg("grav %f",ms.gravY);
 		}
 		else in->SetTransform(DX::D3DTRANSFORMSTATE_VIEW,(DX::D3DMATRIX*)som_hacks_inventory);
 	}
@@ -5650,6 +5647,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 		{
 			//REMOVE ME?
 			//why is this desirable? //this is ancient code!!
+			if(!som_scene_sky) //2024
 			in->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,1); 		
 			in->SetRenderState(DX::D3DRENDERSTATE_AMBIENTMATERIALSOURCE,D3DMCS_COLOR1); 		
 						
@@ -5702,7 +5700,7 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 				if(!hr&&som_hacks_shader_model //legacy
 				 &&!som_hacks_alphablendenable) //skyfloor
 				{
-					int todolist[SOMEX_VNUMBER<=0x1020602UL]; //and fog powers?
+					int todolist[SOMEX_VNUMBER<=0x1020704UL]; //and fog powers?
 					if(EX::INI::Option()->do_alphafog)
 				//	if(EX::INI::Detail()->alphafog_skyflood_constant>0) //blend?
 					som_hacks_fab_alphablendenable();	
@@ -5711,7 +5709,8 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 			else if(!hr) //assuming unlit swing model (bug)
 			{
 				//assert(0); //2022: should be obsolete
-				int todolist[SOMEX_VNUMBER<=0x1020602UL];
+				//int todolist[SOMEX_VNUMBER<=0x1020704UL];
+	//			assert(0); //2024
 
 				in->SetRenderState(DX::D3DRENDERSTATE_LIGHTING,1); 
 
@@ -5738,8 +5737,6 @@ static void *som_hacks_DrawIndexedPrimitiveVA(HRESULT*hr, DDRAW::IDirect3DDevice
 	{
 		assert(!som_scene_sky);
 		
-		extern float *som_scene_lit; //xyz,radius,height	
-
 		if(!hr&&som_scene_lit)
 		som_hacks_switch_lamps(som_scene_lit,som_scene_lit[3],som_scene_lit[4]);
 	}
@@ -6251,7 +6248,7 @@ static void *som_hacks_mipmaps_pixel_art_power_of_two(const DX::DDSURFACEDESC2 *
 
 	//this needs a lot more work, but it should 
 	//be getting moved into x2mdl.dll shortly
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	//
 	// 2022: this is mode 3 below that's designed
 	// to deemphasize diagonal pixels
@@ -7220,6 +7217,9 @@ static void *som_hacks_GetDeviceState(HRESULT*hr,DINPUT::IDirectInputDeviceA*in,
 			extern void som_mocap_headwind(bool);
 			som_mocap_headwind(false);
 		}
+		
+		extern void som_mocap_Tobii();
+		som_mocap_Tobii();
 
 		//REMOVE ME?		
 		float u2[3] = //not pretty...
@@ -7745,7 +7745,7 @@ static bool som_hacks_onflip()
 		
 	#ifdef NDEBUG
 	//#error fixed? investigated?
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	#endif
 //2018: ASSUMING matte is not required here
 //2017: something like this was done before, but
@@ -7771,7 +7771,7 @@ if(SOM::newmap>=SOM::frame-2) return false;
 	//matte
 	#ifdef NDEBUG
 	//#error WGL_NV_DX_interop2 can't draw in onFlip
-	int todolist2[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist2[SOMEX_VNUMBER<=0x1020704UL];
 	#endif
 	if(!DDRAW::inStereo&&!DDRAW::WGL_NV_DX_interop2)
 	{
@@ -7799,6 +7799,10 @@ if(SOM::newmap>=SOM::frame-2) return false;
 
 	return out;
 }
+
+extern int som_hacks_equip_broke = 0; //2024
+
+static float som_hacks_psConstant[4] = {3}; //som.shader.cpp
 
 static void (*som_hacks_oneffects_passthru)() = 0;
 
@@ -8102,6 +8106,15 @@ static void som_hacks_oneffects()
 		swprintf_s(text,SOM::translate(som_932_Button_Swap,"BUTTON SWAP %d-%d"),i,j);
 	}
 
+	if(som_hacks_equip_broke)
+	{
+		time = 1000;
+
+		int e = som_hacks_equip_broke; som_hacks_equip_broke = 0;
+
+		swprintf_s(text,SOM::translate(som_932_Equip_Broke,"EQUIPMENT BROKEN"),e);
+	}
+
 	if(time!=0) startup:
 	{
 		/*no use... I get VISIBLE/FOCUSED while in the
@@ -8142,6 +8155,8 @@ static void som_hacks_oneffects()
 	}
 
 	static bool splashed = SOM::splashed(SOM::window); 
+	
+	if(0) DDRAW::pset9(som_hacks_psConstant,1,DDRAW::psConstant);
 }
 
 extern void SOM::initialize_som_hacks_cpp()
@@ -8157,4 +8172,12 @@ extern void SOM::initialize_som_hacks_cpp()
 
 	DDRAW::onFlip = som_hacks_onflip;
 	DDRAW::onEffects = som_hacks_oneffects;
+
+	if(0&&Exselector)
+	{
+		Exselector->watch("PsConstant.x [0~3]",&som_hacks_psConstant[0]);
+	//	Exselector->watch("PsConstant.y",&som_hacks_psConstant[1]);
+	//	Exselector->watch("PsConstant.z",&som_hacks_psConstant[2]);
+	//	Exselector->watch("PsConstant.w",&som_hacks_psConstant[3]);
+	}
 }

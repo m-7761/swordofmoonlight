@@ -87,7 +87,7 @@
     </Link>
     <PostBuildEvent>
       <Command>copy /y "$(OutDir)SOM_EX.exe" "$(SOM_SVN)\tool\SOM_EX.exe"
-$(SOM_EX_PostBuild)
+rem $(SOM_EX_PostBuild)
 
 </Command>
     </PostBuildEvent>

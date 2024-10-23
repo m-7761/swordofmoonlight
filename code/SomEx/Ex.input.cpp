@@ -933,11 +933,13 @@ bool EX::Joypad::simulate(unsigned char *in, size_t sz)
 				{
 					if(spin)
 					{
+						float v = dz?spin/dz:spin*spin; //zero divide //2024
+
 						if(q[i]<0)
 						{
-							position[i] = -spin/dz-calibration[0]; 
+							position[i] = -v-calibration[0]; 
 						}
-						else position[i] = spin/dz+calibration[0]; 
+						else position[i] = v+calibration[0]; 
 					}
 					else position[i] = 0.0f;					
 				}
@@ -948,10 +950,20 @@ bool EX::Joypad::simulate(unsigned char *in, size_t sz)
 					//free look
 					if(fabsf(p[i])>cfg.deadzone[i][c]) 
 					{					
-						float t = 1.0f-spin/(1.0f-dz); //lerp
+						if(dz<1) //zero divide
+						{
+							float t = 1.0f-spin/(1.0f-dz); //lerp
 
-						//black magic: just seems to work
-						position[i]+=p[i]*calibration[0]*t; 
+							//black magic: just seems to work
+							position[i]+=p[i]*calibration[0]*t; 
+						}
+						else //2024
+						{
+							float v = p[i]*calibration[0];
+
+							//position[i]+=_copysign(powf(v,2),v); 
+							position[i]+=v; 
+						}
 					}
 				}
 

@@ -602,3 +602,126 @@ void Exselector::svg_end(int(*xr_f)(int))
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
 }
+
+static Widgets95::ui *Exselector_main_win = nullptr;
+static DWORD WINAPI Exselector_main_thread(void*)
+{	
+	Widgets95::glut::set_wxWidgets_enabled();
+
+	using namespace Widgets95::glute;
+
+	int argc = 1;
+	char *bogus = "Exselector";
+	glutInit(&argc,&bogus);
+	glutInitWindowSize(100,100);
+	glutInitDisplayMode(GLUT_RGB|GLUT_DOUBLE|GLUT_DEPTH);
+	Exselector_main_win = new Widgets95::ui("Watch",100,100);
+	Exselector_main_win->hide();
+	glutMainLoop();
+	return 0;
+}
+static void Exselector_kickoff_main_thread()
+{
+	if(!Exselector_main_win)
+	{
+		CreateThread(0,0,Exselector_main_thread,0,0,0);
+		while(!Exselector_main_win) 
+		Sleep(1);
+		Sleep(0);
+	}
+}
+static void Exselector_slider_cb(Widgets95::ui::control *c)
+{
+	auto *b = (Widgets95::ui::bar*)c;
+	auto *a = b->associated_object;
+	double d = c->float_val();
+	d==(int)d?a->set_int_val((int)d):a->set_float_val(d);
+}
+Widgets95::node *Exselector::watch(const char *name, const type_info &type, void *var, bool reg)
+{
+	if(reg) return nullptr; //UNIMPLEMENTED (may want to provide a menu of watch items)
+
+	auto* &ui = Exselector_main_win; //REPURPOSING (for now)
+
+	//NOTE: if a new window were to be created here it
+	//would have to be injected into the glutMainLoop
+	//thread somehow (glutIdleFunc? I don't know)
+	if(!ui)
+	{
+		Exselector_kickoff_main_thread(); Sleep(250);
+	}
+
+	for(auto*ch=ui->main_panel()->first_child();ch;ch=ch->next())
+	{
+		if(ch->live_ptr()==var) return ch; //already live?
+	}
+
+	Widgets95::ui::control *ret = nullptr;
+	
+	//EXTENSION
+	//this should call xcv_widgets->Yield()
+	Widgets95::glute::glutMainLoop();
+
+	HDC dc = wglGetCurrentDC();
+	HGLRC glrc = wglGetCurrentContext();
+	{
+		if(type==typeid(float))
+		{
+			new Widgets95::ui::spinbox(ui,name,(float*)var);
+		}
+		else if(type==typeid(double))
+		{
+			new Widgets95::ui::spinbox(ui,name,(double*)var);
+		}
+		else if(type==typeid(int))
+		{
+			new Widgets95::ui::spinbox(ui,name,(int*)var);
+		}
+		else if(type==typeid(std::string))
+		{
+			new Widgets95::ui::wordproc(ui,name,true,(std::string*)var);
+		}
+		else 
+		{
+			assert(0); return nullptr;
+		}
+
+		ret = ui->main_panel()->last_child();
+
+		//ret->name().append("\t"); ret->expand();
+
+		auto *p = strchr(name,'(');
+		if(!p) p = strchr(name,'[');
+		if(p) if(auto*sb=dynamic_cast<Widgets95::ui::spinbox*>(ret))
+		{
+			bool slider = *p=='[';
+
+			p++; char *e;		
+			double d = strtod(p,&e);
+			double dd = strtod(e+1,0);
+			if('~'==*e) sb->limit(d,dd);
+
+			if(slider)
+			{
+				auto *b = new Widgets95::ui::bar(ui,"",1);
+
+				b->expand();
+
+				b->set_object_callback(Exselector_slider_cb,sb);
+
+				if('~'==*e) b->set_range(d,dd);
+
+				if(type==typeid(int))
+				{
+					b->spin(ret->int_val());
+				}
+				else b->spin(ret->float_val());
+			}
+		}
+
+		ui->show(); 	
+	}
+	wglMakeCurrent(dc,glrc); //guarding
+
+	return ret;
+}

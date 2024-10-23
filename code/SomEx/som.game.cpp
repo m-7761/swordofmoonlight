@@ -27,6 +27,7 @@ extern SOMPASTE Sompaste;
 
 #define SOMVECTOR_MATH
 #include "../Somplayer/Somvector.h"
+#include "../lib/swordofmoonlight.h"
 
 namespace DSOUND
 {
@@ -125,9 +126,11 @@ extern void som_game_field_init()
 		}
 	}		
 
-	//NOTE: do this unconditionally
+	////NOTE: do this unconditionally
 	//2020: do_fix_animation_sample_rate?
-	extern void som_game_60fps(); som_game_60fps(); //workshop.cpp
+	//2024: moving to som_game_4245e0_init_pc_arm_and_hud_etc
+	//below 
+//	extern void som_game_60fps(); som_game_60fps(); //workshop.cpp
 
 	//HACK: popuplate SOM::material_textures?
 	SOM::MT::lookup("");
@@ -136,6 +139,20 @@ extern void som_game_field_init()
 	//the first map, but SOM::field is now set after
 	//som_MPX_411a20 reads the first map
 	som_game_menu_init();
+
+	extern void som_CS_init();
+	som_CS_init();
+}
+static void __cdecl som_game_4245e0_init_pc_arm_and_hud_etc()
+{
+	//2024: this needs to run before background loading
+	//in order to support som_SFX_sounds 
+	
+	//NOTE: do this unconditionally
+	//2020: do_fix_animation_sample_rate?
+	extern void som_game_60fps(); som_game_60fps(); //workshop.cpp
+
+	((void(*)())0x4245e0)(); //PIGGYBACKING
 }
 
 //REMOVE US
@@ -264,6 +281,8 @@ static DWORD WINAPI som_game_GetTickCount()
 static DWORD som_game_4023c0_ms = 0;
 static void __cdecl som_game_4023c0() //2020
 {
+	extern void som_CS_commit();
+
 	if(SOM::newmap==SOM::frame) 
 	{
 		som_game_4023c0_ms = 33; som_game_interframe = 0;
@@ -307,7 +326,7 @@ static void __cdecl som_game_4023c0() //2020
 					memcpy(cmp,&SOM::L.status_timers,sizeof(cmp));
 
 					//4023c0 is the top world step subroutine
-					((void(__cdecl*)())0x4023c0)(); 
+					((void(__cdecl*)())0x4023c0)(); som_CS_commit();
 
 					if(++som_game_interframe>=(int)DDRAW::refreshrate/30) //2024
 					som_game_interframe = 0;
@@ -353,7 +372,7 @@ static void __cdecl som_game_4023c0() //2020
 
 		//REMINDER: som_MPX_42dd40 may call 4023c0 once after map
 		//loading
-		((void(__cdecl*)())0x4023c0)();
+		((void(__cdecl*)())0x4023c0)(); som_CS_commit();
 	}
 }
 static DWORD __stdcall som_game_402070_timeGetTime() //2020
@@ -507,6 +526,7 @@ static MCIERROR WINAPI som_game_mciSendCommandA(MCIDEVICEID,UINT,DWORD_PTR,DWORD
 
 //// Removing WS_EX_TOPMOST /////////////
 static HWND WINAPI som_game_CreateWindowExA(DWORD,LPCSTR,LPCSTR,DWORD,int,int,int,int,HWND,HMENU,HINSTANCE,LPVOID);
+static HWND WINAPI som_game_CreateWindowExW(DWORD,LPCWSTR,LPCWSTR,DWORD,int,int,int,int,HWND,HMENU,HINSTANCE,LPVOID);
 
 static VOID WINAPI som_game_OutputDebugStringA(LPCSTR lpOutputString)
 {	
@@ -590,7 +610,7 @@ SOM::Game::Game()
 
 		#ifdef NDEBUG
 		//#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		#endif
 
 			if(1||!EX::debug) //2021
@@ -633,6 +653,7 @@ SOM::Game::Game()
 		mciSendCommandA = ::mciSendCommandA;
 
 		CreateWindowExA = ::CreateWindowExA;
+		CreateWindowExW = ::CreateWindowExW;
 
 		OutputDebugStringA = ::OutputDebugStringA;
 
@@ -689,6 +710,7 @@ SOM::Game::Game()
 		//// WS_EX_TOPMOST??? DEBUGGING /////////////
 
 		CreateWindowExA = som_game_CreateWindowExA;
+		CreateWindowExW = som_game_CreateWindowExW;
 
 		OutputDebugStringA = som_game_OutputDebugStringA;;
 
@@ -1876,10 +1898,20 @@ static HANDLE WINAPI som_game_LoadImageA(HINSTANCE hi, LPCSTR in, UINT uType, in
 		const char *db_string = SOMEX_(A)"\\Data\\Menu\\22.bmp";			
 		nine = ((DWORD(*)(const char*,DWORD,DWORD,DWORD,HANDLE))0x448660)(db_string,0,0,0,eax);	
 	}
+	else if(strstr(in,"Menu\\Frame")) //2024
+	{
+		HANDLE l = ((HANDLE(__cdecl*)(HANDLE,DWORD,DWORD,DWORD,DWORD))0x4467B0)(out,80,120,40,40);
+		HANDLE r = ((HANDLE(__cdecl*)(HANDLE,DWORD,DWORD,DWORD,DWORD))0x4467B0)(out,120,120,40,40);
+		
+		const char *db_string = SOMEX_(A)"\\Data\\Menu\\23.bmp";			
+		SOM::menupcs[0x17] = ((DWORD(*)(const char*,DWORD,DWORD,DWORD,HANDLE))0x448660)(db_string,0,0,0,l);	
+		db_string = SOMEX_(A)"\\Data\\Menu\\24.bmp";			
+		SOM::menupcs[0x18] = ((DWORD(*)(const char*,DWORD,DWORD,DWORD,HANDLE))0x448660)(db_string,0,0,0,r);	
+	}
 
 	return out;
 }
-void __cdecl som_game_421f10(DWORD *in, DWORD edx, DWORD ebp) //itemicon.bmp?
+static void __cdecl som_game_421f10_itemicon(DWORD *in, DWORD edx, DWORD ebp) //itemicon.bmp?
 {
 	//TODO: square these somehow? som_hacks_DrawPrimitive is doing so.
 
@@ -1903,11 +1935,30 @@ void __cdecl som_game_421f10(DWORD *in, DWORD edx, DWORD ebp) //itemicon.bmp?
 
 	((void(__cdecl*)(DWORD*,DWORD,DWORD))(0x421F10))(in,edx,ebp);
 
-	if(eax==0xe) 
+	if(eax>=0xe) 
 	{
 		in[4] = eax;
 		std::swap(SOM::menupcs[0xd+8],SOM::menupcs[eax+8]);
 	}	
+}
+static void __cdecl som_game_421f10_lr_arrow(DWORD layout[6], float *menu, float menu_70) //2024
+{
+	//0041D047 55                   push        ebp  
+	//0041D048 52                   push        edx  
+	//0041D049 89 74 24 58          mov         dword ptr [esp+58h],esi  
+	//0041D04D 89 5C 24 5C          mov         dword ptr [esp+5Ch],ebx  
+	//0041D051 89 44 24 68          mov         dword ptr [esp+68h],eax
+	//DWORD esi = layout[0];
+	//DWORD ebx = layout[1];
+	DWORD eax = layout[4];	
+
+	if(eax==4) std::swap(SOM::menupcs[0xc],SOM::menupcs[23]); //left
+	if(eax==5) std::swap(SOM::menupcs[0xd],SOM::menupcs[24]); //right
+
+	((void(__cdecl*)(DWORD*,float*,float))(0x421F10))(layout,menu,menu_70);
+
+	if(eax==4) std::swap(SOM::menupcs[0xc],SOM::menupcs[23]); //left
+	if(eax==5) std::swap(SOM::menupcs[0xd],SOM::menupcs[24]); //right
 }
 int SOM::VT::fog_register = 0; //TEMPORARY
 extern SOM::VT*(*SOM::volume_textures)[1024] = 0;
@@ -2186,7 +2237,7 @@ extern void som_game_silence_wav(char *bgm)
 	#define SOM_GAME_DATA_BYTES 0x20,0x00,0x00,0x00 //32
 	#define SOM_GAME_RIFF_BYTES 0x44,0x00,0x00,0x00 //32+36
 
-	char som_game_0_wav[8+36+32] = //32 zeroes of silence //const
+	BYTE som_game_0_wav[8+36+32] = //32 zeroes of silence //const
 	{
 	//	8 bits per sample was popping no matter what (so 16 bits are being used instead)
 		0x52,0x49,0x46,0x46,SOM_GAME_RIFF_BYTES,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,
@@ -2595,6 +2646,40 @@ static LRESULT CALLBACK som_game_WindowProc(HWND hwnd, UINT msg, WPARAM w, LPARA
 
 	case WM_MOUSEWHEEL:
 
+		if(EX::pointer=='hand') //2024
+		{
+			som_MPX &mpx = *SOM::L.mpx->pointer;
+
+			int curl = SOM::mapL; 
+			int del = GET_WHEEL_DELTA_WPARAM(w);
+			if(del>0)
+			{
+				while(curl)
+				{
+					auto &ll = ((SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0])[++curl];
+					if(ll.tiles) break;
+				}
+			}
+			else while(curl>-6)
+			{
+				auto &ll = ((SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0])[--curl];
+				if(ll.tiles) break;
+			}
+
+			auto &ll = ((SOM::MPX::Layer*)&mpx[SOM::MPX::layer_0])[curl];
+			if(!ll.tiles) curl = 0;
+
+			if(SOM::mapL!=curl)
+			{
+				SOM::mapL = curl;
+
+				extern void som_status_mapmap2__automap();
+				som_status_mapmap2__automap();
+			}
+			
+			return 1;
+		}
+
 		if(EX::window/*&&EX::active*/)
 		if(EX::INI::Option()->do_mouse)
 		{
@@ -2635,8 +2720,8 @@ static LRESULT CALLBACK som_game_WindowProc(HWND hwnd, UINT msg, WPARAM w, LPARA
 
 		//2018: The default procedure is overflowing on
 		//WM_MOUSEWHEEL when debugging. Just returning
-		//since som_db doesn't consider mouse wheels.
-		//(Ex.window.cpp just passes the message.)
+		//since som_db doesn't consider mouse wheels
+		//(Ex.window.cpp just passes the message)
 		//break;									
 		return 1;
 
@@ -3241,8 +3326,26 @@ static INT32 som_game_convert_note_to_freq(INT32 _1, INT32 _2) //43fa30
 	}
 	return i2-(i3*i1)/-12;
 }
+extern DWORD som_game_43fa30_freq = 0;
+extern WORD som_SFX_SND_to_sound(WORD);
 static DWORD __cdecl som_game_43fa30(DWORD _1, char _2c, const DWORD snd) //stack
 {	
+	if(snd>=1024) //65535?
+	return som_game_convert_note_to_freq(_1,_2c); //2024
+
+	auto &wav = SOM::L.snd_bank[snd];
+
+	if(_1==0) //2024: trying to load sound just-in-time
+	{
+		assert(!*wav.sb);
+
+		extern BYTE __cdecl som_MPX_43f420(DWORD,BYTE);
+		som_MPX_43f420(snd,1);
+
+		_1 = wav.fmt.nSamplesPerSec;
+	}
+	//assert(_1==wav.fmt.nSamplesPerSec); //this should hold but doesn't
+
 	INT32 _2 = _2c;
 	EX::INI::Sample se;
 	if(&se->sample_pitch_adjustment) //snd is on the stack	
@@ -3256,7 +3359,7 @@ static DWORD __cdecl som_game_43fa30(DWORD _1, char _2c, const DWORD snd) //stac
 		//2021: SOM's pitch range doesn't make a big difference
 		//to adjust the pitch for monster scales (KF2 does this) the 
 		//built-in "npc" number is being set by som.logic.cpp
-		_2 = (int)se->sample_pitch_adjustment(snd,_2c,_1,_2);
+		_2 = (int)se->sample_pitch_adjustment(som_SFX_SND_to_sound(snd),_2c,_1,_2);
 
 		//this allows for values outside the -24,20 range (which could
 		//be extended to -128,127)
@@ -3296,6 +3399,8 @@ static DWORD __cdecl som_game_43fa30(DWORD _1, char _2c, const DWORD snd) //stac
 		}
 	}
 
+	som_game_43fa30_freq = _2; //2024
+
 	return _2;
 }
 extern void som_game_volume_level(int snd, int &_2)
@@ -3307,7 +3412,7 @@ extern void som_game_volume_level(int snd, int &_2)
 		_2 = min(0,max(-10000,_2));
 
 		//TODO? can this be logarithmic?
-		_2 = se->sample_volume_adjustment(snd,_2/100.0f)*100;
+		_2 = se->sample_volume_adjustment(som_SFX_SND_to_sound(snd),_2/100.0f)*100;
 		_2 = min(0,_2);
 	}
 	_2+=SOM::millibels[1]; _2 = min(0,max(-10000,_2));
@@ -3326,7 +3431,10 @@ static void __cdecl som_game_44c100(DWORD _1, INT32 _2, DWORD _3, DWORD _4, FLOA
 	float d2 = powf(SOM::xyz[0]-_5,2)+powf(SOM::xyz[1]-_6,2)+powf(SOM::xyz[2]-_7,2);
 	d2 = sqrt(d2)/SOM::L.snd_max_dist;
 	//if(d2>=powf(SOM::L.snd_max_dist,2)) return;
-	if(d2>1) return;
+	if(d2>1)
+	{
+		som_game_43fa30_freq = 0; return;
+	}
 
 	//SOM plays sounds for anything that's active. objects seem to be active
 	//for the entire map at all times
@@ -3377,13 +3485,23 @@ static void __cdecl som_game_44b6f0(DWORD _1, INT32 _2, DWORD _3, DWORD _4)
 	if(&se->sample_volume_adjustment)
 	{
 		//TODO? can this be logarithmic?
-		_2 = se->sample_volume_adjustment(_1,_2/100.0f)*100;
+		_2 = se->sample_volume_adjustment(som_SFX_SND_to_sound(_1),_2/100.0f)*100;
 		_2 = min(0,_2);
 	}
 	_2+=SOM::millibels[1];
 
 	if(_2>-10000)
 	((void(__cdecl*)(DWORD,INT32,DWORD,DWORD))0x44b6f0)(_1,_2,_3,_4);
+}
+static void __cdecl som_game_43f540_fullscreen_snd(int snd, int pitch)
+{
+	bool heal = snd==890, wall = snd==891; //EXTENSION?
+
+	assert(heal||wall);
+
+	snd = SOM::SND((WORD)snd); //healing and wall magic
+
+	((void(__cdecl*)(DWORD,INT32))0x43f540)(snd,pitch);
 }
 extern DWORD som_game_44c4b0_fade = 0;
 static void som_game_44c270() //close BGM
@@ -3448,6 +3566,36 @@ static DWORD som_game_44c4b0(DWORD) //BGM
 
 	//just calls IDirectSoundBuffer::SetVolume
 	return ((DWORD(__cdecl*)(int))0x44c4b0)(vol);
+}
+
+static HWND WINAPI som_game_CreateWindowExW(DWORD A,LPCWSTR B,LPCWSTR C,DWORD D,int E,int F,int G,int H,HWND I,HMENU J,HINSTANCE K,LPVOID L)
+{
+	if(!I&&GetCurrentThreadId()!=EX::threadmain)
+	{
+		if((DWORD)C>65535&&!wcscmp(C,L"Watch")
+		 &&(DWORD)B>65535&&!wcscmp(B,L"wxWindowNR")) //Exselector.cpp?
+		{
+			I = EX::display();
+
+			//WS_EX_TOOLWINDOW removes cpanel style icon (Exselector?)
+			//WS_EX_TOPMOST is required for fullscreen, otherwise it
+			//closes the window, and will freeze up during startup 
+
+			A|=WS_EX_TOPMOST; //WS_EX_TOOLWINDOW|WS_EX_TOPMOST
+
+			HINSTANCE h = GetModuleHandleA("Exselector.dll");			
+			HICON icon = LoadIconA(h,"IDI_ICON");
+			
+			HWND hw = SOM::Game.CreateWindowExW(A,B,C,D,E,F,G,H,I,J,K,L);
+
+			SendMessage(hw,WM_SETICON,ICON_SMALL,(LPARAM)icon);
+			SendMessage(hw,WM_SETICON,ICON_BIG,(LPARAM)icon);
+
+			return hw;
+		}
+	}
+
+	return SOM::Game.CreateWindowExW(A,B,C,D,E,F,G,H,I,J,K,L);
 }
 
 //// Removing WS_EX_TOPMOST /////////////
@@ -3750,9 +3898,9 @@ namespace som_game_menu //2017: menu memory
 	{
 		if(!_some_item_was_(_shop_item_is_,kind,item))
 		return false;
-		//HACK/CLASSIC-BUG: The old item's graphic remains.
-		//For this to work the following code must be knocked out.
-		//Don't know if it's safe to do so or not???
+		//HACK/CLASSIC-BUG: the old item's graphic remains
+		//for this to work the following code must be knocked out
+		//don't know if it's safe to do so or not???
 		//0043E378 76 3E                jbe         0043E3B8
 		*(BYTE*)0x1D11E21 = 0;		
 		return true;
@@ -4096,7 +4244,7 @@ namespace som_game_menu //2017: menu memory
 		{	
 			if(kind==8)
 			{
-				//Did items change sides?
+				//did items change sides?
 				for(int i=8,j=0;i<=9;i++,j++)
 				if(_inventory_item_was_(i,items[i+2]))				
 				_scroll_removal(hl[j],hl[j+2],j);
@@ -4191,6 +4339,7 @@ namespace som_game_menu //2017: menu memory
 	}
 }
 
+extern char SOM::move = 0; //2024
 extern DWORD (*SOM::movesnds)[4] = {}; //2023
 extern const SOM::Struct<22>*(*SOM::movesets)[4] = 0; //2021
 
@@ -4204,6 +4353,38 @@ extern DWORD SOM::shield_or_glove_sound_and_pitch(int e)
 {
 	DWORD *ms = SOM::movesnds[e];
 	return !e||ms[2]?ms[2]:ms[0];
+}
+extern BYTE *SOM::move_damage_ratings(int mv) //2024
+{
+	int pce = SOM::L.pcequip[0];
+	BYTE *dmg = SOM::L.item_prm_file[pce].uc+300;
+	if(mv) //SOM_PRM_extend_items
+	{
+		struct equip //36B
+		{		
+			//+300
+			BYTE hp[8],fx,fx2,sm;
+			//EXTENDED
+			BYTE assist[5];
+			BYTE attack2[4];
+			union
+			{
+				BYTE attack34[2][4];
+				BYTE attack1[8];
+			};
+			BYTE shield[8]; //328		
+		};
+		equip *eq = (equip*)dmg;
+
+		switch(mv)
+		{
+		case 1: dmg = eq->attack2; break;
+		case 2: dmg = eq->attack34[0]; break;
+		case 3: dmg = eq->attack34[1]; break;
+		default: assert(0); return nullptr;
+		}
+	}
+	return dmg[0]||dmg[1]||dmg[2]?dmg:nullptr;
 }
 
 namespace som_MPX_swap
@@ -4389,6 +4570,7 @@ static int som_game_weapon_to_glove(int e)
 	memcpy(som_game_menu::prm_sorted+fi*336+300,dmg,8);
 	return pce;	
 }
+#pragma optimize("",off)
 extern void som_game_moveset(int i, int j)
 {	
 	auto *item_arm = SOM::PARAM::Item.arm->records; 
@@ -4411,7 +4593,7 @@ extern void som_game_moveset(int i, int j)
 
   //WARNING: SOMETHING IS WRONG HERE WHEN
   //ENABLING OPTIMIZATION (MSVC2010-2019)
-
+	//#pragma optimize("",off)
 	if(prm.s[0]>=250) //som_game_nothing?
 	for(int ii=0;ii<7;ii++) if(nothing[ii]==pce)
 	{
@@ -4426,21 +4608,62 @@ extern void som_game_moveset(int i, int j)
 			return; 
 		}
 	}
+	//#pragma optimize("",on)
 
 	//HACK: just avoiding #include swordofmoonlight.h
 	auto *prf = item_arm; (void*&)prf = &pr2;
-	
+
+	//2024: this is code for switching the animation
+	//depending on what inputs you want to work with
+	enum
+	{
+		random=1 //this just means using r...
+	}; 
+	int r = j==2?2:0;
+	int x = pr2.uc[14+1];
+	int z = pr2.uc[14+3];
+	if(j!=2&&z&&z!=255&&x&&x!=255) //unlock it?
+	{
+		float dx = fabsf(SOM::motions.dx);
+		float dz = fabsf(SOM::motions.dz);
+		
+		if(dx>0.5f)	
+		{
+			if(dz<0.3f) r = 1; //slice
+		}
+		else if(SOM::motions.dz>0.5f) //dz
+		{
+			if(dx<0.3f) r = 3; //thrust
+		}
+
+		auto rt = SOM::move_damage_ratings(r);
+		if(!rt) rt = SOM::move_damage_ratings(r=0);
+		if(!rt) rt = SOM::move_damage_ratings(r=1);
+		if(!rt) rt = SOM::move_damage_ratings(r=3);
+	}
+
 	//HACK: for compatibility with older code weapons
 	//overwrite the PR2 table
 	int mv; if(i==0&&pce==SOM::L.pcequip[0])
 	{
+	//	if(0&&random) //fully random (testing)
+		{
+	//		r = SOM::frame%4; if(r==2) r = 0;			
+		}
+
+		int jj = random?r:j;
+
+		if(jj!=2) SOM::move = jj;
+
 		//14+j is prepared by som_game_equip
-		mv = pr2.uc[14+j];
+		mv = pr2.uc[14+jj];
 
 		if(!mv) mv = 255; //I guess???
 	}
 	else //non-weapon?
-	{	
+	{
+		SOM::move = 0; //note sure???
+
 		//TODO: som.files.cpp could rearrange this in advance
 		//YUCK: for better or worse this is how I programmed
 		//it... but I think I had a different model in mind
@@ -4520,9 +4743,9 @@ extern void som_game_moveset(int i, int j)
 
 	prf = item_arm+mv;
 	
-	if(i==0&&pce==SOM::L.pcequip[0])
+	if(!i&&j&&pce==SOM::L.pcequip[0])
 	{
-		if(j&&(mv==0||mv==255)) 
+		if((mv==0||mv==255)||random&&j!=2) 
 		{
 			prf = item_arm+pr2.uc[14];
 
@@ -4543,6 +4766,7 @@ extern void som_game_moveset(int i, int j)
 	SOM::movesnds[i][j]|=pitch==127?0:pitch;
 	SOM::movesets[i][j] = prf22;
 }
+#pragma optimize("",on)
 extern void __cdecl som_game_equip() //427170
 {	
 	//2022: I'm rewriting this in full, including 
@@ -4556,7 +4780,7 @@ extern void __cdecl som_game_equip() //427170
 	SOM::Game::item_lock_section raii;
 
 	BYTE *pce = SOM::L.pcequip;
-	static BYTE old[8] = {-1,-1,-1,-1,-1,-1,-1,-1};
+	static BYTE old[8] = {255,255,255,255,255,255,255,255};
 
 	//REMOVE ME?
 	int *nothing = som_game_nothing();	
@@ -4589,24 +4813,23 @@ extern void __cdecl som_game_equip() //427170
 		for(int i=256;i-->0;)
 		{			
 			auto &prf = SOM::L.item_pr2_file[i];
+			auto &it = (swordofmoonlight_prf_item_t&)prf.c[62];
+			auto &mv = (swordofmoonlight_prf_move_t&)prf.c[72];
 
-			/*not hitting shield
-			if(prf.c[62]!=1||0==prf.c[84]) 
-			continue;
-			auto &mv = item_arm->records[prf.uc[72]];
-			if(!mv.my){ assert(0); continue; }*/
+			if(0==it.equip) continue; //2024: plain item?
+
+			if(1==it.equip&&0==it.my) mv.SND = SOM::SND(mv.SND); //2024
 
 			//this memory isn't used by the player
 			//(backing up SND/pitch fields for som_game_moveset)
-			memcpy(prf.c+14,prf.c+72,16);
+			memcpy(prf.c+14,&mv,16);
 			//this is just for printing the radius
 			//in equip/shop menus... assuming the
 			//first radius is best?
-		//	prf.f[20] = mv._radius;					
-			prf.f[20] = som_game_measure_weapon(prf.c+31); //2023		
+			mv.hit_radius = som_game_measure_weapon(prf.c+31); //2023		
 		}
 	}
-	for(int i=7;i-->0;) if(old[i]!=pce[i]||old[i]>=250)
+	for(int i=0;i<7;i++) if(old[i]!=pce[i]||old[i]>=250)
 	{
 		//2023: Battle Axe needs to override h. attacks
 		//som_game_moveset(i,0); //reset to primary move?
@@ -4773,8 +4996,19 @@ extern void __cdecl som_game_equip() //427170
 	memcpy(old,pce,sizeof(old));
 }
 
-extern int *som_game_nothing();
 extern int som_hacks_inventory_item;
+namespace som_menus_x
+{
+	namespace eq
+	{
+		extern int &item = som_hacks_inventory_item; //2024
+		extern bool info;
+		extern int kind;
+		extern int pages[8];		
+	}
+}
+extern int *som_game_nothing();
+extern float som_hacks_inventory_accum[3];
 static DWORD som_game_0_shop43d0c0(BYTE shop)
 {
 	som_game_menu::swap_equip(); //Shop
@@ -4927,6 +5161,13 @@ static DWORD som_game_3_menu41a1e0(DWORD A)
 {	
 	som_game_menu::swap_equip();
 
+	int i = som_game_menu::nonitemenusel[0]; 
+	BYTE &e = SOM::L.pcequip[i];
+
+	som_menus_x::eq::pages[i] = 0;
+	som_menus_x::eq::kind = i; //2024
+	som_menus_x::eq::info = false; //2024
+
 	//EX::dbgmsg("menu: Equip");
 	som_game_menu::recall(0);
 	DWORD ret = ((DWORD(__cdecl*)(DWORD))0x41a1e0)(A);	
@@ -4934,10 +5175,11 @@ static DWORD som_game_3_menu41a1e0(DWORD A)
 	
 	som_game_menu::swap_equip(); 
 	
-	int i = som_game_menu::nonitemenusel[0]; 
-	BYTE &e = SOM::L.pcequip[i];
+	i = som_game_menu::nonitemenusel[0]; 
 	i = e==som_game_nothing()[i]?250:7==i?-1-e:e; 
 	som_hacks_inventory_item = i;
+
+	som_menus_x::eq::info = false;
 	
 	return ret;
 }
@@ -5004,15 +5246,70 @@ static DWORD som_game_6_menu41d760(DWORD A)
 	som_game_menu::recall(1);
 	return ((DWORD(__cdecl*)(DWORD))0x41d760)(A);
 }
-static DWORD som_game_7_menu41adf0(DWORD A)
+static DWORD som_game_7_menu41adf0(DWORD *A)
 {
 	som_game_menu::swap_equip();
 
 	//EX::dbgmsg("menu: Equip Item");
 	int type = *(INT*)0x19AB204;
 	som_game_menu::recall_item(1+type);	
+
+	som_menus_x::eq::kind = type; //2024
+	som_menus_x::eq::info = *(BYTE*)0x19ab228!=0;
+
 	BYTE cmp[8]; memcpy(cmp,SOM::L.pcequip,8);
-	DWORD ret = ((DWORD(__cdecl*)(DWORD))0x41adf0)(A);	
+	DWORD ret = ((DWORD(__cdecl*)(DWORD*))0x41adf0)(A);
+
+	if(EX::debug||EX::INI::Launch()->do_ask_to_attach_debugger) //shop?
+	if(*(BYTE*)0x19ab228) //2024: horizontal arrows
+	{		
+		static unsigned wait = 0;
+		if(0x40000000==*(DWORD*)0x19aab6c) //4212a7
+		{
+			if(EX::tick()-wait>180)
+			{
+				wait = EX::tick();
+
+				som_menus_x::eq::pages[type]--; SOM::se(A[0x1a0/4]);
+			}
+		}
+		else if(0x80000000==*(DWORD*)0x19aab6c) //4212b9
+		{
+			if(EX::tick()-wait>180)
+			{
+				wait = EX::tick();
+
+				som_menus_x::eq::pages[type]++; SOM::se(A[0x1a0/4]);
+			}
+		}		
+
+		float *menu = (float*)(SOM::menupcs-0xA8/4);
+		assert((DWORD*)menu==A);
+
+		float &a = menu[0x28];
+		float &b = menu[0x29];
+		//float &c = menu[0x70] = 1.0f; //menu is flashing
+
+		//static int y = 145, x = 125; //55 560
+
+		if(Exselector)
+		{
+		//	Exselector->watch("x",&x); 
+		//	Exselector->watch("y",&y);
+		}
+
+		//NOTE: D3DRENDERSTATE_ZENABLE doesn't work here???
+		//how will this look in VR? probably wrong place???
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ZFUNC,DX::D3DCMP_ALWAYS);
+		{
+			int layout1[6] = {125,175,(int)(40/a+0.5f),(int)(40/b+0.5f),4,0}; //180
+			som_game_421f10_lr_arrow((DWORD*)layout1,menu,1.0f); //menu[0x70]
+			int layout2[6] = {630-125,175,(int)(40/a+0.5f),(int)(40/b+0.5f),5,0}; 
+			som_game_421f10_lr_arrow((DWORD*)layout2,menu,1.0f); //menu[0x70]
+		}
+		DDRAW::Direct3DDevice7->SetRenderState(DX::D3DRENDERSTATE_ZFUNC,DX::D3DCMP_LESSEQUAL);
+	}
+
 	//Returns 7:idle, 3:cancel/confirm (useless)
 	//EX::dbgmsg("Equip Item? %d",out);
 	assert(ret==7||ret==3);
@@ -5447,6 +5744,23 @@ extern void som_game_menucoords_set(bool reset)
 		som_game_menucoords[0]-=0.5f; 
 	}
 }
+static void som_game_equip_menu_text_422ab0(HDC dc, char *p, int xx, int yy)
+{
+	((void(__cdecl*)(HDC,char*,int,int))0x422ab0)(dc,p,xx,yy); 
+
+	//add x count to Equip menus
+			
+	int item = atoi(p+1); assert(*p=='@');
+	int inv = ((BYTE*)(&SOM::L.pcstore[item]))[1];
+	char c[8]; sprintf(c,"x%3d",inv);
+
+	float *xy = (FLOAT*)SOM::menupcs-2;
+	float &x = xy[0], &y = xy[1];
+
+	xx = (int)(550*x);		
+
+	((void(__cdecl*)(HDC,char*,int,int,int))0x422b20)(dc,c,xx,yy,DT_RIGHT);
+}
 extern BYTE __cdecl som_game_4212D0(FLOAT *_19AA978) //static 
 {
 	//2022: 4212D0 initializes textures and sounds
@@ -5553,8 +5867,8 @@ static void __cdecl som_game_410830(DWORD _1, DWORD _2)
 		{
 			if(int did=EX::Joypads[0].JslDeviceID) //EXPERIMENTAL
 			{
-				//JslResetContinuousCalibration(~did);
 				SOM::motions.sixaxis_calibration = JslGetMotionState(~did);
+				memset(som_hacks_inventory_accum,0x00,3*sizeof(float));
 			}
 
 			//rotation
@@ -5633,8 +5947,8 @@ static BYTE __cdecl som_game_4230C0(DWORD _1, FLOAT _2, FLOAT _3, FLOAT _4, DWOR
 		{
 			if(int did=EX::Joypads[0].JslDeviceID) //EXPERIMENTAL
 			{
-				//JslResetContinuousCalibration(~did);
 				SOM::motions.sixaxis_calibration = JslGetMotionState(~did);
+				memset(som_hacks_inventory_accum,0x00,3*sizeof(float));
 			}
 
 			//50 is y axis?
@@ -6145,7 +6459,7 @@ extern bool __cdecl som_game_42cf40()
 			if(it.nonempty&&!SOM::L.items_MDO_table[it.mdo][0])
 			{
 				//ISSUE WARNING
-				int todolist[SOMEX_VNUMBER<=0x1020602UL];
+				int todolist[SOMEX_VNUMBER<=0x1020704UL];
 
 				if(it.item<256) //try to repair?
 				{
@@ -7426,7 +7740,7 @@ extern void som_game_reprogram()
 		//close anyway, it just wastes time)
 		#ifdef NDEBUG
 //		#error test me
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		#endif
 
 		//this routine tears down d3d/ddraw and zeroes a
@@ -7539,6 +7853,32 @@ extern void som_game_reprogram()
 
 	//removing redundant subroutine?
 	memset((void*)0x0424669,0x90,5); //call 427780 (reset pc atk/def params)
+
+	if(1) //2024: speeding up running gauge depletion
+	{
+		//00425247 c1 ea 06        SHR        EDX,0x6
+		*(BYTE*)0x425249 = 5;
+	}
+
+	if(1) //2024: SOM::SND support
+	{
+		//this needs to run before background loading
+		//in order to support som_SFX_sounds 
+		//0040199e e8 3d 2c 02 00	CALL	FUN_004245e0_init_pc_arm_and_stats_and_hud_etc?
+		*(DWORD*)0x40199f = (DWORD)som_game_4245e0_init_pc_arm_and_hud_etc-0x4019a3;
+
+		//healing and wall magic
+		//004283d8 e8 63 71 01 00  CALL  FUN_0043f540_play_2D_sound_w_pitch?
+		//004283f8 e8 43 71 01 00  CALL  FUN_0043f540_play_2D_sound_w_pitch?
+		*(DWORD*)0x4283d9 = (DWORD)som_game_43f540_fullscreen_snd-0x4283dd;		
+		*(DWORD*)0x4283f9 = (DWORD)som_game_43f540_fullscreen_snd-0x4283fd;
+	}
+
+	if(1) //2024: add inventory count (for equipment breaking)
+	{
+		//0041b081 e8 2a 7a  00 00  CALL FUN_00422ab0_TextOutA_with_contrast?
+		*(DWORD*)0x41b082 = (DWORD)som_game_equip_menu_text_422ab0-0x41b086;
+	}
 }
 static void som_game_menu_reprogram()
 {			
@@ -7653,7 +7993,7 @@ static void som_game_menu_reprogram()
 	//00421F1D 83 F8 0D             cmp         eax,0Dh
 	//*(BYTE*)0x421F1f = 0xE; //won't do...
 	//0041D055 E8 B6 4E 00 00       call        00421F10
-	*(DWORD*)0x41D056 = (DWORD)som_game_421f10-0x41D05A;
+	*(DWORD*)0x41D056 = (DWORD)som_game_421f10_itemicon-0x41D05A;
 	
 	//EXPERIMENTAL //EXPERIMENTAL //EXPERIMENTAL //EXPERIMENTAL
 

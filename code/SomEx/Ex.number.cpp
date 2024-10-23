@@ -555,6 +555,8 @@ namespace Ex_number_cpp
 	static const wchar_t *seperator = *glossary.find(L",");
 	static const wchar_t *parentheses = *glossary.find(L"(");
 	static const wchar_t *__parentheses = *glossary.find(L")");		
+	static const wchar_t *brackets = *glossary.find(L"[");
+	static const wchar_t *__brackets = *glossary.find(L"]");		
 
 	static bool pare(const wchar_t *greedy, const wchar_t *match)
 	{
@@ -601,7 +603,7 @@ namespace Ex_number_cpp
 				delete self_references; if(!EX::detached) push(sum); 
 			}
 
-			enum:shortstack{ unknown_sum=-1, constant_sum=0 };
+			enum:shortstack{ unknown_sum=65535, constant_sum=0 };
 
 			inline void operator=(const wchar_t *rv) 
 			{
@@ -929,6 +931,8 @@ namespace Ex_number_cpp
 	static bool variable = false; //local input parameters
 	static bool evaluate(size_t t, size_t n=0, size_t d=0) 
 	{
+		values.reserve(64); //2024
+
 		parameters = n;
 
 		if(++d>32) //todo: maximum depth preference
@@ -1342,13 +1346,18 @@ namespace Ex_number_cpp
 						else if((!f||ws)&&ep->group) //eg. 1( or f (
 						{
 							//!e||!c||*e!=c->first[GROUP]: eg. |a|
-							if(!e||!c||*e!=c->first[GROUP]) SEPX(d) //series
+							if(!e||!c||*e!=c->first[GROUP]) 
+							{
+								SEPX(d) //series
+							}
 						}
 					}
-					else if(!fp->group) //eg. )1 or )( or ))
+					else if(!fp->group) //eg. )1 or )( or )) or ]]
 					{						
 						//HACK: 2020 patch for ))
-						if(ep->gloss==__parentheses&&fp->gloss==__parentheses)
+						//2024: adding __backets
+						if((ep->gloss==__parentheses||ep->gloss==__brackets)
+						 &&(fp->gloss==__parentheses||fp->gloss==__brackets))
 						{
 							p = p; //breakpoint
 						}
@@ -2139,6 +2148,8 @@ namespace Ex_number_cpp
 
 		if(f_s||in->second.sum!=item::constant_sum) 
 		{
+			values.reserve(64); //2024
+
 			size_t o = values.size(), of_s = o+f_s; 
 
 			for(size_t i=0;i<f_s;i++) values.push_back(f[i]);

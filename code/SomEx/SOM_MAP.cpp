@@ -23,6 +23,8 @@ EX_TRANSLATION_UNIT //(C)
 #include "../lib/swordofmoonlight.h"
 #include "../x2mdl/x2mdl.h"
 
+#pragma optimize("",off) //2024
+
 extern HWND &som_tool;
 extern HDC som_tool_dc;
 extern HWND som_tool_stack[16+1];
@@ -38,8 +40,9 @@ extern HWND som_map_tileviewinsert;
 static DWORD SOM_MAP_tileviewtile; //2021
 extern HTREEITEM som_map_treeview[4];
 extern int SOM_MAP_ini = 0; //2023
-//som.tool.cpp->som.tool.hpp
-bool SOM_MAP_map::legacy = true;
+//2024: want to write UUIDs today (som_map_append_prt?)
+//bool SOM_MAP_map::legacy = true;
+bool SOM_MAP_map::legacy = false;
 int SOM_MAP_map::current = 0;
 char SOM_MAP_map::versions[64] = {};
 static struct SOM_MAP_prt SOM_MAP_prt;
@@ -481,7 +484,7 @@ extern void SOM_MAP_40000()
 
 	if(SOM_MAP_ini&2) SendDlgItemMessage(som_tool,1263,BM_SETCHECK,1,0);
 	if(SOM_MAP_ini&4) SendDlgItemMessage(som_tool,1264,BM_SETCHECK,1,0);
-	if(SOM_MAP_ini&8) SendDlgItemMessage(som_tool,1265,BM_SETCHECK,1,0);
+	SendDlgItemMessage(som_tool,SOM_MAP_ini&8?1265:1269,BM_SETCHECK,1,0);
 
 	extern void SOM_MAP_load_overlay(wchar_t*,bool);
 	{
@@ -1929,7 +1932,7 @@ static bool SOM_MAP_map2(const char *p) //SUBROUTINE
 			{
 				#ifdef NDEBUG
 				//#error need a MessageBox here to explain this
-				int todolist[SOMEX_VNUMBER<=0x1020602UL];
+				int todolist[SOMEX_VNUMBER<=0x1020704UL];
 				#endif
 				assert(0); return true; 
 			}
@@ -3614,7 +3617,7 @@ static BOOL __stdcall SOM_MAP_TransparentBlt_grays(HDC dst, int x, int y, int w,
 	return SOM_MAP_ini&8?1:TransparentBlt(dst,x,y,w,h,src,xsrc,ysrc,w,h,0x404040); 
 }
 static HBITMAP SOM_MAP_grid = 0;
-static std::vector<WORD> SOM_MAP_my_plt;
+extern std::vector<WORD> SOM_MAP_my_plt(0);
 static std::pair<WORD,WORD> SOM_MAP_drag_palette_sel(~0,~0);
 static void SOM_MAP_PlgBlt_palette(HDC dst, int x, int y, int w, int h, HDC src, int xsrc, int ysrc, int wsrc, int hsrc, DWORD spin)
 {
@@ -4071,10 +4074,22 @@ static bool SOM_MAP_in_selection()
 	char *cw = (char*)SOM_MAP_app::CWnd(SOM_MAP.painting); 
 	if(*(int*)(cw+0x60)) //selection?
 	{
+		RECT &sr = *(RECT*)(cw+0x88);
+
 		int xx = som_map_tile.x/21+*(int*)(cw+0x70);
 		int yy = som_map_tile.y/21+*(int*)(cw+0x74);
 
-		RECT &sr = *(RECT*)(cw+0x88);
+		if(sr.left==sr.right&&sr.bottom==sr.top) //find+replace?
+		{
+			int xy = sr.left+99-sr.top*100;
+
+			auto *grid = SOM_MAP_4921ac.grid;
+
+			auto prt = SOM_MAP_4921ac.grid[xy].part;
+
+			return prt==grid[xx+99-yy*100].part;
+		}
+
 		if(xx>=sr.left&&xx<=sr.right&&yy>=sr.top&&yy<=sr.bottom)
 		return true;
 	}
@@ -4092,13 +4107,39 @@ static bool SOM_MAP_fill_selection()
 	{
 		pen.part = *(WORD*)((BYTE*)p+200); //palette?
 		pen.z = GetDlgItemFloat(som_tool,1000);
-		pen.spin = SOM_MAP_4921ac.find_part_number(pen.part)->rot; 
+		pen.spin = SOM_MAP_4921ac.find_part_number(pen.part)->rot; 		
+	//	pen.ev = 'e'; //NOTE: may be 0 which corrupts MAP in write
 	}
+	pen.ev = 'e'; //still having problem reports because of this
+
 	SOM_MAP_4921ac.modified[0] = 1;
-		
+	
 	((void(__thiscall*)(void*))0x41ae60)(p); //undo
 	auto *grid = SOM_MAP_4921ac.grid;
-	for(int yy=sr.bottom+1;yy-->sr.top;)
+			
+	if(sr.left==sr.right&&sr.bottom==sr.top) //find+replace?
+	{
+		int xy = *(int*)(cw+0x88)+(99-*(int*)(cw+0x8c))*100;
+
+		auto prt = SOM_MAP_4921ac.grid[xy].part;
+
+		if(prt==65535)
+		{
+			MessageBeep(-1);
+		}
+		else for(int yy=100;yy-->0;)
+		{
+			auto *row = grid+(99-yy)*100;
+			for(int xx=100;xx-->0;)
+			{
+				if(prt==row[xx].part) 
+				{
+					row[xx].part = pen.part;
+				}
+			}
+		}
+	}
+	else for(int yy=sr.bottom+1;yy-->sr.top;) //fill?
 	{
 		auto *row = grid+(99-yy)*100;
 		for(int xx=sr.right+1;xx-->sr.left;) row[xx] = pen;
@@ -5391,6 +5432,16 @@ extern void SOM_MAP_clear_undo()
 	windowsex_enable<1082>(som_tool,0); SOM_MAP_redo_sz = 0;
 
 	SOM_MAP_contents_cmp->clear();
+}
+extern void SOM_MAP_adjust_undo_v(size_t index)
+{
+	for(auto&ea:SOM_MAP_undo_v)
+	{
+		auto &a = (SOM_MAP_4921ac::Tile&)ea.a;
+		auto &b = (SOM_MAP_4921ac::Tile&)ea.b;
+		if(a.part>=index&&a.part!=65535) a.part++;
+		if(b.part>=index&&b.part!=65535) b.part++;
+	}
 }
 static void __stdcall SOM_MAP_undo(HWND painting=SOM_MAP.painting, RECT*_=0, BOOL=0) //041ab60
 {
@@ -8031,7 +8082,7 @@ DWORD __thiscall SOM_MAP_this::map_440ee0() //2021
 		//uses DDRAW::window
 		#ifdef NDEBUG
 		//#error extract tile view width? or resize effects buffer?
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 		#endif	
 		desc.dwFlags = 0x27; //7|DDSD_BACKBUFFERCOUNT
 		desc.dwWidth = 512; //401?
@@ -8232,7 +8283,7 @@ DWORD __thiscall SOM_MAP_this::map_442830_407470(texture_t *o, char *name) //202
 		// count against the texture maximum
 		//
 		//might help to preempt this earlier
-		int todolist[SOMEX_VNUMBER<=0x1020602UL];
+		int todolist[SOMEX_VNUMBER<=0x1020704UL];
 
 		//2022: MSM models may be padded with 
 		//empty textures to 32-bit align data
@@ -8294,7 +8345,7 @@ DWORD __thiscall SOM_MAP_this::map_442830_407470(texture_t *o, char *name) //202
 						//may need to do this when there's no colorkey data
 						#ifdef NDEBUG
 						//#error really should fix no colorkey (SetColorKey)
-					//	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+					//	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 						#endif
 						d[j]._ = 255;
 					}
@@ -8480,7 +8531,7 @@ static bool SOM_MAP_draw_msm(BYTE *m, SOM_MAP_this::texture_t *tp)
 	// 	 
 	// can shift it over in memory?
 	//	
-	int todolist[SOMEX_VNUMBER<=0x1020602UL];
+	int todolist[SOMEX_VNUMBER<=0x1020704UL];
 	//assert((size_t)pp%4==0);
 	//
 	void *pverts = pp; pp+=verts*32; //polygon data
@@ -10106,7 +10157,7 @@ DWORD __thiscall SOM_MAP_this::map_40f830(char*)
 			((BOOL(__thiscall*)(void*))0x464fd6)(tp->icons[i]);						
 	//		cur = 0;
 		}
-		else (void*&)tp->icons[i] = ((void*(__cdecl*)(size_t))0x46573f)(8);
+		else (void*&)tp->icons[i] = ((void*(__cdecl*)(size_t))0x46573f)(8); //malloc?
 
 		//FUN_00464f5a
 		tp->icons[i]->_vtable = (void*)0x48052c; 

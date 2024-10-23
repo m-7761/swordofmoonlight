@@ -2,6 +2,7 @@
 #include "Ex.h" 
 EX_TRANSLATION_UNIT //(C)
 
+#include <set> //sfx_mdl2
 #include <hash_set> //Windows XP
 
 namespace DDRAW
@@ -543,24 +544,32 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 	wchar_t o2 = o[2]; o[2] = '\0';	
 	WIN32_FIND_DATAW found;
 	HANDLE glob = INVALID_HANDLE_VALUE; 
-	int i,j,k; for(k=0;*EX::data(k);k++)
+	int i,j,k; 
+	if(cat[1]==':') //2024: known file?
+	{
+		i = wcslen(cat);
+		wmemcpy(w,cat,i+1);
+		glob = FindFirstFileW(w,&found);
+
+		k = 0; //TODO: try to figure me out?
+	}
+	else for(k=0;*EX::data(k);k++)
 	{
 		i = swprintf(w,L"%s\\%s",EX::data(k),cat);
 		//didn't notice any improvement
 		//glob = FindFirstFileExW(w,FindExInfoBasic,&found,FindExSearchNameMatch,0,0);
 		glob = FindFirstFileW(w,&found);
 		if(glob!=INVALID_HANDLE_VALUE)
-		{
-			j = i-2;
-			while(i&&w[i]!='\\'&&w[i]!='/')
-			i--;
-			i++;
-			j-=i; 
-			break;
-		}
-	}		
-	o[1] = o1; o[2] = o2;
+		break;
+	}
 	if(glob==INVALID_HANDLE_VALUE) return 0;
+
+	j = i-2;
+	while(i&&w[i]!='\\'&&w[i]!='/')
+	i--;
+	i++;
+	j-=i; 
+	o[1] = o1; o[2] = o2;	
 
 	using namespace x2mdl_h; //_lnk, etc.
 	int e = 0;
@@ -606,6 +615,7 @@ extern int som_art_model(WCHAR *cat, WCHAR w[MAX_PATH])
 
 		case '.bp\0': e|=_bp; continue;
 		case '.cp\0': e|=_cp; continue;
+		case '.wt\0': e|=_wt; continue;
 
 		//NOTE: this is so SFX will pick up textures
 		case '.txr': e|=_txr; continue;
@@ -834,6 +844,8 @@ struct SOM_MAP_art_files
 
 	bool *items, *sfx_mdl, *shops;
 
+	std::set<std::string> sfx_mdl2;
+
 	//NOTE: will be 0 filled on failure
 	const SOM::DATA::Sfx::Dat *sfx_dat;
 
@@ -853,6 +865,7 @@ struct SOM_MAP_art_files
 	pr2<swordofmoonlight_prf_object_t> obj_prf[1024];		
 	pr2<swordofmoonlight_prf_enemy_t> **enemy_prf; //[1024]
 	pr2<swordofmoonlight_prf_npc_t> **npc_prf; //[1024]
+	SOM::sfx_pro_rec sfx_pro[1024];
 
 	void init_file(char *b, const char *a, char* &p, size_t sz)
 	{
@@ -880,6 +893,7 @@ struct SOM_MAP_art_files
 		init_file(b,"obj.pr2",p=(char*)&obj_size,4+sizeof(obj_prf));
 		init_file(b,"enemy.pr2",(char*&)enemy_prf=0,1024*4);
 		init_file(b,"npc.pr2",(char*&)npc_prf=0,1024*4);	
+		init_file(b,"sfx.pro",p=(char*)sfx_pro,sizeof(sfx_pro));	
 		for(int i=1024;i-->0;)
 		if(enemy_prf[i]) (char*&)enemy_prf[i]+=(size_t)enemy_prf;
 		for(int i=1024;i-->0;)
@@ -899,12 +913,17 @@ struct SOM_MAP_art_files
 	{
 		o = obj_prm[o].profile;
 		if(o>=1024) return false;
-		DWORD sfx = obj_prf[o].flameSFX;
+		DWORD fx = obj_prf[o].flameSFX;
 		for(int i=0;i<2;i++)
 		{
-			if(i) sfx = obj_prf[o].trapSFX;
-			if(sfx<1024) sfx = sfx_dat->records[sfx][1];
-			if(sfx<256) sfx_mdl[sfx] = true;
+			if(i) fx = obj_prf[o].trapSFX;
+			if(fx<1024) fx = sfx_dat->records[fx][1];
+			if(fx<256)
+			{
+				if(*sfx_pro[fx].model)
+				sfx_mdl2.insert(sfx_pro[fx].model);
+				else sfx_mdl[fx] = true; //legacy? //remove me
+			}
 		}
 		return true;
 	}
@@ -929,13 +948,25 @@ struct SOM_MAP_art_files
 	void sfx(char *prf, DWORD flame, WORD(*sfx)[2])
 	{
 		if(flame<1024) flame = sfx_dat->records[flame][1];
-		if(flame<256) sfx_mdl[flame] = true;		
+
+		if(flame<256) //sfx_mdl[flame] = true;
+		{
+			if(*sfx_pro[flame].model)
+			sfx_mdl2.insert(sfx_pro[flame].model);
+			else sfx_mdl[flame] = true; //legacy? //remove me
+		}
 
 		for(int k=0;k<32;k++) if(int j=sfx[k][0])
 		for(auto*d=(swordofmoonlight_prf_data_t*)(prf+sfx[k][1]);j-->0;d++)
 		{
 			if(d->effect&&d->effect<1024)
-			sfx_mdl[sfx_dat->records[d->effect][1]] = true;
+			{
+				DWORD fx = sfx_dat->records[d->effect][1];
+				
+				if(*sfx_pro[fx].model)
+				sfx_mdl2.insert(sfx_pro[fx].model);
+				else sfx_mdl[fx] = true; //legacy? //remove me
+			}
 		}
 	}
 
@@ -1270,6 +1301,11 @@ extern HWND SOM_MAP_art(som_argv_t &v)
 		//NOTE: som_art_model switches to .txr when needed 
 		char m[32]; sprintf(m,"%04d.mdl",i);
 		som_art_model(v,"sfx\\model",m,0);
+	}
+	for(auto&ea:fs->sfx_mdl2)
+	{
+		//NOTE: som_art_model switches to .txr when needed 
+		som_art_model(v,"sfx\\model",ea.c_str(),0);
 	}
 	for(int i=1;i<sizeof(sky);i++) if(sky[i])
 	{

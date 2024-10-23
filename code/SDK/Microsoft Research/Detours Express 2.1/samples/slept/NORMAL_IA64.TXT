@@ -1,0 +1,237 @@
+    if not exist ..\..\bin mkdir ..\..\bin
+-------- Reseting test binaries to initial state. -----------------------
+    ..\..\bin\setdll.exe -r ..\..\bin\sleepold.exe
+Removing extra DLLs from binary files.
+  ..\..\bin\sleepold.exe:
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should load detour self ----------------------------------------
+    ..\..\bin\sleepbed.exe
+sleepbed.exe: Starting.
+sleepbed.exe: ExeEntry=0000000000454DD0, DllEntry=0000000000400110
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 00101506 80051002 00620080 04000090
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+
+sleepbed.exe: Detoured Sleep().
+sleepbed.exe: After detour.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 05000000 0100e9ff ffff7f00 983f15c8  [0000000060000310]
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+
+sleepbed.exe: Calling Sleep for 1 second.
+sleepbed.exe: Calling SleepEx for 1 second.
+sleepbed.exe: Calling Sleep again for 1 second.
+sleepbed.exe: Calling TimedSleep for 1 second.
+sleepbed.exe: Calling UntimedSleep for 1 second.
+sleepbed.exe: Done sleeping.
+
+sleepbed.exe: Removed Sleep() detour (0), slept 3000 ticks.
+sleepbed.exe: GetSleptTicks() = 3000
+
+
+-------- Should load slept.dll statically -------------------------------
+    ..\..\bin\sleepnew.exe
+slept.dll: Starting.
+slept.dll: ExeEntry=0000000000452AA0, DllEntry=0000000010054B10
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 00101506 80051002 00620080 04000090
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+
+sleepnew.exe: Starting.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 05000000 0100e9ff ffff7f00 983f15c8  [0000000060000310]
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+
+sleepnew.exe: Calling Sleep for 1 second.
+sleepnew.exe: Calling SleepEx for 1 second.
+sleepnew.exe: Calling Sleep again for 1 second.
+sleepnew.exe: Calling TimedSleep for 1 second.
+sleepnew.exe: Calling UntimedSleep for 1 second.
+sleepnew.exe: Done sleeping.
+
+sleepnew.exe: GetSleptTicks() = 3000
+
+slept.dll: Detoured Sleep().
+slept.dll: Removed Sleep() detour (0), slept 3000 ticks.
+
+-------- Should not load slept.dll --------------------------------------
+    ..\..\bin\sleepold.exe
+sleepold.exe: Starting.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 00101506 80051002 00620080 04000090
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+  SleepEx = 0000000076EAC3E0 [0000000076E36368]
+    0000000076EAC3E0: 00283110 80054002 00620080 0162fc8c
+    0000000076EAC3F0: 09380102 0021a00a 000048a0 83040090
+    0000000076EAC400: 00180018 1e10b042 330042c0 03620084
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+
+-------- Adding slept.dll to sleepold.exe -------------------------------
+    ..\..\bin\setdll.exe -d:..\..\bin\slept.dll ..\..\bin\sleepold.exe
+Adding C:\Code\Detours\2.1\bin\slept.dll to binary files.
+  ..\..\bin\sleepold.exe:
+    C:\Code\Detours\2.1\bin\slept.dll
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should load slept.dll statically -------------------------------
+    ..\..\bin\sleepold.exe
+slept.dll: Starting.
+slept.dll: ExeEntry=0000000000452AF0, DllEntry=0000000010054B10
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 00101506 80051002 00620080 04000090
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+
+sleepold.exe: Starting.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 05000000 0100e9ff ffff7f00 983f15c8  [0000000060000310]
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+  SleepEx = 0000000076EAC3E0 [0000000076E36368]
+    0000000076EAC3E0: 00283110 80054002 00620080 0162fc8c
+    0000000076EAC3F0: 09380102 0021a00a 000048a0 83040090
+    0000000076EAC400: 00180018 1e10b042 330042c0 03620084
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+slept.dll: Detoured Sleep().
+slept.dll: Removed Sleep() detour (0), slept 2000 ticks.
+
+-------- Replacing slept.dll with dslept.dll in sleepold.exe ------------
+    ..\..\bin\setdll.exe -r ..\..\bin\sleepold.exe
+Removing extra DLLs from binary files.
+  ..\..\bin\sleepold.exe:
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+    ..\..\bin\setdll.exe -d:..\..\bin\dslept.dll ..\..\bin\sleepold.exe
+Adding C:\Code\Detours\2.1\bin\dslept.dll to binary files.
+  ..\..\bin\sleepold.exe:
+    C:\Code\Detours\2.1\bin\dslept.dll
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should load dslept.dll instead of slept.dll --------------------
+    ..\..\bin\sleepold.exe
+dslept.dll: Starting.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 00101506 80051002 00620080 04000090
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+  SleepEx = 0000000076EAC3E0 [0000000076E36368]
+    0000000076EAC3E0: 00283110 80054002 00620080 0162fc8c
+    0000000076EAC3F0: 09380102 0021a00a 000048a0 83040090
+    0000000076EAC400: 00180018 1e10b042 330042c0 03620084
+
+  WinMain = 0000000000407D00 [0000000000452AF0]
+    0000000000407D00: 0850491c 80051083 06824ca0 0500cc00
+    0000000000407D10: 09600102 0021c000 337e46e0 44010490
+    0000000000407D20: 08800162 18103000 303c2020 0500c400
+  WinMain after attach = 0000000000407D00 [0000000000452AF0]
+    0000000000407D00: 05000000 01005f00 00000000 0887bfc0  [0000000060000400]
+    0000000000407D10: 09600102 0021c000 337e46e0 44010490
+    0000000000407D20: 08800162 18103000 303c2020 0500c400
+  WinMain trampoline = 00000000600003D0 [00000000600003C0]
+    00000000600003D0: 05000000 01400000 00000020 00d00064
+    00000000600003E0: 0950491c 80051083 06824ca0 0500cc00
+    00000000600003F0: 05000000 0100a0ff ffff7f00 287940c8  [0000000000407D10]
+dslept.dll: TimedSleep = 0000000010054130
+dslept.dll: UntimedSleep = 0000000010054110
+dslept.dll: Detoured Sleep().
+dslept.dll: Detoured SleepEx().
+  SleepEx = 0000000076EAC3E0 [0000000076E36368]
+    0000000076EAC3E0: 05000000 0100e9ff ffff7f00 184115c8  [00000000600004F0]
+    0000000076EAC3F0: 09380102 0021a00a 000048a0 83040090
+    0000000076EAC400: 00180018 1e10b042 330042c0 03620084
+
+dslept.dll: Calling WinMain
+sleepold.exe: Starting.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 05000000 0100e9ff ffff7f00 983f15c8  [0000000060000310]
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+  SleepEx = 0000000076EAC3E0 [0000000076E36368]
+    0000000076EAC3E0: 05000000 0100e9ff ffff7f00 184115c8  [00000000600004F0]
+    0000000076EAC3F0: 09380102 0021a00a 000048a0 83040090
+    0000000076EAC400: 00180018 1e10b042 330042c0 03620084
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+dslept.dll: Removed Sleep() detours (0), slept 3000 ticks.
+
+-------- Removing dslept.dll from sleepold.exe --------------------------
+    ..\..\bin\setdll.exe -r ..\..\bin\sleepold.exe
+Removing extra DLLs from binary files.
+  ..\..\bin\sleepold.exe:
+    detoured.dll -> detoured.dll
+    KERNEL32.dll -> KERNEL32.dll
+
+-------- Should not load dslept.dll or slept.dll ------------------------
+    ..\..\bin\sleepold.exe
+sleepold.exe: Starting.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 00101506 80051002 00620080 04000090
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+  SleepEx = 0000000076EAC3E0 [0000000076E36368]
+    0000000076EAC3E0: 00283110 80054002 00620080 0162fc8c
+    0000000076EAC3F0: 09380102 0021a00a 000048a0 83040090
+    0000000076EAC400: 00180018 1e10b042 330042c0 03620084
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+
+-------- Should load slept.dll dynamically using withdll.exe ------------
+    ..\..\bin\withdll.exe -d:..\..\bin\slept.dll ..\..\bin\sleepold.exe
+withdll.exe: Starting: `..\..\bin\sleepold.exe'
+withdll.exe:   with `C:\Code\Detours\2.1\bin\slept.dll'
+
+withdll.exe:   marked by `C:\Code\Detours\2.1\bin\detoured.dll'
+
+slept.dll: Starting.
+slept.dll: ExeEntry=0000000000452AF0, DllEntry=0000000010054B10
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 00101506 80051002 00620080 04000090
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+
+sleepold.exe: Starting.
+  Sleep = 0000000076EAC380 [0000000076E36358]
+    0000000076EAC380: 05000000 0100e9ff ffff7f00 983f15c8  [0000000060000310]
+    0000000076EAC390: 19180140 00210000 00020000 00000020
+    0000000076EAC3A0: 13000000 01000000 00001000 48000050
+  SleepEx = 0000000076EAC3E0 [0000000076E36368]
+    0000000076EAC3E0: 00283110 80054002 00620080 0162fc8c
+    0000000076EAC3F0: 09380102 0021a00a 000048a0 83040090
+    0000000076EAC400: 00180018 1e10b042 330042c0 03620084
+
+sleepold.exe: Calling Sleep for 1 second.
+sleepold.exe: Calling SleepEx for 1 second.
+sleepold.exe: Calling Sleep again for 1 second.
+sleepold.exe: Done sleeping.
+
+slept.dll: Detoured Sleep().
+slept.dll: Removed Sleep() detour (0), slept 2000 ticks.
+
+-------- Test completed. ------------------------------------------------
