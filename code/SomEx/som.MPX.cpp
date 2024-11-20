@@ -264,7 +264,7 @@ namespace som_MPX_swap //2022
 	{
 		//delete models_mhm(m);
 		if(auto*mhm=models_mhm(m))
-		SOM::Game.free_401580((mhm->~som_MHM(),mhm));
+		SOM::Game.free_401580((mhm->~som_MHM(),mhm)); //DUPLICATE
 		if(auto*wt=models_wt(m))
 		delete[] wt;
 		DWORD x = models_type(m)?0x445870:0x4403f0;

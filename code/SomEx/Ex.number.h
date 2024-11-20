@@ -44,6 +44,16 @@ namespace EX
 	//(could add a bool complex flag to assigning_number)
 	typedef _sysenum (*_sysnum)(C*,const wchar_t*,size_t,float*);
 
+	extern C *new_calculator(); extern void recycle_calculator(C*);
+	
+	extern EX::Calculator *c;
+	inline EX::Calculator *need_calculator()
+	{
+		if(!c) c = EX::new_calculator();
+		return c;
+	}
+	extern const wchar_t *need_assignment(const float *_result); //2024
+
 	//key/value pair. The key must be = or 0 terminated	
 	extern void assigning_number(C*,const wchar_t*,_sysnum,size_t);
 	extern void assigning_number(C*,const wchar_t*,const wchar_t*);
@@ -94,14 +104,14 @@ namespace EX
 			if(serial) *serial = sep; else if(sep) EX::numbers_mismatch(true,expression); return *this;
 		}						
 		Number &operator=(const EX::Calculation &c){ return equal(c.calculator,c.expression); }
-		Number &operator=(const wchar_t *expression){ return equal(0,expression); }		
+		Number &operator=(const wchar_t *expression){ return equal(EX::need_calculator(),expression); }		
 
 		private:void operator=(const Number&);Number(const Number&);public: //nix
 
 		//returns the next expression in serial assignments
 		const wchar_t *operator<<=(const wchar_t *expression) 
 		{
-			const wchar_t *out; equal(0,expression,&out); return out;
+			const wchar_t *out; equal(EX::need_calculator(),expression,&out); return out;
 		}						
 		EX::Calculation operator<<=(EX::Calculation c) 
 		{
@@ -138,7 +148,12 @@ namespace EX
 			if(!operator&()) return;
 			EX::evaluating_number(_result,1,*_1); 
 			if(!EX::isNaN(*_result)) *_1 = *_result;
-		}	
+		}
+
+		const wchar_t *assignment()const
+		{
+			EX::need_assignment(_result);
+		}
 	};	
 	
 	extern void reevaluating_numbers(C*); //includes numberings below
@@ -170,7 +185,7 @@ namespace EX
 			if(cmp>0||cmp<0&&underflow) EX::numbers_mismatch(cmp>0,expressions); return *this;
 		}						
 		Numbers &operator=(const EX::Calculation &c){ return equal(c.calculator,c.expression); }
-		Numbers &operator=(const wchar_t *expressions){ return equal(0,expressions); }	
+		Numbers &operator=(const wchar_t *expressions){ return equal(EX::need_calculator(),expressions); }	
 
 		private:void operator=(const Numbers&);Numbers(const Numbers&);public: //nix
 								 
@@ -184,14 +199,6 @@ namespace EX
 	extern void including_number_r(C*, const wchar_t *keyname=L"r"); 
 	//built in base encoding facilities with decoder
 	extern void including_number_id(C*, const wchar_t *id=L"id", const wchar_t *di=L"di"); 
-
-	 //Ex.output.cpp
-	//returns editing/testing_number key    //closest match//next//filter eg. "_"
-	extern const wchar_t *finding_number(C*,const wchar_t*,int=0,const wchar_t*f=0);
-	//returns next number part      //finding key  //part	   //expression or _TOO_LONG
-	extern size_t editing_number(C*,const wchar_t*,size_t=-1UL,wchar_t*ed=0,size_t ed_s=0);
-	//true if not literal         //finding key  //part //default yield of function 
-	extern bool testing_number(C*,const wchar_t*,size_t,wchar_t*of=0,size_t of_s=0);
 
 	//Exselector
 	extern void resetting_numbers_to_scratch(C*);

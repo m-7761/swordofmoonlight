@@ -2,10 +2,6 @@
 #ifndef EX_HPP_INCLUDED
 #define EX_HPP_INCLUDED
 
-#ifndef EX_INCLUDED
-#error include me in Ex.h
-#endif
-
 #define EX_WIDEN2(x) L ## x
 #define EX_WIDEN(x) EX_WIDEN2(x)
 #define EX_CSTRING2(x) #x

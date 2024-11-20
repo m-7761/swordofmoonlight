@@ -3471,6 +3471,8 @@ static void workshop_drawitem(DRAWITEMSTRUCT *dis)
 					Edit_SetModify(ec,0); 
 					char a[MAX_PATH] = "data\\map\\icon\\";
 					SOM::Tool.GetWindowTextA(ec,a+14,MAX_PATH-14);
+					extern bool som_tool_file_appears_to_be_missing_ignore;
+					som_tool_file_appears_to_be_missing_ignore = true;
 					if(HBITMAP bm2=(HBITMAP)som_map_LoadImageA(0,a,0,20,20,LR_LOADFROMFILE|LR_CREATEDIBSECTION))
 					{
 						extern HWND som_tool_dialog(HWND=0);
@@ -3498,6 +3500,7 @@ static void workshop_drawitem(DRAWITEMSTRUCT *dis)
 						}
 					}
 					else FillRect(som_tool_dc,&dis->rcItem,(HBRUSH)GetStockObject(BLACK_BRUSH));				
+					som_tool_file_appears_to_be_missing_ignore = false;
 				}
 				if(dis->hDC) //auto_hue?
 				BitBlt(dis->hDC,0,0,dis->rcItem.right,dis->rcItem.bottom,som_tool_dc,0,0,SRCCOPY);
@@ -5718,6 +5721,44 @@ extern INT_PTR CALLBACK workshop_103_104(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 	return 0;
 }
 
+static void PrtsEdit_build_icon_UUID(HWND hw) //2024
+{
+	wchar_t code[4];
+	GetDlgItemTextW(hw,1006,code,4);
+	int i = GetDlgItemInt(hw,1007,0,0);
+	int h = GetDlgItemInt(hw,1008,0,0);
+	switch(h)
+	{
+	case 1: h = '!'; break;
+	case 2: h = '@'; break;
+	case 3: h = '#'; break;
+	case 4: h = '$'; break;
+	case 5: h = '%'; break;
+	case 6: h = '^'; break;
+	case 7: h = '?'; break; //&&
+	default:
+	case 8: h = '*'; break;
+	}
+	wchar_t uuid[24];
+	int n = GetDlgItemTextW(hw,1009,uuid,24);
+	if(n!=22)
+	n = GetDlgItemTextW(hw,1017,uuid,24);	
+	wchar_t id[32];
+	if(n!=22)
+	{
+		char a[24];
+		workshop_generate(a);
+		swprintf(id,L"%s%04d%c%hs",code,i,h,a);
+		SetDlgItemTextA(hw,1009,a);
+	}
+	else
+	{
+		swprintf(id,L"%s%04d%c%s",code,i,h,uuid);
+		SetDlgItemTextW(hw,1009,uuid);
+	}
+
+	SetDlgItemTextW(hw,1017,id);
+}
 extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	//WARNING: som_tool_msgfilterproc fixes VK_TAB on this dialog
@@ -5747,7 +5788,7 @@ extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 		SendDlgItemMessage(hwndDlg,1027,UDM_SETRANGE32,1,8);
 		SendDlgItemMessage(hwndDlg,1009,EM_LIMITTEXT,22,0);
 
-		if(0&&EX::debug||lParam==1013||GetKeyState(VK_MENU)>>15)
+		if(lParam==1013||GetKeyState(VK_MENU)>>15)
 		{
 			som_tool_initializing--; //HACK
 			SetWindowRedraw(hwndDlg,0);
@@ -5821,6 +5862,11 @@ extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				memcpy(a+i,".bmp",5);
 				goto icon;
 			}
+			else if(22==strlen(a)) //2024
+			{
+				PrtsEdit_build_icon_UUID(hwndDlg);
+				goto edit;
+			}
 			break;
 
 		case MAKEWPARAM(1007,EN_UPDATE): 
@@ -5839,6 +5885,11 @@ extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				memcpy(a+i,".bmp",5);
 				workshop_drawitem_hue = '?'; //HACK
 				goto icon;
+			}
+			else if(22==strlen(a)) //2024
+			{
+				PrtsEdit_build_icon_UUID(hwndDlg);
+				goto edit;
 			}
 			break;
 
@@ -5864,6 +5915,11 @@ extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 				memcpy(a+i,".bmp",5);
 				goto icon;
 			}
+			else if(22==strlen(a)) //2024
+			{
+				PrtsEdit_build_icon_UUID(hwndDlg);
+				goto edit;
+			}
 			break;
 
 		case 1014:
@@ -5872,7 +5928,7 @@ extern INT_PTR CALLBACK workshop_103_prt(HWND hwndDlg, UINT uMsg, WPARAM wParam,
 			if(int i=PrtsEdit_punc(a,&sep))
 			{
 			sel:a[i+1] = '\0';
-				workshop_generate(a);
+				workshop_generate(a,a);
 				SetDlgItemTextA(hwndDlg,1009,a+i+1);
 				SetDlgItemTextA(hwndDlg,1017,a);
 			}

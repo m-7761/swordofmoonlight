@@ -1412,7 +1412,30 @@ static void __cdecl som_MDL_445cd0(SOM::MDO *o) //updating MDO
 	auto *d = o->mdo_data();
 	if(d->ext.uv_tick) d->ext_uv_uptodate();
 
-	((void(__cdecl*)(void*))0x445cd0)(o);
+	if(((BYTE(__cdecl*)(void*))0x445cd0)(o))
+	{
+		//2024: transform was updated?
+
+		//445cd0 doesn't set these: so its strategy fails
+		memcpy(o->_cmp_transl1,o->transl1,3*sizeof(float));
+		memcpy(o->_cmp_rotate1,o->rotate1,3*sizeof(float));
+
+		if(auto*sh=o->mdo_data()->ext.mhm)
+		{
+			//NOTE: this is called before som_MDO_4458d0_make
+			//assigns o->ext.mhm so o->ext.mhm is always null
+			if(sh==o->ext.mhm||!o->ext.mhm)
+			{
+				extern som_MHM_ball *som_MHM_dup(som_MHM*);
+				o->ext.mhm = som_MHM_dup(sh);
+			}
+			//should be all equivalent I think
+			auto &xf = o->elements->worldxform;
+			extern void som_MHM_xform(som_MHM*,som_MHM*,float(&)[4][4]);
+			som_MHM_xform(o->ext.mhm,sh,xf);
+			o->ext.mhm->init_ball();
+		}
+	}
 }
 static void __cdecl som_MDL_445cd0_init(SOM::MDO *o) //initialize MDO
 {
@@ -3338,6 +3361,15 @@ static void __cdecl som_MDL_4403f0_free(SOM::MDL::data *l) //MDO?
 
 	som_MDL_free(l); //free
 }
+extern SOM::MDL *__cdecl som_MDL_440520_make(SOM::MDL::data *d)
+{
+	auto *ret = som_MDL_x440520(d);
+
+//	if(!ret->ext.mhm) ret->ext.mhm = d->ext.mhm; //object?
+	if(d->ext.mhm) assert(ret->ext.mhm);
+
+	return ret;
+}
 extern void __cdecl som_MDL_4409d0_free(SOM::MDL *l) //MDO?
 {
 	if(l->ext.mdo_elements) //445ad0 (DUPLICATE)
@@ -3351,9 +3383,25 @@ extern void __cdecl som_MDL_4409d0_free(SOM::MDL *l) //MDO?
 		som_MDL_free(l->ext.mdo_elements); //free
 	}
 
+	if(auto*mhm=l->ext.mhm) 
+	if(mhm!=l->mdl_data->ext.mhm) //fully transformed?
+	{
+		//copying models_unload
+		SOM::Game.free_401580((mhm->~som_MHM_ball(),mhm)); //DUPLICATE
+	}
+
 	assert(SOM::game);
 
 	som_MDL_free(l); //free
+}
+extern SOM::MDO *__cdecl som_MDO_4458d0_make(SOM::MDO::data *d)
+{
+	auto *ret = ((SOM::MDO*(__cdecl*)(void*))0x4458d0)(d);
+
+//	if(!ret->ext.mhm) ret->ext.mhm = d->ext.mhm; //object?
+	if(d->ext.mhm) assert(ret->ext.mhm);
+
+	return ret;
 }
 extern BYTE __cdecl som_MDO_445ad0_free(SOM::MDO *o) //MDO?
 {
@@ -3370,6 +3418,13 @@ extern BYTE __cdecl som_MDO_445ad0_free(SOM::MDO *o) //MDO?
 		extern void som_bsp_ext_clear();
 		som_bsp_ext_clear();
 	}*/
+
+	if(auto*mhm=o->ext.mhm) 
+	if(mhm!=o->mdo_data()->ext.mhm) //fully transformed?
+	{
+		//copying models_unload
+		SOM::Game.free_401580((mhm->~som_MHM_ball(),mhm)); //DUPLICATE
+	}
 
 	return ((BYTE(__cdecl*)(void*))0x445ad0)(o);
 }
@@ -3398,9 +3453,31 @@ extern BYTE __cdecl som_MDL_4416c0(SOM::MDL &mdl)
 	}	
 	else mdl.d = d;
 	
+	auto *sh = mdl.mdl_data->ext.mhm; //obj?
+	float cmp[16]; 
+	if(sh) memcpy(cmp,mdl.xform,sizeof(cmp));
+
 	//TODO? use mdl.control_point instead?
 	BYTE ret = ((BYTE(__cdecl*)(void*))0x4416c0)(&mdl);
-	mdl.d = swap; return ret;
+	mdl.d = swap; 
+
+	if(sh&&memcmp(cmp,mdl.xform,sizeof(cmp))) //2024
+	{
+		//NOTE: this is called before som_MDO_4458d0_make
+		//assigns o->ext.mhm so o->ext.mhm is always null
+		if(sh==mdl.ext.mhm||!mdl.ext.mhm)
+		{
+			extern som_MHM_ball *som_MHM_dup(som_MHM*);
+			mdl.ext.mhm = som_MHM_dup(sh);
+		}
+		//NOTE: this geometry is static
+		auto &xf = mdl.xform;
+		extern void som_MHM_xform(som_MHM*,som_MHM*,float(&)[4][4]);
+		som_MHM_xform(mdl.ext.mhm,sh,xf);
+		mdl.ext.mhm->init_ball();
+	}
+	
+	return ret;
 }
 extern BYTE __cdecl som_MDL_4418b0(SOM::MDL &mdl, float *cp, DWORD _)
 {
@@ -3986,7 +4063,7 @@ extern void som_MDL_reprogram() //som.state.cpp
 		(DWORD&)som_MDL_free = 0x401580;
 		(DWORD&)som_MDL_x4418b0 = 0x4418b0; //get CP delta
 		(DWORD&)som_MDL_x440030 = 0x440030; //load_MDL_file
-	//	(DWORD&)som_MDL_x440520 = 0x403e80; //make_MDL_instance
+		(DWORD&)som_MDL_x440520 = 0x440520; //make_MDL_instance
 		extern void som_scene_44d810_extern(void*);
 		som_MDL_x44d810 = som_scene_44d810_extern;
 		(DWORD&)som_TXR_x448fd0 = 0x4485e0; //load_TXR_etc
@@ -3995,6 +4072,13 @@ extern void som_MDL_reprogram() //som.state.cpp
 		(DWORD&)som_MDL_x448100 = 0x448100; //unload_material
 		(DWORD&)som_MDO_x445660 = 0x445660; //load MDO (art)
 		(DWORD&)som_MDL_x45f350 = 0x45f350; //som_MDL_4
+		
+		//2024: fully transformed mhm?
+		//0042a791 e8 8a 5d 01 00       CALL       FUN_00440520_load_MDL_instance?
+		*(DWORD*)0x42a792 = (DWORD)som_MDL_440520_make-0x42a796; //object
+		//0042a7cb e8 00 b1 01 00       CALL       FUN_004458d0_load_MDO_instance?
+		*(DWORD*)0x42a7cc = (DWORD)som_MDO_4458d0_make-0x42a7d0; //object
+		
 		break;
 	}
 	if(cmp) //bug: this comparison is backward
@@ -4390,6 +4474,11 @@ extern void som_MDL_reprogram() //som.state.cpp
 		//2023: yuck
 		//0043A432 E8 69 53 FF FF       call        0042F7A0
 		*(DWORD*)0x43A433 = (DWORD)som_MDL_42f7a0-0x43A437;
+	}
+	//2024: synchronizing som_MHM_ball
+	{
+		//0042aa58 e8 73 b2 01 00       call FUN_00445cd0_build_MDO_xform_CRAZY_SUBOPTIMAL
+		*(DWORD*)0x42aa59 = (DWORD)som_MDL_445cd0-0x42aa5d;
 	}
 
 	//2023: som.kage.cpp

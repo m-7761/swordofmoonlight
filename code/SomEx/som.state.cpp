@@ -4207,7 +4207,8 @@ extern void som_state_reprogram_image() //SomEx.cpp
 		}*/
 		if(image__db2)  
 		{					
-			//00403C3D D9 05 E4 18 52 6B fld dword ptr [004C23EC]
+			//00403c3d d9 05 ec 23 4c 00 FLD dword ptr [DAT_004c23ec_field_of_view_maybe?]
+            
 			som_state_route(0x2C3D,2,(DWORD)&som_state_cone);
 
 			//2017: fix for SOM_DB loading with flash of light

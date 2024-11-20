@@ -47,6 +47,7 @@ static void Som_h_softreset() //NEW: reset environment
 static void Som_h_environ(const wchar_t *kv[2], void *redirect)
 {
 	if(kv[1]&&*kv[1]=='\r') kv[1]+=2; //new behavior of block text
+
 	if(*kv[0]=='.'||*kv[0]=='#') return; //reserved/disabled variable
 
 	if(redirect&&*(int*)redirect<2) //2020

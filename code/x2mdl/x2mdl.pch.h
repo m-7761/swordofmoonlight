@@ -332,6 +332,15 @@ namespace MDL
 		}
 	};
 
+	struct Weight //x2mdo.cpp
+	{
+		BYTE jt, pt; WORD vt;
+
+		float wt;
+
+		operator int()const{ return jt<<24|pt<<16|vt; }
+	};		
+
 	struct File
 	{
 		struct x2mdl_dll *dll;
@@ -395,7 +404,9 @@ namespace MDL
 		void x2mm3d(FILE*); //2020
 		
 		bool x2mdo(); //2021
-		bool x2msm(bool x2mhm); //2022
+		bool x2msm(bool x2mhm, bool wasY=false); //2022
+
+		void weight(int,int,WORD*,aiMesh*,std::vector<Weight>&); //2024
 	};
 }
 

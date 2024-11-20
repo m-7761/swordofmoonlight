@@ -36,11 +36,18 @@ static int Ex_number_asserts()
 static int Ex_number_asserting = Ex_number_asserts();
 #endif
 
-namespace Ex_number_cpp
-{	
-	typedef EX::Calculator C;
+typedef EX::Calculator C;
 
-	static float _E = EX_NUMBER_E; 
+//namespace Ex_number_cpp
+class EX::Calculator
+{	
+public:
+
+	//typedef EX::Calculator C;
+	EX::critical _cs; //2022: som.MPX.cpp
+
+	//static float _E = EX_NUMBER_E; 
+	float _E = EX_NUMBER_E; 
 	
 	typedef std::complex<float> value_type;
 
@@ -50,7 +57,9 @@ namespace Ex_number_cpp
 
 		inline bool operator~(){ return !c; }		
 		
-		operator bool(){ return std::abs(*this)>_E; }
+		//operator bool(){ return std::abs(*this)>_E; }
+		operator bool(); //LEAVE UNDEFINED
+		bool operator()(float E){ return std::abs(*this)>E; }
 
 		//pow(-1,2) has a (small) imaginary component
 		//operator float(){ return imag()?EX::NaN:real(); }
@@ -81,107 +90,107 @@ namespace Ex_number_cpp
 			v() = cp; c = cp_c;
 		}
 	};	  
-	static const value_type i_value(0,1);
-	static const value_type _i_value(0,-1);
-
+	const value_type i_value = value_type(0,1);
+	const value_type _i_value = value_type(0,-1);
+		
 	typedef std::vector<value> value_vc;
 	typedef value_vc::iterator value_it;	
 
 	//out is *io unless io==io_s in which case io[-1]
-	static void add_value(value_it io, value_it io_s)
+	void add_value(value_it io, value_it io_s)
 	{
 		for(value_it it=io+1;it<io_s;it++) *io+=*it;
 	}
-	static void sub_value(value_it io, value_it io_s)
+	void sub_value(value_it io, value_it io_s)
 	{
 		for(value_it it=io+1;it<io_s;it++) *io-=*it;
 	}
-	static void mul_value(value_it io, value_it io_s)
+	void mul_value(value_it io, value_it io_s)
 	{
 		for(value_it it=io+1;it<io_s;it++) *io*=*it;
 	}
-	static void div_value(value_it io, value_it io_s)
+	void div_value(value_it io, value_it io_s)
 	{
 		for(value_it it=io+1;it<io_s;it++) *io/=*it;
 	}
-	static void abs_value(value_it io, value_it io_s)
+	void abs_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = std::abs(*io); 
 		for(value_it it=io+1;it<io_s;it++) *io+=std::abs(*it);
 	}	
-	static void if_value(value_it io, value_it io_s)
+	void if_value(value_it io, value_it io_s)
 	{
 		if(io_s-io==3) 
 		{
-			*io = *io?io[1]:io[2];
+			*io = (*io)(_E)?io[1]:io[2];
 		}
 		else if(io<io_s) *io = EX::NaN;
 	}
-	static void _E_value(value_it io, value_it io_s)
+	void _E_value(value_it io, value_it io_s)
 	{
 		io[io==io_s?-1:0] = _E; 
 	}
-	static void and_value(value_it io, value_it io_s)
+	void and_value(value_it io, value_it io_s)
 	{
 		bool out = true; 
-		for(value_it it=io;it<io_s&&out;it++) if(!*it) out = false;
+		for(value_it it=io;it<io_s&&out;it++) if(!(*it)(_E)) out = false;
 		io[io==io_s?-1:0] = out;
 	}
-	static void nand_value(value_it io, value_it io_s)
+	void nand_value(value_it io, value_it io_s)
 	{
 		bool out = true; 
-		for(value_it it=io;it<io_s&&out;it++) if(!*it) out = false;
+		for(value_it it=io;it<io_s&&out;it++) if(!(*it)(_E)) out = false;
 		io[io==io_s?-1:0] = !out;
 	}
-	static void or_value(value_it io, value_it io_s)
+	void or_value(value_it io, value_it io_s)
 	{
 		bool out = false; 
-		for(value_it it=io;it<io_s&&!out;it++) if(*it) out = true;
+		for(value_it it=io;it<io_s&&!out;it++) if((*it)(_E)) out = true;
 		io[io==io_s?-1:0] = out;
 	}
-	static void nor_value(value_it io, value_it io_s)
+	void nor_value(value_it io, value_it io_s)
 	{
 		bool out = false; 
-		for(value_it it=io;it<io_s&&!out;it++) if(*it) out = true;
+		for(value_it it=io;it<io_s&&!out;it++) if((*it)(_E)) out = true;
 		io[io==io_s?-1:0] = !out;
 	}
-	static void xor_value(value_it io, value_it io_s)
+	void xor_value(value_it io, value_it io_s)
 	{
 		switch(io_s-io)
 		{
 		case 0: return; 
 		case 1: *io = EX::NaN; return;
-		case 2: *io = !*io!=!io[1]; return;
+		case 2: *io = !(*io)(_E)!=!(io[1])(_E); return;
 		}
-		bool out = !*io!=!io[1]; 
-		for(value_it it=io+2;it<io_s;it++) out = !*it==out;
+		bool out = !(*io)(_E)!=!(io[1])(_E); 
+		for(value_it it=io+2;it<io_s;it++) out = !(*it)(_E)==out;
 		*io = out;
 	}
-	static void xnor_value(value_it io, value_it io_s)
+	void xnor_value(value_it io, value_it io_s)
 	{
 		switch(io_s-io)
 		{
 		case 0: return; 
 		case 1: *io = EX::NaN; return;
-		case 2: *io = !*io==!io[1]; return;
+		case 2: *io = !(*io)(_E)==!(io[1])(_E); return;
 		}
-		bool out = !*io==!io[1]; 
-		for(value_it it=io+2;it<io_s;it++) out = !*it!=out;
+		bool out = !(*io)(_E)==!(io[1])(_E); 
+		for(value_it it=io+2;it<io_s;it++) out = !(*it)(_E)!=out;
 		*io = out;
 	}
-	static void x_value(value_it io, value_it io_s)
+	void x_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = io->real();
 	}
-	static void y_value(value_it io, value_it io_s)
+	void y_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = io->imag();
 	}
-	static void iy_value(value_it io, value_it io_s)
+	void iy_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = std::complex<float>(0,io->imag());
 	}
-	static void nan_value(value_it io, value_it io_s)
+	void nan_value(value_it io, value_it io_s)
 	{
 		switch(io_s-io)
 		{
@@ -194,7 +203,7 @@ namespace Ex_number_cpp
 		}
 		*io = io_s[-1]; //default to final argument
 	}
-	static void inf_value(value_it io, value_it io_s)
+	void inf_value(value_it io, value_it io_s)
 	{
 		switch(io_s-io)
 		{
@@ -208,20 +217,20 @@ namespace Ex_number_cpp
 		}
 		*io = io_s[-1]; //default to final argument
 	}
-	static void not_value(value_it io, value_it io_s)
+	void not_value(value_it io, value_it io_s)
 	{
 		switch(io_s-io)
 		{
 		case 0: io[-1] = 0; return;		
-		case 1: *io = !*io; return;		
+		case 1: *io = !(*io)(_E); return;		
 		}
 		for(value_it it=io;it<io_s;it++) //coalesce			
 		{
-			if(!*it) continue; *io = *it; return;
+			if(!(*it)(_E)) continue; *io = *it; return;
 		}
 		*io = io_s[-1]; //default to final argument
 	}
-	static void neg_value(value_it io, value_it io_s)
+	void neg_value(value_it io, value_it io_s)
 	{
 		switch(io_s-io)
 		{
@@ -234,7 +243,7 @@ namespace Ex_number_cpp
 		}
 		*io = io_s[-1]; //default to final argument
 	}
-	static void int_value(value_it io, value_it io_s)
+	void int_value(value_it io, value_it io_s)
 	{			
 		if(io==io_s) return;
 
@@ -244,7 +253,7 @@ namespace Ex_number_cpp
 		}
 		else *io = EX::NaN;
 	}
-	static void min_value(value_it io, value_it io_s)
+	void min_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s)
 		{
@@ -255,7 +264,7 @@ namespace Ex_number_cpp
 		}
 		else io[-1] = std::numeric_limits<float>::min();
 	}
-	static void max_value(value_it io, value_it io_s)
+	void max_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s)
 		{
@@ -266,24 +275,24 @@ namespace Ex_number_cpp
 		}
 		else io[-1] = std::numeric_limits<float>::max();
 	}
-	static void _value(value_it io, value_it io_s)
+	void _value(value_it io, value_it io_s)
 	{
 		assert(io==io_s&&_isnan(io[-1].real()));
 	}
 	//Transcendentals	
-	static void cos_value(value_it io, value_it io_s)
+	void cos_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = std::cos(*io);
 	}
-	static void cosh_value(value_it io, value_it io_s) //2018
+	void cosh_value(value_it io, value_it io_s) //2018
 	{
 		if(io!=io_s) *io = std::cosh(*io);
 	}
-	static void exp_value(value_it io, value_it io_s)
+	void exp_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = std::exp(*io);
 	}
-	static void log_value(value_it io, value_it io_s)
+	void log_value(value_it io, value_it io_s)
 	{
 		switch(io_s-io)
 		{		
@@ -297,7 +306,7 @@ namespace Ex_number_cpp
 		case 0: return;	default: *io = EX::NaN;
 		}
 	}	
-	static void pow_value(value_it io, value_it io_s)
+	void pow_value(value_it io, value_it io_s)
 	{
 		//MSVC2013 gets stuck here... <double,double> is complex
 		//but is it portable? Doesn't work with 2010!
@@ -305,19 +314,19 @@ namespace Ex_number_cpp
 		//for(value_it it=io+1;it<io_s;it++) *io = std::pow<double,double>(*io,*it);
 		for(value_it it=io+1;it<io_s;it++) *io = std::pow(io->v(),it->v());
 	}	
-	static void sin_value(value_it io, value_it io_s)
+	void sin_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = std::sin(*io);
 	}
-	static void sinh_value(value_it io, value_it io_s) //2018
+	void sinh_value(value_it io, value_it io_s) //2018
 	{
 		if(io!=io_s) *io = std::sinh(*io);
 	}
-	static void tan_value(value_it io, value_it io_s)
+	void tan_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) *io = std::tan(*io);
 	}
-	static void tanh_value(value_it io, value_it io_s) //2018
+	void tanh_value(value_it io, value_it io_s) //2018
 	{
 		if(io!=io_s) *io = std::tanh(*io);
 	}
@@ -325,7 +334,7 @@ namespace Ex_number_cpp
 	//WARNING: Boost library says this is a naive implementation.
 	//http://boost.sourceforge.net/doc/html/boost_math/inverse_complex.html
 	//Boost's code is at least 600 lines to copy over.
-	static void asin_value(value_it io, value_it io_s)
+	void asin_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) if(io->imag()) 
 		{			
@@ -334,7 +343,7 @@ namespace Ex_number_cpp
 		}
 		else io->real(std::asin(io->real()));
 	}
-	static void asinh_value(value_it io, value_it io_s)
+	void asinh_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) if(io->imag())
 		{
@@ -349,7 +358,7 @@ namespace Ex_number_cpp
 			float x = io->real(); io->real(std::log(x*std::sqrt(x*x+1)));
 		}
 	}
-	static void acos_value(value_it io, value_it io_s)
+	void acos_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) if(io->imag())
 		{
@@ -358,7 +367,7 @@ namespace Ex_number_cpp
 		}
 		else io->real(std::acos(io->real()));
 	}
-	static void acosh_value(value_it io, value_it io_s)
+	void acosh_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) if(io->imag())
 		{
@@ -371,7 +380,7 @@ namespace Ex_number_cpp
 			float x = io->real(); io->real(std::log(x*std::sqrt(x*x-1)));
 		}
 	}
-	static void atan_value(value_it io, value_it io_s)
+	void atan_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) if(io->imag())
 		{
@@ -381,7 +390,7 @@ namespace Ex_number_cpp
 		}
 		else io->real(std::atan(io->real()));
 	}
-	static void atan2_value(value_it io, value_it io_s)
+	void atan2_value(value_it io, value_it io_s)
 	{
 		if(io_s-io!=3/*||io->imag()*/)
 		{
@@ -389,7 +398,7 @@ namespace Ex_number_cpp
 		}
 		else *io = std::atan2(io[1].real(),io[2].real());
 	}
-	static void atanh_value(value_it io, value_it io_s)
+	void atanh_value(value_it io, value_it io_s)
 	{
 		if(io!=io_s) if(io->imag())
 		{
@@ -402,86 +411,119 @@ namespace Ex_number_cpp
 			float x = io->real(); io->real(std::log((1+x)/(1-x))/2);
 		}
 	}	
-	static const struct prime_pod
+	struct prime_pod //const
 	{
-		wchar_t gloss[8]; 
+		wchar_t gloss[8]; //FIRST 
 		
 		int level, assoc, group; 
 		
-		void(*_value)(value_it io,value_it end); 
+		void(C::*vf)(value_it io,value_it end); 
 
-		void value(value_it io, value_it it)const
+		void value(C *c, value_it io, value_it it)const
 		{	
-			_value(io,it);
+			(c->*vf)(io,it);
+
 			while(--it>io) if(~*it) io->c = false;	
 		}
 		operator wchar_t()const
 		{
 			return this?*gloss:'\0'; 
-		}
-						
-	}primes[] = 
-	//reverse precedence
-	{{L"?",9,'l',':',0}, 
-	 {L":",9,'l',  0,0},
-	 {L"+",8,'l',  0,add_value},
-	 {L"-",8,'l',  0,sub_value},
-	 {L"*",7,'l',  0,mul_value},
-	 //mul_ won't cut it for sets
-	 {L"__of",7,'l', 0,mul_value}, 
-	 {L"/",7,'l',  0,div_value},
-	 {L"^",6,'l',  0,pow_value},
-	 {L"abs",0,0,  0,abs_value},
-	 {L"acos",0,0, 0,acos_value},
-	 {L"acosh",0,0,0,acosh_value},
-	 {L"asin",0,0, 0,asin_value},
-	 {L"asinh",0,0,0,asinh_value},
-	 {L"atan",0,0, 0,atan_value},
-	 {L"atan2",0,0,0,atan2_value},
-	 {L"atanh",0,0,0,atanh_value},
-	 {L"|",0,'r','|',0}, 
-	 {L"|",0,'r',  0,0}, 
-     {L"[",0,'r',']',0},
-     {L"]",0,  0,  0,0}, 
-	 {L"(",0,'r',')',0}, 
-	 {L")",0,  0,  0,0}, 
-	 {L",",0,'l',  0,0},
-	 {L";",0,'l',  0,0},	 	  	  
-	 {L"if",0, 0,  0,if_value}, 
-	 {L"_E", 0,0,  0,_E_value},
-	 {L"and",0,0,  0,and_value}, 
-	 {L"nand",0,0, 0,nand_value}, 
-	 {L"or", 0,0,  0, or_value}, 
-	 {L"nor",0,0,  0,nor_value}, 
-	 {L"xor",0,0,  0,xor_value}, 
-	 {L"xnor",0,0, 0,xnor_value},
-	 {L"x",  0,0,  0,x_value}, 
-	 {L"y",  0,0,  0,y_value}, 
-	 {L"iy", 0,0,  0,iy_value}, 
-	 {L"nan",0,0,  0,nan_value}, 
-	 {L"inf",0,0,  0,inf_value}, 
-	 {L"not",0,0,  0,not_value}, 
-	 {L"neg",0,0,  0,neg_value}, 	 	 
-	 {L"_",  0,0,  0,_value}, 
-	 {L"_S", 0,0,  0,_value}, 
-	 {L"_$", 0,0,  0,_value}, 
-	 {L"_N", 0,0,  0,_value},  
-	 {L"n",  0,0,  0,_value}, 
-	 {L"int",0,0,  0,int_value}, 
-	 {L"min",0,0,  0,min_value}, 
-	 {L"max",0,0,  0,max_value},
-	 {L"cos",0,0,  0,cos_value},
-	 {L"cosh",0,0, 0,cosh_value},
-	 {L"exp",0,0,  0,exp_value},
-	 {L"log",0,0,  0,log_value},
-	 {L"pow",0,0,  0,pow_value},
-	 {L"sin",0,0,  0,sin_value},
-	 {L"sinh",0,0, 0,sinh_value},
-	 {L"tan",0,0,  0,tan_value},
-	 {L"tanh",0,0, 0,tanh_value},
-	};				 
-	enum{primes_s =
-	sizeof(primes)/sizeof(prime_pod)};			
+		}						
+	};//primes[] = 
+	std::vector<prime_pod> primes;
+	Calculator():i_value(0,1),_i_value(0,-1)
+	{	
+		primes = 
+		//reverse precedence
+		{{L"?",9,'l',':',0}, 
+		 {L":",9,'l',  0,0},
+		 {L"+",8,'l',  0,&C::add_value},
+		 {L"-",8,'l',  0,&C::sub_value},
+		 {L"*",7,'l',  0,&C::mul_value},
+		 //mul_ won't cut it for sets
+		 {L"__of",7,'l', 0,&C::mul_value}, 
+		 {L"/",7,'l',  0,&C::div_value},
+		 {L"^",6,'l',  0,&C::pow_value},
+		 {L"abs",0,0,  0,&C::abs_value},
+		 {L"acos",0,0, 0,&C::acos_value},
+		 {L"acosh",0,0,0,&C::acosh_value},
+		 {L"asin",0,0, 0,&C::asin_value},
+		 {L"asinh",0,0,0,&C::asinh_value},
+		 {L"atan",0,0, 0,&C::atan_value},
+		 {L"atan2",0,0,0,&C::atan2_value},
+		 {L"atanh",0,0,0,&C::atanh_value},
+		 {L"|",0,'r','|',0}, 
+		 {L"|",0,'r',  0,0}, 
+		 {L"[",0,'r',']',0},
+		 {L"]",0,  0,  0,0}, 
+		 {L"(",0,'r',')',0}, 
+		 {L")",0,  0,  0,0}, 
+		 {L",",0,'l',  0,0},
+		 {L";",0,'l',  0,0},	 	  	  
+		 {L"if",0, 0,  0,&C::if_value}, 
+		 {L"_E", 0,0,  0,&C::_E_value},
+		 {L"and",0,0,  0,&C::and_value}, 
+		 {L"nand",0,0, 0,&C::nand_value}, 
+		 {L"or", 0,0,  0, &C::or_value}, 
+		 {L"nor",0,0,  0,&C::nor_value}, 
+		 {L"xor",0,0,  0,&C::xor_value}, 
+		 {L"xnor",0,0, 0,&C::xnor_value},
+		 {L"x",  0,0,  0,&C::x_value}, 
+		 {L"y",  0,0,  0,&C::y_value}, 
+		 {L"iy", 0,0,  0,&C::iy_value}, 
+		 {L"nan",0,0,  0,&C::nan_value}, 
+		 {L"inf",0,0,  0,&C::inf_value}, 
+		 {L"not",0,0,  0,&C::not_value}, 
+		 {L"neg",0,0,  0,&C::neg_value}, 	 	 
+		 {L"_",  0,0,  0,&C::_value}, 
+		 {L"_S", 0,0,  0,&C::_value}, 
+		 {L"_$", 0,0,  0,&C::_value}, 
+		 {L"_N", 0,0,  0,&C::_value},  
+		 {L"n",  0,0,  0,&C::_value}, 
+		 {L"int",0,0,  0,&C::int_value}, 
+		 {L"min",0,0,  0,&C::min_value}, 
+		 {L"max",0,0,  0,&C::max_value},
+		 {L"cos",0,0,  0,&C::cos_value},
+		 {L"cosh",0,0, 0,&C::cosh_value},
+		 {L"exp",0,0,  0,&C::exp_value},
+		 {L"log",0,0,  0,&C::log_value},
+		 {L"pow",0,0,  0,&C::pow_value},
+		 {L"sin",0,0,  0,&C::sin_value},
+		 {L"sinh",0,0, 0,&C::sinh_value},
+		 {L"tan",0,0,  0,&C::tan_value},
+		 {L"tanh",0,0, 0,&C::tanh_value},
+		};	
+		primes_s = primes.size();
+		subprimes = primes;
+		for(size_t i=0;i<primes_s;i++) 
+		glossary.insert(primes[i].gloss);
+		seperator = *glossary.find(L",");
+		parentheses = *glossary.find(L"(");
+		__parentheses = *glossary.find(L")");		
+		brackets = *glossary.find(L"[");
+		__brackets = *glossary.find(L"]");
+		__results = L"__results";
+		new(&table_vt_of_results) table_vt(__results,table()); //YUCK
+		__coff = L"__coff";
+		__X = L"__%";
+		terms.assign(2,term(0));
+		__unfolded = L"__unfolded";
+		_values.assign(1,0);
+		__default = L"__default";
+		parameter = *glossary.find(L"_");
+		cache_of_results.assign(5,&missing_result);
+		n = *glossary.find(L"n");
+		_N = *glossary.find(L"_N");	
+		nan = *glossary.find(L"nan");
+		__of = *glossary.find(L"__of");
+		_S = *glossary.find(L"_S");
+		_dollars = *glossary.find(L"_$");
+		abs = *glossary.find(L"abs");
+		plus = *glossary.find(L"+");
+	}
+	//enum{primes_s =
+	//sizeof(primes)/sizeof(prime_pod)};			
+	size_t primes_s;
 	struct prime
 	{
 		const prime_pod *pod;
@@ -501,14 +543,14 @@ namespace Ex_number_cpp
 		inline bool rop(){ return pod&&pod->assoc=='r'&&pod->level; }
 
 		inline bool no(){ return !pod||!pod->assoc||pod->assoc=='r'; }
-		inline bool mono(){ return !pod||!pod->assoc&&pod->_value; }	  
+		inline bool mono(){ return !pod||!pod->assoc&&pod->vf; }	  
 
-		inline bool closure(){ return pod&&!pod->assoc&&!pod->_value; }
+		inline bool closure(){ return pod&&!pod->assoc&&!pod->vf; }
 
-		prime(const wchar_t *gloss)
+		prime(C *c, const wchar_t *gloss)
 		{
-			pod = gloss>=primes[0].gloss
-			&&gloss<primes[primes_s].gloss?(prime_pod*)gloss:0;
+			pod = gloss>=c->primes[0].gloss
+			&&gloss<c->primes[c->primes_s].gloss?(prime_pod*)gloss:0;
 		}		
 		inline bool operator<(prime p) //>
 		{
@@ -520,17 +562,19 @@ namespace Ex_number_cpp
 		}		
 	};
 
-	static prime_pod subprimes[primes_s];
+	//static prime_pod subprimes[primes_s];
+	std::vector<prime_pod> subprimes;
+	//static const bool subprimed = memcpy(subprimes,primes,sizeof(primes));
 
-	static const bool subprimed = memcpy(subprimes,primes,sizeof(primes));
-
-	static const wchar_t *subprime(const wchar_t *x)
+	const wchar_t *subprime(const wchar_t *x)
 	{
-		if(prime(x)) return subprimes[(prime_pod*)x-primes].gloss;
+		//if(prime(x)) return subprimes[(prime_pod*)x-primes].gloss;
+		if(prime(this,x)) return subprimes[(prime_pod*)x-primes.data()].gloss;
 		
 		if(x<subprimes[0].gloss||x>=subprimes[primes_s].gloss) return x;
 
-		return primes[(prime_pod*)x-subprimes].gloss; //subprime
+		//return primes[(prime_pod*)x-subprimes].gloss; //subprime
+		return primes[(prime_pod*)x-subprimes.data()].gloss; //subprime
 	}
 
 	struct glossless //std::less
@@ -539,26 +583,25 @@ namespace Ex_number_cpp
 	{
 		return std::wcscmp(_Left,_Right)<0;
 	}};
-	static std::set<const wchar_t*,glossless> glossary;
+	std::set<const wchar_t*,glossless> glossary;
 
 	typedef std::set<const wchar_t*,glossless>::iterator glossary_it;
 	typedef std::set<const wchar_t*,glossless>::reverse_iterator glossary_ti;
 
-	static bool priming_glossary() 
+	/*static bool priming_glossary() 
 	{
 		for(size_t i=0;i<primes_s;i++) 
-			
-			glossary.insert(primes[i].gloss); return true;
+		glossary.insert(primes[i].gloss); return true;
 	}
-	static const bool primed = priming_glossary();
+	static const bool primed = priming_glossary();*/
 	
-	static const wchar_t *seperator = *glossary.find(L",");
-	static const wchar_t *parentheses = *glossary.find(L"(");
-	static const wchar_t *__parentheses = *glossary.find(L")");		
-	static const wchar_t *brackets = *glossary.find(L"[");
-	static const wchar_t *__brackets = *glossary.find(L"]");		
+	const wchar_t *seperator; //= *glossary.find(L",");
+	const wchar_t *parentheses; // = *glossary.find(L"(");
+	const wchar_t *__parentheses; // = *glossary.find(L")");		
+	const wchar_t *brackets; // = *glossary.find(L"[");
+	const wchar_t *__brackets; // = *glossary.find(L"]");		
 
-	static bool pare(const wchar_t *greedy, const wchar_t *match)
+	bool pare(const wchar_t *greedy, const wchar_t *match)
 	{
 		if(*greedy==*match) while(*greedy) 		 			
 		if(*greedy++!=*match++) return true; return false;
@@ -566,9 +609,9 @@ namespace Ex_number_cpp
 
 	typedef unsigned short shortstack; //size_t
 	
-	static void push(shortstack t); //predeclaring
+//	void push(shortstack t); //predeclaring
 
-	static const wchar_t *__results = L"__results";
+	const wchar_t *__results; // = L"__results";
 	
 	typedef std::map<size_t,size_t>::iterator sparse_it;
 	typedef std::multimap<std::wstring,size_t>::iterator label_it; 
@@ -577,12 +620,17 @@ namespace Ex_number_cpp
 
 	struct table //of items
 	{	
+		//it's too hard to ensure this gets set :(
+		//C *c; //2024
+
 		size_t n_number;
 
 		EX::_sysnum _number;
 
 		struct item //in table
 		{	
+			C *c; //2024
+
 			std::wstring assignment; 
 
 			shortstack assignment_s, sum; value z;
@@ -592,7 +640,7 @@ namespace Ex_number_cpp
 			//2022: should z be set to NaN?
 			//NOTE: sum=0 is constant_sum below
 			//NOTE: I've had itemize assign NaN to z
-			item()
+			item(C *c):c(c)
 			{
 				self_references = 0; assignment_s = 0;
 				
@@ -600,14 +648,14 @@ namespace Ex_number_cpp
 			}
 			~item()
 			{
-				delete self_references; if(!EX::detached) push(sum); 
+				delete self_references; if(!EX::detached) c->push(sum); 
 			}
 
 			enum:shortstack{ unknown_sum=65535, constant_sum=0 };
 
 			inline void operator=(const wchar_t *rv) 
 			{
-				push(sum); assignment = rv?rv:L"";
+				c->push(sum); assignment = rv?rv:L"";
 
 				sum = unknown_sum; assignment_s = 0;
 			}				
@@ -619,6 +667,8 @@ namespace Ex_number_cpp
 		{	
 		friend class table; 
 
+			C *c; //2024
+
 			struct selection 
 			{
 				table &first; item &second; 
@@ -627,9 +677,9 @@ namespace Ex_number_cpp
 
 			}selected; shortstack selector, current; 
 		
-			pair(table &a, item &b, size_t c):selected(a,b)
+			pair(C *c, table &a, item &b, size_t cc):c(c),selected(a,b)
 			{
-				selector = c; current = a.current;
+				selector = cc; current = a.current;
 			}
 
 		public:	inline size_t _N(){ return selector; }
@@ -641,11 +691,11 @@ namespace Ex_number_cpp
 			}
 			inline item &operator()(int i) //inspection
 			{
-				return selected.first.itemize(i+selector);
+				return selected.first.itemize(c,i+selector);
 			}
 			inline item &operator[](int i) //insertion
 			{
-				return selected.first.itemize(i+selector,true);
+				return selected.first.itemize(c,i+selector,true);
 			}				  						
 			inline pair operator-(int i) //summation
 			{
@@ -676,23 +726,29 @@ namespace Ex_number_cpp
 
 		std::map<size_t,size_t> sparse;
 		 		
-		inline bool lightweight()
+		inline bool lightweight(C *c)
 		{
-			return keyname()==__results;
+			return keyname()==c->__results;
 		}
 
-	public: table(){ _number = 0; n_number = 0; }
+	public: 
+		
+		table() //2024
+		{
+			_number = 0; n_number = 0; 			
+			current = 0; //2024
+		}
 						
 		//using & with 0 references
-		inline pair query(size_t i)
+		inline pair query(C *c, size_t i)
 		{
-			return pair(*this,itemize(i),i);
+			return pair(c,*this,itemize(c,i),i);
 		}				
-		inline pair insert(size_t i)
+		inline pair insert(C *c, size_t i)
 		{
-			return pair(*this,itemize(i,true),i);
+			return pair(c,*this,itemize(c,i,true),i);
 		}		
-		item &itemize(size_t i, bool insert=false)
+		item &itemize(C *c, size_t i, bool insert=false)
 		{
 			if(sparse.size()) sparse_insert: //sparse model
 			{
@@ -704,9 +760,11 @@ namespace Ex_number_cpp
 
 				if(i>=item::unknown_sum) return *(item*)0;
 
-				size_t item = sparse[i] = items.size();
+				size_t n = sparse[i] = items.size();
 
-				items.resize(item+1); return items[item]; 
+				items.resize(n+1,item(c)); 
+				
+				return items[n]; 
 			}
 
 			if(i<items.size()) return items[i];
@@ -728,12 +786,12 @@ namespace Ex_number_cpp
 						sparse[j] = k++;
 					}
 				}
-				if(k<j) items.resize(k);
+				if(k<j) items.resize(k,item(c));
 				//2020: stack overflow on items.empty()
 				//return itemize(i,true);
 				goto sparse_insert;
 			}
-			items.resize(i+1); return items[i];
+			items.resize(i+1,item(c)); return items[i];
 		}		
 		size_t next_assignment(size_t out)
 		{
@@ -752,21 +810,21 @@ namespace Ex_number_cpp
 		}
 		inline pair assignments()
 		{
-			return query(next_assignment(-1));
+			return query(c,next_assignment(-1));
 		}
 		inline bool items_empty()
 		{
 			return items.empty();
 		}	  
-		inline void items_clear() 
+		inline void items_clear(C *c) 
 		{
-			if(lightweight()) return items.clear();
+			if(lightweight(c)) return items.clear();
 
 			labels.clear(); sparse.clear(); items.clear(); current++; 
 		}	  
-		inline size_t n()
+		inline size_t n(C *c)
 		{
-			if(lightweight()) return items.size();
+			if(lightweight(c)) return items.size();
 
 			if(!sparse.size()) 
 			return std::max(n_number,items.size());
@@ -774,11 +832,11 @@ namespace Ex_number_cpp
 		}
 		inline pair operator[](size_t i)
 		{
-			return insert(i);
+			return insert(c,i);
 		}
 		inline pair operator()(size_t i)
 		{
-			return query(i);
+			return query(c,i);
 		}
 
 		std::multimap<std::wstring,size_t> labels;
@@ -787,12 +845,12 @@ namespace Ex_number_cpp
 		{
 			labels.insert(label_vt(trimmed,i));
 		}		
-		size_t follow_label(size_t i, const wchar_t* &trimmed, int s, int t, int u=0)
+		size_t follow_label(C *c, size_t i, const wchar_t* &trimmed, int s, int t, int u=0)
 		{
 			//todo: figure out how to do the same with equal_range
 			label_ti ti = label_ti(labels.upper_bound(trimmed+s)); 
 
-			while(ti!=labels.rend()&&pare(ti->first.c_str(),trimmed+s)) ti++; 
+			while(ti!=labels.rend()&&c->pare(ti->first.c_str(),trimmed+s)) ti++; 
 
 			while(ti!=labels.rend()) 
 			if(ti->first.size()==t-s&&!ti->first.compare(0,t-s,trimmed+s,t-s)) 
@@ -814,13 +872,14 @@ namespace Ex_number_cpp
 	typedef std::map<const wchar_t*,table>::value_type table_vt;
 	
 	//map is required to not trigger reallocation
-	static std::map<const wchar_t*,table> tables;		
+	std::map<const wchar_t*,table> tables;		
 				
 	//// evaluation /////////////////////
 	
 	//__coff is short for computed offset
-	static const wchar_t *__coff = L"__coff", *__X = L"__%";	
-	static EX::_sysenum _sysoff(C*,const wchar_t*,size_t,float*);
+	const wchar_t *__coff; // = L"__coff";
+	const wchar_t *__X; // = L"__%";	
+	//EX::_sysenum _sysoff(C*,const wchar_t*,size_t,float*);
 	static EX::_sysenum _sysnan(C*,const wchar_t*,size_t,float*out)
 	{
 		*out = EX::NaN; return EX::constant; 
@@ -833,7 +892,8 @@ namespace Ex_number_cpp
 		//0: complex or "prime" number w/ real
 		//1: system number w/ precomputed subscript 
 		//2: custom number w/ precomputed subexpression
-		int mode(){	return !gloss||prime(gloss)?0:mode_1?1:2; }
+		//int mode(){	return !gloss||prime(gloss)?0:mode_1?1:2; }
+		int mode(C *c){ return !gloss||prime(c,gloss)?0:mode_1?1:2; }		
 		
 		union
 		{	
@@ -874,22 +934,22 @@ namespace Ex_number_cpp
 
 		shortstack stack; //...
 	};
-	static shortstack stack = 0; //!
+	shortstack stack = 0; //!
 						   
-	static const shortstack temporary = 0;
-	static const shortstack incomplete = 1;
+	const shortstack temporary = 0;
+	const shortstack incomplete = 1;
 
-	static std::vector<term> terms(2,term(0));
+	std::vector<term> terms; //terms(2,term(0));
 	
 	//REMOVE ME?
 	//(invalidates terms)
-	static shortstack pop() //recycling out
+	shortstack pop() //recycling out
 	{
 		if(stack) return terms[--stack].stack;
 
 		terms.push_back(term()); return terms.size()-1;
 	}
-	static void push(shortstack t) //recycling bin
+	void push(shortstack t) //recycling bin
 	{	 		
 		while(++t>2) //NEW: descend into __results numbers
 		//while(++t>2) t = terms[terms[stack++].stack=t-1].remaining;
@@ -899,7 +959,7 @@ namespace Ex_number_cpp
 		}		
 	}	
 
-	static const wchar_t *__unfolded = L"__unfolded";
+	const wchar_t *__unfolded; // = L"__unfolded";
 
 	static const EX::_sysenum side_effect = EX::_sysenum(EX::mismatch+1);
 
@@ -907,7 +967,7 @@ namespace Ex_number_cpp
 	{
 		return side_effect; //marker (produces no output)
 	}			
-	static void mark(shortstack after, const wchar_t *marker)
+	void mark(shortstack after, const wchar_t *marker)
 	{			
 		//hmm: invalidates terms
 		shortstack soda = pop(); 
@@ -920,16 +980,16 @@ namespace Ex_number_cpp
 
 #define END values.end() 
 	
-	static value_vc values;
+	value_vc values;
 	//data (assuming float is portable)
-	static std::basic_string<float> _values(1,0); 		
+	std::basic_string<float> _values; //_values(1,0); 		
 
-	static const wchar_t *__default = L"__default";
-	static const wchar_t *parameter = *glossary.find(L"_");	
+	const wchar_t *__default; // = L"__default";
+	const wchar_t *parameter; // = *glossary.find(L"_");	
 
-	static size_t parameters = 0; //d: -1 yields variable
-	static bool variable = false; //local input parameters
-	static bool evaluate(size_t t, size_t n=0, size_t d=0) 
+	size_t parameters = 0; //d: -1 yields variable
+	bool variable = false; //local input parameters
+	bool evaluate(size_t t, size_t n=0, size_t d=0) 
 	{
 		values.reserve(64); //2024
 
@@ -962,7 +1022,7 @@ namespace Ex_number_cpp
 
 		do{	term &term = terms[t];
 
-		switch(term.mode())
+		switch(term.mode(this))
 		{
 		case 0:	//prime number
 		{
@@ -974,7 +1034,7 @@ namespace Ex_number_cpp
 			{
 				if(!EX::isNaN(term.mode_0_real))
 				values.push_back(term.mode_0_real);			
-				prime(term.gloss)->value(END-term.arguments,END);
+				prime(this,term.gloss)->value(this,END-term.arguments,END);
 			}
 			else values.push_back //d: local parameters
 			(param<m?values[_+param]:value(EX::NaN,d)); 
@@ -996,7 +1056,7 @@ namespace Ex_number_cpp
 			}	   			
 			values.erase(END-term.arguments,END);
 		}
-		switch(term.mode_1(0/*this*/,term.gloss, 
+		switch(term.mode_1(this,term.gloss, 
 			   COFF_SUBSCRIPT,(float*)_values.data()))
 		{
 		case EX::variable: c = false; //falling thru
@@ -1049,8 +1109,8 @@ namespace Ex_number_cpp
 #undef END	
 			
 	//static const wchar_t *__coff = L"__coff";
-	static void _sum(pair);
-	EX::_sysenum _sysoff(C*, const wchar_t *in, size_t off, float *out)
+	//void _sum(pair);
+	static EX::_sysenum _sysoff(C *c, const wchar_t *in, size_t off, float *out)
 	{
 		size_t i = 0, n = *out; 
 		while(i<n&&out[++i]>=0) off+=out[i]; 		
@@ -1061,13 +1121,13 @@ namespace Ex_number_cpp
 		}
 		else if(*in) //todo: warnings
 		{	
-			term &temp = terms[temporary];
+			term &temp = c->terms[c->temporary];
 
 			//WARNING (2022)
 			//query returns uninitialized values
 			//where numbers aren't sparse arrays
 			//and values are unset
-			pair kv = tables[in].query(off);
+			pair kv = c->tables[in].query(c,off);
 			auto &v = kv->second;
 
 			if(!&v) //conservative 
@@ -1076,9 +1136,9 @@ namespace Ex_number_cpp
 				{
 					temp.gloss = in;
 					temp.mode_1_subscript = off;										
-					temp.arguments = parameters; //!!!
+					temp.arguments = c->parameters; //!!!
 
-					*out = temporary; 
+					*out = c->temporary; 
 				}
 				else *out = item::unknown_sum;
 			}
@@ -1087,7 +1147,7 @@ namespace Ex_number_cpp
 				//2020: not yet computed???
 				if(v.sum==item::unknown_sum)
 				{
-					_sum(kv);
+					c->_sum(kv);
 				}	
 				if(v.sum==item::constant_sum) 
 				{
@@ -1101,7 +1161,7 @@ namespace Ex_number_cpp
 
 					temp = v.z; 
 					
-					*out = temporary;
+					*out = c->temporary;
 				}
 				else *out = v.sum; 
 			}
@@ -1117,25 +1177,25 @@ namespace Ex_number_cpp
 
 		else staticout+=size_t(ti->real()); return staticout;
 	}
-	static size_t count(const wchar_t *in, size_t out=0)
+	size_t count(C *c, const wchar_t *in, size_t out=0)
 	{
 		if(!*in||out==item::unknown_sum) return 0;
 		
 		if(in==parameter) return parameters+1; //!!!
 
-		return prime(in)?1:tables[in].n();
+		return prime(this,in)?1:tables[in].n(c);
 	}
-	static EX::_sysenum _sysnth(C*, const wchar_t *in, size_t off, float *out)
+	static EX::_sysenum _sysnth(C *c, const wchar_t *in, size_t off, float *out)
 	{	
-		size_t n = count(subprime(in),off); *out = off>n?EX::NaN:n-off;
+		size_t n = c->count(c,c->subprime(in),off); *out = off>n?EX::NaN:n-off;
 
-		return in==parameter?EX::variable:EX::constant;
+		return in==c->parameter?EX::variable:EX::constant;
 	}
-	static EX::_sysenum _sysNth(C*, const wchar_t *in, size_t off, float *out)
+	static EX::_sysenum _sysNth(C *c, const wchar_t *in, size_t off, float *out)
 	{
-		size_t n = count(subprime(in),off); *out = off>=n?EX::NaN:off;
+		size_t n = c->count(c,c->subprime(in),off); *out = off>=n?EX::NaN:off;
 		
-		return in==parameter?EX::variable:EX::constant;
+		return in==c->parameter?EX::variable:EX::constant;
 	}
 
 	//// summation ////////////////////////////////
@@ -1148,17 +1208,20 @@ namespace Ex_number_cpp
 	//// into the assignment string input argument.
 	//// (for labels based on constant expressions)
 
-	static const wchar_t *n = *glossary.find(L"n");
-	static const wchar_t *_N = *glossary.find(L"_N");	
-	static const wchar_t *nan = *glossary.find(L"nan");
+	const wchar_t *n; // = *glossary.find(L"n");
+	const wchar_t *_N; // = *glossary.find(L"_N");	
+	const wchar_t *nan; // = *glossary.find(L"nan");
 
-	static bool nth(const wchar_t *f){ return f==n||f==_N; }
+	bool nth(const wchar_t *f){ return f==n||f==_N; }
 
 	//__of is an operator that yields left of right
-	static const wchar_t *__of = *glossary.find(L"__of");
+	const wchar_t *__of; // = *glossary.find(L"__of");
 
-	static const wchar_t *_S = *glossary.find(L"_S");
-	static const wchar_t *_dollars = *glossary.find(L"_$");		
+	const wchar_t *_S; // = *glossary.find(L"_S");
+	const wchar_t *_dollars; // = *glossary.find(L"_$");		
+
+	const wchar_t *abs; // = *glossary.find(L"abs");
+	const wchar_t *plus; // = *glossary.find(L"+");
 
 	//Reminder: labels shove two integers in second
 	struct lexeme:std::pair<const wchar_t*,float>
@@ -1173,11 +1236,12 @@ namespace Ex_number_cpp
 	typedef std::vector<lexeme> lexeme_vc;	 
 	typedef lexeme_vc::const_iterator lexeme_it;
 
-	static lexeme_vc &nul = *(lexeme_vc*)0, pad; //private
+	lexeme_vc pad;
+	static lexeme_vc &nul; // = *(lexeme_vc*)0; //private	
 
 	#define return(x){ assert(x); return x; }
 	//step 1) translate/validate/collate input	
-	static size_t lex(pair io, size_t sep, lexeme_vc &out=nul, lexeme *c=0)
+	size_t lex(pair io, size_t sep, lexeme_vc &out=nul, lexeme *c=0)
 	{			
 		//c: entering subexpression (closure)
 		int _s = c?io->second.assignment_s:0;
@@ -1243,7 +1307,7 @@ namespace Ex_number_cpp
 					}
 					home: home+=q-p; continue;
 				}
-				if(!ws&&prime(f).op()) //eg. 1+ 2
+				if(!ws&&prime(this,f).op()) //eg. 1+ 2
 				{
 					if(wr) out.push_back(lexeme(/*0,0*/)); //1+0 2
 
@@ -1292,14 +1356,17 @@ namespace Ex_number_cpp
 					}			
 				}
 				 
-				if(e==p||prime(*ti).mono()){ p = e; e = *ti; break; } 
+				if(e==p||prime(this,*ti).mono())
+				{
+					p = e; e = *ti; break; 
+				} 
 			}
 			case 0: case ',': case ';': //sans suffix
 			
 			case EX_NUMBER_WS: p = e; e = 0; //!
 			}
 			
-			prime fp(f), ep(e); //wcstod
+			prime fp(this,f), ep(this,e); //wcstod
 
 			//2017: Adapting c to !wr scenario. (Found a bug.)
 			enum{ GROUP=sizeof(prime_pod)/sizeof(wchar_t) };
@@ -1457,7 +1524,7 @@ namespace Ex_number_cpp
 					l.first = parentheses;
 
 					//static: assuming "abs" will not be overloaded
-					static const wchar_t *abs = *glossary.find(L"abs");
+					//static const wchar_t *abs = *glossary.find(L"abs");
 
 					if(wr) out.push_back(lexeme(abs,0)); 
 				}
@@ -1535,7 +1602,9 @@ namespace Ex_number_cpp
 					assert(!subscript||s==0);
 					
 					if(subscript_e) //!=tables.end()
-					s = subscript_e->follow_label(s,p,+1,i,i);
+					{
+						s = subscript_e->follow_label(this,s,p,+1,i,i);
+					}
 
 					if(subscript) //continuing subscript
 					{
@@ -1595,7 +1664,7 @@ namespace Ex_number_cpp
 			
 			if(l.first==__X) return(0); //%
 
-		default: if(prime(l.first).op()) //eg. 1+
+		default: if(prime(this,l.first).op()) //eg. 1+
 				
 			if(wr) out.push_back(lexeme(/*0,0*/)); //0 
 
@@ -1616,7 +1685,7 @@ namespace Ex_number_cpp
 	}
 	#undef return
 	//step 2) transform into RPN (shunting yard)
-	static lexeme_vc &rpn(lexeme_vc &io, size_t io_i=0) 
+	lexeme_vc &rpn(lexeme_vc &io, size_t io_i=0) 
 	{
 		size_t opargs = 1, chain = 0;		
 		size_t fargs[10] = {0,0,0,0,0,0,0,0,0,0};
@@ -1630,7 +1699,7 @@ namespace Ex_number_cpp
 		size_t out = io_i; 
 		for(size_t i=io_i,io_s=io.size()-1;i<io_s;i++)
 		{
-			prime fp(io[i].first);
+			prime fp(this,io[i].first);
 
 			if(fp.mono()) //number
 			{	
@@ -1645,7 +1714,7 @@ namespace Ex_number_cpp
 			{
 				while(stack.size()!=empty)
 				{
-					prime tp(stack.back().first);
+					prime tp(this,stack.back().first);
 
 					if(tp.op()&&(fp.lop()&&fp<=tp||fp<tp))
 					{
@@ -1701,7 +1770,7 @@ namespace Ex_number_cpp
 							//if(prime(io[out-1].first).mono()) 
 							//2020: this isn't picking up x[1_](y)
 							//if(io[i-1]==io[out-1]&&prime(io[i-1].first).mono())
-							if(prime(f.first).mono()) 
+							if(prime(this,f.first).mono()) 
 							{
 								//NOTE: i-1==out-1 doesn't cut it, but I worry that
 								//io[i-1]==io[out-1] could perhaps be a coincidence
@@ -1732,7 +1801,7 @@ namespace Ex_number_cpp
 					while(stack.size()!=empty
 					&&stack.back().first!=parentheses)    
 					{   
-						assert(prime(stack.back().first).op());
+						assert(prime(this,stack.back().first).op());
 						io[out++] = stack.back(); stack.pop_back();						
 						io[out-1].second+=opargs; opargs = 1;
 					}  
@@ -1748,12 +1817,12 @@ namespace Ex_number_cpp
 						//If an operator does not exist to the left
 						//or to the right, then an implicit + exists
 						//static: assuming "+" will not be overloaded
-						static const wchar_t *plus = *glossary.find(L"+");
+						//static const wchar_t *plus = *glossary.find(L"+");
 
 						if(stack.size()==1 //check for operators
-						||!prime(stack[stack.size()-2].first).op()) //left?
+						||!prime(this,stack[stack.size()-2].first).op()) //left?
 						{	
-							if(!prime(io[i+1].first).op()&&opargs>1) //right?
+							if(!prime(this,io[i+1].first).op()&&opargs>1) //right?
 							{	
 								io[out++] = lexeme(plus,opargs); opargs = 1; 
 							}
@@ -1804,14 +1873,14 @@ namespace Ex_number_cpp
 		}
 		while(stack.size()!=empty)
 		{
-			assert(prime(stack.back().first).op());
+			assert(prime(this,stack.back().first).op());
 			io[out++] = stack.back(); stack.pop_back();
 			io[out-1].second+=opargs; opargs = 1;
 		}
 		io.resize(out); return io;
 	}
 	//step 3) convert RPN to unoptimized bytecode
-	static item &sum(pair io, const lexeme_vc &in=nul, size_t in_i=~0) //0
+	item &sum(pair io, const lexeme_vc &in=nul, size_t in_i=~0) //0
 	{
 		if(&in==&nul) //run the gamut
 		{
@@ -1839,7 +1908,7 @@ namespace Ex_number_cpp
 		}
 		else if(in.size()<=in_i) //paranoia
 		{
-			assert(in_i!=~0); //2021
+			assert(in_i!=~0); //2021: just pass a 0 here
 
 			io->second.sum = incomplete; return io->second;
 		}
@@ -1859,7 +1928,7 @@ namespace Ex_number_cpp
 
 			size_t fargs = 0;
 			const wchar_t *f = 0;
-			prime fp(f=in[i].first);
+			prime fp(this,f=in[i].first);
 
 			if(f) //argument list?
 			{
@@ -1871,7 +1940,7 @@ namespace Ex_number_cpp
 				{
 					fargs = in[i].second; //i++
 					
-					fp = prime(f=in[++i].first);
+					fp = prime(this,f=in[++i].first);
 				}
 			}
 			
@@ -1910,10 +1979,10 @@ namespace Ex_number_cpp
 							{	
 								base+=io._N();
 								term.mode_0_real = 
-								io->first.follow_label(base,f,+1,i);
+								io->first.follow_label(this,base,f,+1,i);
 							}
 							else term.mode_0_real = 
-							tables[it->first].follow_label(base,f,+1,i);
+							tables[it->first].follow_label(this,base,f,+1,i);
 							term.mode_0_real-=base;							
 						}			
 					}
@@ -1968,7 +2037,7 @@ namespace Ex_number_cpp
 						term.mode_1 = 0;
 						table &table = //hack
 						f==__results?io->first:tables[f];
-						pair kv = table.query(in[i].second);
+						pair kv = table.query(this,in[i].second);
 
 						if(in[i].second<0) //coff
 						{								
@@ -2028,7 +2097,7 @@ namespace Ex_number_cpp
 						}
 						else term = refs->z;
 					}
-					else if(prime(term.gloss=io->first.keyname()))
+					else if(prime(this,term.gloss=io->first.keyname()))
 					{
 						term.mode_0_parameter = 0;
 
@@ -2132,9 +2201,9 @@ namespace Ex_number_cpp
 		out.z = values.back();
 		values.resize(clear); return out;
 	}
-	static void _sum(pair kv){ sum(kv); } //_sysoff
+	void _sum(pair kv){ sum(kv); } //_sysoff
 	//step 4) calculate a result
-	static float run(pair in, const float *f=0, size_t f_s=0) 
+	float run(pair in, const float *f=0, size_t f_s=0) 
 	{
 		if(!&in->second)
 		{
@@ -2163,7 +2232,11 @@ namespace Ex_number_cpp
 		else return in->second.z;
 	}		 				
 	//step $) wrappers and clobbering
-	static void preassign(table &lv, size_t lv_s, const wchar_t *rv)
+	inline void preassign(pair kv, const wchar_t *rv)
+	{
+		return preassign(kv->first,kv._N(),rv);
+	}
+	void preassign(table &lv, size_t lv_s, const wchar_t *rv)
 	{		
 		//todo: if part of a series is reassigned
 		//then bust up the rest of the series into
@@ -2188,15 +2261,15 @@ namespace Ex_number_cpp
 				if(*d!=']') _s = lv_s;
 			}
 
-			item &self = lv.itemize(_s);
+			item &self = lv.itemize(this,_s);
 
 			if(&self&&self.sum!=incomplete)
 			{	
-				item *refs = new item;
+				item *refs = new item(this);
 
 				if(self.sum==item::unknown_sum) sum(lv(_s));				
 
-				item &base = lv.itemize(_s-self.assignment_s);
+				item &base = lv.itemize(this,_s-self.assignment_s);
 
 				refs->assignment = base.assignment;
 				refs->assignment_s = self.assignment_s;				
@@ -2212,24 +2285,24 @@ namespace Ex_number_cpp
 	///// lightweight numbers //////////////	
 	
 	//static const wchar_t *__results = L"__results";  
-	static table_vt table_vt_of_results(__results,table());	
+	table_vt table_vt_of_results; //= table_vt(__results,table());	
 
-	static table &table_of_results = table_vt_of_results.second;
+	table &table_of_results = table_vt_of_results.second;
 
 	struct result{ size_t sum, len; float min, *nan, max; };
 
-	static std::map<const float*,result> results; 
+	std::map<const float*,result> results; 
 
 	typedef std::map<const float*,result>::iterator result_it; 
 	typedef std::map<const float*,result>::value_type result_vt;
 
-	static size_t read_result_hit = 0; //private//
+	size_t read_result_hit = 0; //private//
 
-	static const result_vt missing_result(nullptr,result());
+	const result_vt missing_result = result_vt(nullptr,result());
 
-	static std::deque<const result_vt*> cache_of_results(5,&missing_result);
+	std::deque<const result_vt*> cache_of_results; //(5,&missing_result); //???
 
-	static const result_vt *find_result(const float *key) 
+	const result_vt *find_result(const float *key) 
 	{
 		result_it it = results.find(key);
 		
@@ -2240,13 +2313,13 @@ namespace Ex_number_cpp
 		
 		read_result_hit = 0; return &*it;
 	}
-	static const result_vt *need_result(const float *key) 
+	const result_vt *need_result(const float *key) 
 	{			
 		if(cache_of_results[0]->first==key) return cache_of_results[0];
 
 		return key==&EX::NaN?&missing_result:find_result(key);
 	}
-	static const result_vt *read_result(const float *key) 
+	const result_vt *read_result(const float *key) 
 	{
 		if(cache_of_results[read_result_hit]->first==key)
 		{
@@ -2261,7 +2334,7 @@ namespace Ex_number_cpp
 		}
 		return find_result(key);
 	} 	
-	static void void_result()
+	void void_result()
 	{
 		if(cache_of_results[0]!=&missing_result) 
 		for(size_t i=0;i<cache_of_results.size();i++)
@@ -2269,122 +2342,31 @@ namespace Ex_number_cpp
 			cache_of_results[i] = &missing_result;
 		}
 	}
-}
-namespace EX{
-namespace cpp = Ex_number_cpp;
-typedef class EX::Calculator
+};
+C::lexeme_vc &C::nul = *(lexeme_vc*)0;
+
+extern EX::Calculator *EX::c = nullptr;
+
+extern C *EX::new_calculator()
 {
-public: 	
-#ifndef EX_CALCULATORS
-	
-	static EX::critical _cs; //2022: som.MPX.cpp
-
-	static float &_E;
-	static cpp::value_vc &values;
-	static cpp::shortstack &stack;
-	static std::vector<cpp::term> &terms;		
-	static std::map<const wchar_t*,cpp::table> &tables;
-	
-	//REMOVE ME?
-	inline cpp::shortstack pop(){ return cpp::pop(); } 
-	//REMOVE ME?	
-	inline void push(cpp::shortstack t){ return cpp::push(t); }	
-	inline void evaluate(size_t t, size_t _=0){ cpp::evaluate(t,_); }
-
-	//todo: these should be private
-	static cpp::lexeme_vc &nul, &pad;
-	//todo: move body of these methods into EX::Calculator
-	inline size_t lex(cpp::pair io, size_t sep, cpp::lexeme_vc &out=nul, cpp::lexeme *c=0)
-	{
-		return cpp::lex(io,sep,out,c);
-	}								  
-	inline cpp::lexeme_vc &rpn(cpp::lexeme_vc &io, size_t io_i=0) 
-	{
-		return cpp::rpn(io,io_i);
-	}
-	inline cpp::item &sum(cpp::pair io, const cpp::lexeme_vc &in=nul, size_t in_i=0)
-	{
-		return cpp::sum(io,in,in_i);
-	}
-	inline float run(cpp::pair io, const float *f=0, size_t f_s=0)
-	{
-		return cpp::run(io,f,f_s);
-	}
-	inline void preassign(cpp::pair kv, const wchar_t *rv)
-	{
-		return cpp::preassign(kv->first,kv._N(),rv);
-	}
-
-	static cpp::table &table_of_results;	
-	static std::map<const float*,cpp::result> &results;
-
-	inline const cpp::result_vt *need_result(const float *key)
-	{
-		return cpp::need_result(key);
-	}
-	inline const cpp::result_vt *read_result(const float *key)
-	{
-		return cpp::read_result(key);
-	}
-	inline void void_result()
-	{
-		return cpp::void_result();
-	}
-
-#else
-
-	todo: Ex_number_cpp as prototype
-
-#endif
-	
-	typedef cpp::result_vt result_vt; 
-	typedef cpp::result_it result_it; 
-	typedef cpp::result result; 
-	typedef cpp::value_it value_it; 	
-	typedef cpp::table_it table_it; 	
-	typedef cpp::table table; 
-	typedef cpp::item item;	
-	typedef cpp::pair pair;	
-	typedef cpp::term term;	
-}C;
-
-#ifndef EX_CALCULATORS	
-EX::critical C::_cs; //2022: som.MPX.cpp
-float &C::_E = cpp::_E;
-cpp::value_vc &C::values = cpp::values;
-cpp::shortstack &C::stack = cpp::stack;
-std::vector<cpp::term> &C::terms = cpp::terms;
-std::map<const wchar_t*,cpp::table> &C::tables = cpp::tables;
-std::map<const float*,cpp::result> &C::results = cpp::results; 
-cpp::lexeme_vc &C::pad = cpp::pad, &C::nul = *(cpp::lexeme_vc*)0;
-cpp::table &C::table_of_results = cpp::table_of_results;	
-#endif
-
-}typedef EX::Calculator C;
+	return new C;
+}
+extern void EX::recycle_calculator(C *c)
+{
+	delete c;
+}
 
 namespace Ex_number_cpp
 {
-#ifdef EX_CALCULATORS
-
 	static inline float *new_key(C *c, size_t size=1)
 	{
 		char *out = new char[sizeof(c)+sizeof(float)*size];
 
-		*(C**)&out = c; return (float*)(out+sizeof(C*));
+		*(C**)out = c; return (float*)(out+sizeof(c));
 	}	   		
 	static inline void delete_key(float *key){ delete[] ((C**)key-1);	}		
 
 	static inline C *claim_key(const float *key){ return *((C**)key-1); }
-
-#else //compare and contrast
-
-	static inline C *claim_key(const float *key){ return 0; }
-
-	static inline float *new_key(C *c, size_t size=1){ return new float[size]; }	   	
-
-	static inline void delete_key(float *key){ delete[] key; }	
-
-#endif
 }
 extern void EX::resetting_numbers_to_scratch(C *c)
 {
@@ -2403,13 +2385,13 @@ extern void EX::refreshing_numbers_en_masse(C *c)
 			//2021: I think this is correct since I've changed the default
 			//behavior to ignore already computed sums
 			//c->sum(kv);
-			c->sum(kv,c->pad);
+			c->sum(kv,c->pad,0);
 			
 			kv = it->second.next_assignment(kv._N());
 		}
 	}
 }
-static EX::_sysenum Ex_number_cpp_r(C *C, const wchar_t*, size_t r, float *out)
+static EX::_sysenum Ex_number_cpp_r(C *c, const wchar_t*, size_t r, float *out)
 {
 	int rout = rand(); switch(r)
 	{
@@ -2551,23 +2533,22 @@ extern void EX::including_number_id(C *c, const wchar_t *id, const wchar_t *di)
 	EX::assigning_number(c,di,Ex_number_cpp_di,4096+4096);
 }
 					  
-static const wchar_t *Ex_number_key(const wchar_t *gloss)
+static const wchar_t *Ex_number_key(C *c, const wchar_t *gloss)
 {	
 	//hack: 0~9 is used by arg count lexemes
 	if(*gloss<='0'&&*gloss<='9') gloss = L""; 
 
-	Ex_number_cpp::glossary_it it = 
-	Ex_number_cpp::glossary.find(gloss);
+	auto it = c->glossary.find(gloss);
 
-	if(it==Ex_number_cpp::glossary.end()) 
+	if(it==c->glossary.end()) 
 	{
 		wchar_t *dup = //MEMORY LEAK
 		std::wcscpy(new wchar_t[std::wcslen(gloss)+1],gloss);
 
-		return *Ex_number_cpp::glossary.insert(dup).first;
+		return *c->glossary.insert(dup).first;
 	}
 	//hack: thwart overloading of prime numbers (for now)
-	if(Ex_number_cpp::prime(*it)) return Ex_number_key(L"");
+	if(C::prime(c,*it)) return Ex_number_key(c,L"");
 
 	return *it; 
 }	   
@@ -2604,7 +2585,7 @@ static C::pair Ex_number_pair(C *c, const wchar_t *lv, const wchar_t **rv=0)
 		EX::is_needed_to_shutdown_immediately();
 	}		   		
 
-	C::table &table = c->tables[Ex_number_key(name)];
+	C::table &table = c->tables[Ex_number_key(c,name)];
 
 	if(label&&*label=='_') 
 	{
@@ -2735,7 +2716,7 @@ extern void EX::debugging_number(C *c, const wchar_t *lv, const wchar_t *rv)
 
 	for(size_t sep=0;sep=c->lex(kv,sep,c->pad);c->pad.clear())
 	{
-		c->rpn(c->pad); c->sum(kv++,c->pad); //more testing	
+		c->rpn(c->pad); c->sum(kv++,c->pad,0); //more testing	
 	}	
 	if(c->pad.size()) c->pad.clear(); //error
 }
@@ -2753,21 +2734,21 @@ extern const wchar_t *EX::assigning_number
 	if(!c->table_of_results.items_empty())
 	{																	 
 		C::item &lw = //lightweight
-		c->table_of_results.itemize(0);
+		c->table_of_results.itemize(c,0);
 
 		std::wstring &a = lw.assignment;
 		if(rv<=a.c_str()||rv>=a.c_str()+a.length())
 		{
 			//if variable then thwart recycling
 			if(~lw.z) lw.sum = lw.constant_sum;
-			size_t n = c->table_of_results.n();
+			size_t n = c->table_of_results.n(c);
 			for(size_t i=1;i<n;i++) //shadowing
 			{
-				C::item &lw = c->table_of_results.itemize(i);
+				C::item &lw = c->table_of_results.itemize(c,i);
 				
 				if(~lw.z) lw.sum = lw.constant_sum;
 			}
-			c->table_of_results.items_clear();
+			c->table_of_results.items_clear(c);
 		}
 		else //continuing series
 		{
@@ -2775,7 +2756,7 @@ extern const wchar_t *EX::assigning_number
 		}
 	}	
 
-	size_t _s = c->table_of_results.n();
+	size_t _s = c->table_of_results.n(c);
 	C::pair kv = c->table_of_results[_s]; 
 
 	C::item &lw = kv->second; //lightweight
@@ -2783,7 +2764,7 @@ extern const wchar_t *EX::assigning_number
 		
 	//__X: suppress default params
 	//todo: c->pad should be private	
-	c->pad.push_back(std::make_pair(Ex_number_cpp::__X,0.0f));
+	c->pad.push_back(std::make_pair(c->__X,0.0f));
 
 	sep = c->lex(kv,sep,c->pad);
 		  
@@ -2802,18 +2783,18 @@ extern const wchar_t *EX::assigning_number
 	else c->rpn(c->pad);
 
 	for(size_t i=0;i<c->pad.size();i++)
-	if(c->pad[i].first==Ex_number_cpp::_dollars) //_$
+	if(c->pad[i].first==c->_dollars) //_$
 	{		
 		if(c->pad[i].second>_s) break; 
 		if(c->pad[i].second<_s) continue;
 
-		lw.self_references = new C::item;
+		lw.self_references = new C::item(c);
 		lw.self_references->sum = c->need_result(key)->second.sum; 		
 		lw.self_references->z = *key; break;
 	}
-	else if(c->pad[i].first==Ex_number_cpp::parameter) _++;
+	else if(c->pad[i].first==c->parameter) _++;
 
-	c->sum(kv,c->pad); c->pad.clear(); 
+	c->sum(kv,c->pad,0); c->pad.clear(); 
 									 
 	if(lw.self_references) //thwart recycling
 	lw.self_references->sum = lw.constant_sum;
@@ -2874,14 +2855,14 @@ extern int EX::assigning_numbering
 	if(!c->table_of_results.items_empty())
 	{										
 		//if variable then thwart recycling
-		size_t n = c->table_of_results.n();
+		size_t n = c->table_of_results.n(c);
 		for(size_t i=0;i<n;i++) //shadowing
 		{
-			C::item &lw = c->table_of_results.itemize(i);
+			C::item &lw = c->table_of_results.itemize(c,i);
 				
 			if(~lw.z) lw.sum = lw.constant_sum;
 		}
-		c->table_of_results.items_clear();
+		c->table_of_results.items_clear(c);
 	}
 
 	while(rv[sep]&&++_s<len)
@@ -2898,20 +2879,20 @@ extern int EX::assigning_numbering
 		if(sep) c->rpn(c->pad); else break; 
 
 		for(size_t i=0;i<c->pad.size();i++)
-		if(c->pad[i].first==Ex_number_cpp::_dollars) //_$
+		if(c->pad[i].first==c->_dollars) //_$
 		{		
 			if(c->pad[i].second>_s) break; 
 			if(c->pad[i].second<_s) continue;
 
-			lw.self_references = new C::item;
+			lw.self_references = new C::item(c);
 			lw.self_references->z = key?key[_s]:EX::NaN;
 			lw.self_references->sum = sum; break;
 		}
-		else if(c->pad[i].first==Ex_number_cpp::parameter) _++;
+		else if(c->pad[i].first==c->parameter) _++;
 		
 		if(_){ sep = 0; break; } //not allowed
 
-		c->sum(kv,c->pad); c->pad.clear(); 
+		c->sum(kv,c->pad,0); c->pad.clear(); 
 										 
 		if(lw.self_references) //thwart recycling
 		lw.self_references->sum = lw.constant_sum;
@@ -2969,7 +2950,7 @@ extern int EX::assigning_numbering
 					//each item in the series
 					//has to be one term wide
 					C::term &term = c->terms[soda];
-					term.gloss = Ex_number_cpp::__results;
+					term.gloss = c->__results;
 					term.mode_1 = 0;
 					term.recursing = lw.sum;
 					term.arguments = 0;
@@ -3071,12 +3052,16 @@ extern bool EX::reevaluating_number(const float *f)
 }
 extern float EX::reevaluating_number(C *c, const wchar_t *lv)
 {
+	assert(c); //2024
+
 	EX::section raii(c->_cs); //2022: som.MPX.cpp
 
 	return c->run(Ex_number_pair(c,lv));
 }
 extern void EX::reevaluating_numbers(C *c)
 {
+	assert(c); //2024
+
 	EX::section raii(c->_cs); //2022: som.MPX.cpp
 
 	C::result_it it = c->results.begin(), end = c->results.end();
@@ -3114,11 +3099,11 @@ extern void EX::resigning_number(const float *lv)
 
 	Ex_number_cpp::delete_key(key);
 					  
-#ifndef EX_CALCULATORS //hack: static globals
+//#ifndef EX_CALCULATORS //hack: static globals
 
 	if(EX::detached) return; //assuming detaching
 
-#endif
+//#endif
 
 	C::result_it it = c->results.find(key);
 

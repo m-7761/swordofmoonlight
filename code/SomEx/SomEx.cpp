@@ -243,15 +243,17 @@ extern int EX::is_needed_to_initialize()
 	(L"%TEMP%\\Swordofmoonlight.net\\SomEx-"
 	EX_WCSTRING(SOMEX_VERSION)L"-",EX::exe()); 
 	(void)_cr;
-	
-	if(EX::debug //2024: Exselector->watch?
-	||EX::INI::Launch()->do_ask_to_attach_debugger)
+
+	//having SomEx.ini.cpp rely on Exselector
+	//if(EX::debug //2024: Exselector->watch?
+	//||EX::INI::Launch()->do_ask_to_attach_debugger)
 	{
-		SomEx_load_Exselector();
+		SomEx_load_Exselector(); //Ex.ini
 	}
 	EX::INI::initialize(); //gross initialization
 
-	float f = EX::reevaluating_number(0,L"_MODE"); 
+	auto *c = EX::need_calculator();
+	float f = EX::reevaluating_number(c,L"_MODE"); 
 	if(f>=0) EX__INI__Number___MODE = f; //NaN?
 
 	EX::INI::Window wn; EX::INI::Bugfix bf;
@@ -652,6 +654,11 @@ tool: //things meaningful to tools starts here
 	SOM::kickoff_somhacks_thread(); 		
 
 	EXLOG_HELLO(0) << "SomEx initialized\n";
+
+	if(EX::debug&&Exselector)
+	{
+		Exselector->extensions();
+	}
 
 	return 1; //for static thunks
 }
@@ -2097,11 +2104,11 @@ static EX::_sysenum SomEx_pc_or_npc(int pc, size_t i, float *out)
 	return EX::variable; 
 }
 static EX::_sysenum SomEx_builtin_no
-(EX::Calculator*, const wchar_t *c, size_t num, float *out)
+(EX::Calculator*cc, const wchar_t *c, size_t num, float *out)
 {
 	*out = EX::NaN; //lazy
 
-	//REMEMBER TO UPDATE EX::assigning_number(0,L"pc",_no,13);
+	//REMEMBER TO UPDATE EX::assigning_number(cc,L"pc",_no,13);
 
 	switch(c[0])
 	{
@@ -2133,23 +2140,24 @@ static EX::_sysenum SomEx_builtin_no
 
 extern void EX::numbers()
 {
-	EX::resetting_numbers_to_scratch(0);
+	auto *c = EX::need_calculator();
+	EX::resetting_numbers_to_scratch(c);
 	
 	//CRASHING TOOLS
 	//if(!SOM::game) return;
-	EX::including_number_r(0);
-	EX::including_number_id(0);
+	EX::including_number_r(c);
+	EX::including_number_id(c);
 	if(SOMEX_VNUMBER>=0x102010EUL) 
-	EX::assigning_number(0,L"_MODE",L"0");
+	EX::assigning_number(c,L"_MODE",L"0");
 	//SomEx_editor_no is always NaN
 	EX::_sysnum _no = SomEx_editor_no;
 	if(SOM::game) _no = SomEx_builtin_no;
 	//if(SOM::L.pcstatus)
-	EX::assigning_number(0,L"pc",_no,17);
+	EX::assigning_number(c,L"pc",_no,17);
 	//2020: guess I forgot to add npc???
-	EX::assigning_number(0,L"npc",_no,17); 
+	EX::assigning_number(c,L"npc",_no,17); 
 	//if(SOM::L.counters)
-	EX::assigning_number(0,L"c",_no,1024);
+	EX::assigning_number(c,L"c",_no,1024);
 	//FIX ME?
 	//the [Number] section is initialized
 	//by tools too :(
@@ -2160,44 +2168,45 @@ extern void EX::numbers()
 	{
 		wchar_t c[] = L"c_0000_"; const wchar_t *c_label = 
 		EX::need_unicode_equivalent(932,SOM::PARAM::Sys.dat->counters[i]);		
-		if(swprintf(c,L"c_%d_",i)>0) EX::assigning_number(0,c,c_label);
+		if(swprintf(c,L"c_%d_",i)>0) 
+		EX::assigning_number(EX::need_calculator(),c,c_label); //c
 	}			   
 	if(SOM::game) _no = SomEx_system_no;
 	if(SOM::game) SOM::PARAM::Sys.dat->open();	
-	EX::assigning_number(0,L"_WALK",_no,1);
-	EX::assigning_number(0,L"_DASH",_no,1);
-	EX::assigning_number(0,L"_TURN",_no,1);
+	EX::assigning_number(c,L"_WALK",_no,1);
+	EX::assigning_number(c,L"_DASH",_no,1);
+	EX::assigning_number(c,L"_TURN",_no,1);
 
 #ifdef _DEBUG //testing
 
-	//EX::debugging_number(0,L"test_1",L"1+ 2");
-	//EX::debugging_number(0,L"test_2",L"2 +3");
-	//EX::debugging_number(0,L"test_3",L"3 + 4");
-	//EX::debugging_number(0,L"test_4",L"4 + -5");
-	//EX::debugging_number(0,L"test_5",L"5 +-6");
-	//EX::debugging_number(0,L"test_6",L"-6+7");
-	//EX::debugging_number(0,L"test_7",L"-7--8");
-	//EX::debugging_number(0,L"test_8",L"-8 --9");
-	//EX::debugging_number(0,L"test_9_a",L"8(c)");
-	//EX::debugging_number(0,L"test_10",L"c[a]");
-	//EX::debugging_number(0,L"test_12",L"pow(2,2)");
-	//EX::debugging_number(0,L"test_13",L"(2,2)-|1,1|");
-	//EX::debugging_number(0,L"test_14",L"()-((3,3)*(4,4))");
-	//EX::debugging_number(0,L"test_15_label",L"test[1+2][label](3+4)");
+	//EX::debugging_number(c,L"test_1",L"1+ 2");
+	//EX::debugging_number(c,L"test_2",L"2 +3");
+	//EX::debugging_number(c,L"test_3",L"3 + 4");
+	//EX::debugging_number(c,L"test_4",L"4 + -5");
+	//EX::debugging_number(c,L"test_5",L"5 +-6");
+	//EX::debugging_number(c,L"test_6",L"-6+7");
+	//EX::debugging_number(c,L"test_7",L"-7--8");
+	//EX::debugging_number(c,L"test_8",L"-8 --9");
+	//EX::debugging_number(c,L"test_9_a",L"8(c)");
+	//EX::debugging_number(c,L"test_10",L"c[a]");
+	//EX::debugging_number(c,L"test_12",L"pow(2,2)");
+	//EX::debugging_number(c,L"test_13",L"(2,2)-|1,1|");
+	//EX::debugging_number(c,L"test_14",L"()-((3,3)*(4,4))");
+	//EX::debugging_number(c,L"test_15_label",L"test[1+2][label](3+4)");
 	
-	//EX::debugging_number(0,L"test_0",L"abs(2)c");
-	//EX::debugging_number(0,L"test_1",L"abs(2)c[1+2](3+4)");
+	//EX::debugging_number(c,L"test_0",L"abs(2)c");
+	//EX::debugging_number(c,L"test_1",L"abs(2)c[1+2](3+4)");
 		
-	//EX::debugging_number(0,L"add_1_x",L"%n(1_)");
-	//EX::debugging_number(0,L"add_2_y",L"%n(1_)+3");
-	//EX::debugging_number(0,L"add_0_f",L"_[x]+_[y]");	
-	//EX::debugging_number(0,L"test_0",L"add");
+	//EX::debugging_number(c,L"add_1_x",L"%n(1_)");
+	//EX::debugging_number(c,L"add_2_y",L"%n(1_)+3");
+	//EX::debugging_number(c,L"add_0_f",L"_[x]+_[y]");	
+	//EX::debugging_number(c,L"test_0",L"add");
 	
-	//EX::debugging_number(0,L"test_0",L"n(abs(1)c[1])");
+	//EX::debugging_number(c,L"test_0",L"n(abs(1)c[1])");
 
-	//EX::debugging_number(0,L"test_0",L"pow(2,2)");
+	//EX::debugging_number(c,L"test_0",L"pow(2,2)");
 
-	//EX::debugging_number(0,L"_WALK",L"_$*2");
+	//EX::debugging_number(c,L"_WALK",L"_$*2");
 
 	//EX_INI_NUMBER(-100000,0,100000) test, test2, test3, test4;
 								

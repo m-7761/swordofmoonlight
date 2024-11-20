@@ -1,6 +1,11 @@
 		
 #include "Exselector.pch.h" //PCH
 
+#include <map>
+
+#include "../SomEx/Ex.h"
+#include "../SomEx/SomEx.ini.h"
+
 //TEMPORARY
 //these just repackage dllexport defintions
 #undef interface
@@ -724,4 +729,230 @@ Widgets95::node *Exselector::watch(const char *name, const type_info &type, void
 	wglMakeCurrent(dc,glrc); //guarding
 
 	return ret;
+}
+
+static std::map<size_t,void*> Exselector_sections;
+
+bool Exselector::_section(size_t ti, size_t sz, void **o)
+{
+	EX_CRITICAL_SECTION
+	void* &p = Exselector_sections[ti];
+	bool ret;
+	if(ret=!p) 
+	p = new BYTE[sz](); *o = p;
+	return ret;
+}
+
+static Widgets95::ui::ti *Exselector_new_edit(Widgets95::ui::rollout*p, const char *l, int total)
+{
+	if(total%10==0) new Widgets95::ui::column(p);
+
+	auto *tb = new Widgets95::ui::wordproc(p,l);
+	
+	tb->expand(); tb->lock(1,0); tb->span(250); tb->drop(10); 
+	
+	return tb;
+}
+static void Exselector_set_text(Widgets95::ui::ti *tb, EX::INI::Section &s, const char *l)
+{
+	const wchar_t *w = s.get(l); 
+	
+	int nl = *w?1:0; 
+
+	if(!*w) w = L"\n"; //HACK
+
+	std::string ss;
+	
+	while(*w)
+	{
+		if(*w=='\n') nl++;
+
+		ss.push_back(*w++);
+	}
+	
+	tb->lim_max() = nl; 
+
+	if(nl<=1) tb->scrollbar->set_hidden();
+
+	tb->set_text(ss.c_str());
+}
+
+void Exselector::extensions()
+{
+	return; //DISABLING
+
+	static bool one_off = true; //!
+	if(one_off) return; one_off = true; //EXPERIMENTAL
+
+	auto* &ui = Exselector_main_win; //REPURPOSING (for now)
+
+	//NOTE: if a new window were to be created here it
+	//would have to be injected into the glutMainLoop
+	//thread somehow (glutIdleFunc? I don't know)
+	if(!ui)
+	{
+		Exselector_kickoff_main_thread(); Sleep(250);
+	}
+	HDC dc = wglGetCurrentDC();
+	HGLRC glrc = wglGetCurrentContext();
+
+	int total = 0;
+	Widgets95::ui::ti *c;
+	EX::INI::Adjust ad;
+	Widgets95::ui::rollout *p;
+	#define _(A) \
+	p = new Widgets95::ui::rollout(ui,#A,false);		
+	#define LOOKUP(A,B,C) \
+	if(strcmp(#C,"total_failures"))\
+	{\
+		c = Exselector_new_edit(p,#C,total++);\
+		Exselector_set_text(c,*sx._section,#C);\
+	}
+	_(Adjust)
+	{
+		total = 0;
+		EX::INI::Adjust ad, &sx = ad;
+		#define SOMEX_INI_ADJUST_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_ADJUST_SECTION
+	}
+	_(Analog)
+	{
+		total = 0;
+		EX::INI::Analog an, &sx = an;
+		#define SOMEX_INI_ANALOG_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_ANALOG_SECTION
+	}
+	_(Author)
+	{
+		total = 0;
+		EX::INI::Author au, &sx = au;
+		#define SOMEX_INI_AUTHOR_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_AUTHOR_SECTION
+	}
+//	_(Bitmap)
+	_(Boxart)
+	{
+		total = 0;
+		EX::INI::Boxart ba, &sx = ba;
+		#define SOMEX_INI_BOXART_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_BOXART_SECTION
+	}
+	_(Bugfix)
+	{
+		total = 0;
+		EX::INI::Bugfix bf, &sx = bf;
+		#define SOMEX_INI_BUGFIX_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_BUGFIX_SECTION
+	}
+	_(Damage)
+	{
+		total = 0;
+		EX::INI::Damage hp, &sx = hp;
+		#define SOMEX_INI_DAMAGE_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_DAMAGE_SECTION
+	}
+	_(Detail)
+	{
+		total = 0;
+		EX::INI::Detail dt, &sx = dt;
+		#define SOMEX_INI_DETAIL_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_DETAIL_SECTION
+	}
+	_(Editor)
+	{
+		total = 0;
+		EX::INI::Editor ed, &sx = ed;
+		#define SOMEX_INI_EDITOR_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_EDITOR_SECTION
+	}
+//	_(Engine)
+//	_(Joypad)
+	_(Launch)
+	{
+		total = 0;
+		EX::INI::Launch la, &sx = la;
+		#define SOMEX_INI_LAUNCH_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_LAUNCH_SECTION
+	}
+//	_(Number)
+	_(Option)
+	{
+		total = 0;
+		EX::INI::Option op, &sx = op;
+		#define SOMEX_INI_OPTION_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_OPTION_SECTION
+	}
+	_(Output)
+	{
+		total = 0;
+		EX::INI::Output tt, &sx = tt;
+		#define SOMEX_INI_OUTPUT_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_OUTPUT_SECTION
+	}
+	_(Player)
+	{
+		total = 0;
+		EX::INI::Player pc, &sx = pc;
+		#define SOMEX_INI_PLAYER_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_PLAYER_SECTION
+	}
+	_(Sample)
+	{
+		total = 0;
+		EX::INI::Sample sa, &sx = sa;
+		#define SOMEX_INI_SAMPLE_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_SAMPLE_SECTION
+	}
+	_(Script)
+	{
+		total = 0;
+		EX::INI::Script gt, &sx = gt;
+		#define SOMEX_INI_SCRIPT_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_SCRIPT_SECTION
+	}
+	_(Stereo)
+	{
+		total = 0;
+		EX::INI::Stereo st, &sx = st;
+		#define SOMEX_INI_STEREO_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_STEREO_SECTION
+	}
+	_(System)
+	{
+		total = 0;
+		EX::INI::System sy, &sx = sy;
+		#define SOMEX_INI_SYSTEM_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_SYSTEM_SECTION
+	}
+	//_(Volume)
+	_(Window)
+	{
+		total = 0;
+		EX::INI::Window wn, &sx = wn;
+		#define SOMEX_INI_WINDOW_SECTION
+		#include "../SomEx/ini.lookup.inl"
+		#undef SOMEX_INI_WINDOW_SECTION
+	}
+	#undef _
+	#undef LOOKUP
+		
+	ui->show();
+
+	wglMakeCurrent(dc,glrc); //guarding
 }

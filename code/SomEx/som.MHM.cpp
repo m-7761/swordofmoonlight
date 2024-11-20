@@ -1661,6 +1661,84 @@ som_MHM::~som_MHM() //models_free
 	SOM::Game.free_401580(vertsptr);
 	SOM::Game.free_401580(normsptr);
 }
+extern som_MHM_ball *som_MHM_dup(som_MHM *cp)
+{
+	som_MHM_ball *o; SOM::Game.malloc_401500(o);
+	memcpy(o,cp,sizeof(*o));
+	SOM::Game.malloc_401500(o->poliesptr,o->polies);
+	SOM::Game.malloc_401500(o->vertsptr,3*o->verts);
+	SOM::Game.malloc_401500(o->normsptr,3*o->norms);
+	memcpy(o->poliesptr,cp->poliesptr,sizeof(*o->poliesptr)*o->polies);
+	for(int j=cp->polies;j-->0;)
+	{
+		SOM::Game.malloc_401500(o->poliesptr[j].vertsptr,o->poliesptr[j].verts); 		
+		memcpy(o->poliesptr[j].vertsptr,cp->poliesptr[j].vertsptr,4*cp->poliesptr[j].verts); 
+	}
+	return o;
+}
+extern void som_MHM_xform(som_MHM *d, som_MHM *s, float(&xf)[4][4])
+{
+	for(int i=0,n=3*s->verts;i<n;i+=3)
+	{
+		auto *sp = s->vertsptr+i;
+		auto *dp = d->vertsptr+i;
+		auto &sv = Somvector::map<3>(sp);
+		auto &dv = Somvector::map<3>(dp);
+		Somvector::multiply<4>(sv,xf,dv);		
+	}
+	for(int i=0,n=3*s->norms;i<n;i+=3)
+	{
+		auto *sp = s->normsptr+i;
+		auto *dp = d->normsptr+i;
+		auto &sv = Somvector::map<3>(sp);
+		auto &dv = Somvector::map<3>(dp);
+		Somvector::multiply<3>(sv,xf,dv);
+	}
+	memset(d->types124,0x00,3*sizeof(int));
+	for(int i=d->polies;i-->0;)
+	{
+		float *n = d->normsptr+3*d->poliesptr[i].normal;
+		float ny = fabsf(n[1]);
+		if(ny<0.001f)
+		{
+			d->poliesptr[i].type = 1; d->types124[0]++;
+		}
+		else if(ny>0.99f)
+		{
+			d->poliesptr[i].type = 2; d->types124[1]++;			
+		}
+		else
+		{
+			d->poliesptr[i].type = 4; d->types124[2]++;
+		}
+	}
+}
+extern void som_MHM_ball::init_ball()
+{
+	float mm[2][3] = {{10000,10000,10000},{-10000,-10000,-10000}};
+	auto *sp = vertsptr;
+	for(int i=0,n=3*verts;i<n;i+=3)
+	{
+		if(mm[0][0]>sp[i+0]) mm[0][0] = sp[i+0];
+		if(mm[0][1]>sp[i+1]) mm[0][1] = sp[i+1];
+		if(mm[0][2]>sp[i+2]) mm[0][2] = sp[i+2];
+		if(mm[1][0]<sp[i+0]) mm[1][0] = sp[i+0];
+		if(mm[1][1]<sp[i+1]) mm[1][1] = sp[i+1];
+		if(mm[1][2]<sp[i+2]) mm[1][2] = sp[i+2];
+	}
+	pos[0] = (mm[1][0]+mm[0][0])*0.5f;
+	pos[1] = (mm[1][1]+mm[0][1])*0.5f;
+	pos[2] = (mm[1][2]+mm[0][2])*0.5f;
+
+	//QUICK FIX: giving all polygons the same extent (it just works)
+	for(int i=polies;i-->0;)	
+	memcpy(poliesptr[i].box,mm,sizeof(mm));
+
+	float rx = mm[1][0]-pos[0];
+	float ry = mm[1][1]-pos[1];
+	float rz = mm[1][2]-pos[2];
+	radius = sqrtf(rx*rx+ry*ry+rz*rz)+0.05f;
+}
 int som_MHM::clip(int cm, float in[5], float out[6], int restart)
 {
 	const bool odd = SOM::frame&1;
@@ -1810,66 +1888,76 @@ bool SOM::Clipper::clip(som_Obj &ai, float hit[3], float dir[3])
 {
 	auto *l = (som_MDL*)ai[SOM::AI::mdl3];
 	auto *o = (som_MDO*)ai[SOM::AI::mdo3];
-	auto *h = o?o->mdo_data()->ext.mhm:l->mdl_data->ext.mhm;
+	auto *h = o?o->ext.mhm:l->ext.mhm;
 	obj_had_mhm = h!=0;
 	return h?clip(h,o,l,hit,dir):true;
 }
 bool SOM::Clipper::clip(som_MHM *h, som_MDO *o, som_MDL *l, float hit[3], float dir[3])
 {
 	assert(h&&(o||l));
+
+	//2024: fully transformed?
+	bool ft = o?h!=o->mdo_data()->ext.mhm:h!=l->mdl_data->ext.mhm;
 		
 	assert(radius>0);
 	assert(!goingup||mask&8); //2022
 
 	if(height<=0) return false;
 
-	float *x,l_x;
-	float *xyz,*uvw; if(l) //MDL?
-	{	
-		x = l->scale;
-		xyz = l->xyzuvw; uvw = l->xyzuvw+3; 		
-	}
-	else //MDO?
-	{
-		x = o->f+25;		
-		xyz = o->f+13; uvw = o->f+19;
-	}
-	if(*x!=1) //OVERKILL?
-	{
-		l_x = 1/x[0];		
-	}
-	else x = 0;
-
 	float out[6];
-	for(int i=3;i-->0;)
-	pclipos[i] = pcstate[i]-xyz[i];
-	pclipos[3] = height;
-	pclipos[4] = radius;
-			
-	bool v,uw; 
-	if(uw=uvw[0]||uvw[2])
+	float *x,l_x;
+	float *xyz,*uvw; if(!ft)
 	{
-		#ifdef NDEBUG
-//		#error need to build a matrix
-		#endif 
-		assert(0); //UNFINISHED
-	}
-
-	float c,s; //if(v=uvw[1]!=0)
-	{
-		c = cosf(-uvw[1]);
-		s = sinf(-uvw[1]);
-		//SOM::rotate(pclipos,0,-uvw[1]);
-		{
-			float swap = pclipos[0];
-			pclipos[0] = swap*c-pclipos[2]*s;
-			pclipos[2] = swap*s+pclipos[2]*c;
+		if(l) //MDL?
+		{	
+			x = l->scale;
+			xyz = l->xyzuvw; uvw = l->xyzuvw+3; 		
 		}
-	}
+		else //MDO?
+		{
+			x = o->f+25;		
+			xyz = o->f+13; uvw = o->f+19;
+		}
+		if(*x!=1) //OVERKILL?
+		{
+			l_x = 1/x[0];		
+		}
+		else x = 0;
+				
+		if(bool uw=uvw[0]||uvw[2])
+		{
+			assert(ft); //UNFINISHED
+		}
 
-	if(x) //assuming uniform
+		for(int i=3;i-->0;)
+		pclipos[i] = pcstate[i]-xyz[i];
+	}
+	else
 	{
-		for(int i=5;i-->0;) pclipos[i]*=l_x;
+		for(int i=3;i-->0;)
+		pclipos[i] = pcstate[i];
+	}
+	pclipos[3] = height;
+	pclipos[4] = radius;	
+
+	if(!ft)
+	{
+		//if(v=uvw[1]!=0)
+		{
+			float c = cosf(-uvw[1]);
+			float s = sinf(-uvw[1]);
+			//SOM::rotate(pclipos,0,-uvw[1]);
+			{
+				float swap = pclipos[0];
+				pclipos[0] = swap*c-pclipos[2]*s;
+				pclipos[2] = swap*s+pclipos[2]*c;
+			}
+		}
+		
+		if(x) //assuming uniform (scale)
+		{
+			for(int i=5;i-->0;) pclipos[i]*=l_x;
+		}
 	}
 
 	bool ret = false;
@@ -2127,67 +2215,77 @@ bool SOM::Clipper::clip(som_MHM *h, som_MDO *o, som_MDL *l, float hit[3], float 
 		}	
 	}
 
-	if(!ret) return false;
+	if(!ret) return false;	
 	
-	if(uw)
+	if(!ft)
 	{
-		#ifdef NDEBUG
-//		#error need to build a matrix
-		#endif 
-		assert(0); //UNFINISHED
+		/*if(uw)
+		{
+			#ifdef NDEBUG
+	//		#error need to build a matrix
+			#endif 
+		//	assert(0); //UNFINISHED
+			assert(ft);
+		}*/
+
+		//if(v)
+		{
+			//c = -c; s = -s;
+			float c = cosf(uvw[1]);
+			float s = sinf(uvw[1]);
+			//SOM::rotate(out,0,uvw[1]);
+			{
+				float swap = out[0];
+				out[0] = swap*c-out[2]*s;
+				out[2] = swap*s+out[2]*c;
+			}
+			//SOM::rotate(out+3,0,uvw[1]);
+			{
+				float swap = out[3];
+				out[3] = swap*c-out[5]*s;
+				out[5] = swap*s+out[5]*c;
+			}
+			//SOM::rotate(pclipos,0,uvw[1]);
+			{
+				float swap = pclipos[0];
+				pclipos[0] = swap*c-pclipos[2]*s;
+				pclipos[2] = swap*s+pclipos[2]*c;
+			}
+			if(slopefloor!=-FLT_MAX)
+			{
+				float swap = slopenormal[0];
+				slopenormal[0] = swap*c-slopenormal[2]*s;
+				slopenormal[2] = swap*s+slopenormal[2]*c;
+			}
+		}
+
+		//if(x) //scale?
+		{
+			float yy = xyz[1], xx = x?x[0]:1;
+
+			for(int i=3;i-->0;) out[i]*=xx;
+
+			for(int i=3;i-->0;) pclipos[i]*=xx;
+
+			if(floor!=-FLT_MAX) floor = floor*xx+yy;
+
+			if(slopefloor!=-FLT_MAX) slopefloor = slopefloor*xx+yy;
+
+			if(ceiling!=FLT_MAX) ceiling = ceiling*xx+yy;
+		}
+
+		for(int i=3;i-->0;)
+		{
+			hit[i] = out[i]+xyz[i];
+			dir[i] = out[3+i];
+
+			pclipos[i]+=xyz[i];
+		}
 	}
-	//if(v)
+	else for(int i=3;i-->0;)
 	{
-		//c = -c; s = -s;
-		c = cosf(uvw[1]);
-		s = sinf(uvw[1]);
-		//SOM::rotate(out,0,uvw[1]);
-		{
-			float swap = out[0];
-			out[0] = swap*c-out[2]*s;
-			out[2] = swap*s+out[2]*c;
-		}
-		//SOM::rotate(out+3,0,uvw[1]);
-		{
-			float swap = out[3];
-			out[3] = swap*c-out[5]*s;
-			out[5] = swap*s+out[5]*c;
-		}
-		//SOM::rotate(pclipos,0,uvw[1]);
-		{
-			float swap = pclipos[0];
-			pclipos[0] = swap*c-pclipos[2]*s;
-			pclipos[2] = swap*s+pclipos[2]*c;
-		}
-		if(slopefloor!=-FLT_MAX)
-		{
-			float swap = slopenormal[0];
-			slopenormal[0] = swap*c-slopenormal[2]*s;
-			slopenormal[2] = swap*s+slopenormal[2]*c;
-		}
-	}
-	
-	//if(x)
-	{
-		float yy = xyz[1], xx = x?x[0]:1;
-
-		for(int i=3;i-->0;) out[i]*=xx;
-
-		for(int i=3;i-->0;) pclipos[i]*=xx;
-
-		if(floor!=-FLT_MAX) floor = floor*xx+yy;
-
-		if(slopefloor!=-FLT_MAX) slopefloor = slopefloor*xx+yy;
-
-		if(ceiling!=FLT_MAX) ceiling = ceiling*xx+yy;
-	}
-
-	for(int i=3;i-->0;)
-	{
-		hit[i] = out[i]+xyz[i];
+		hit[i] = out[i];
 		dir[i] = out[3+i];
-
-		pclipos[i]+=xyz[i];
 	}
 	
 	return true;

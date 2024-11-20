@@ -598,8 +598,10 @@ static struct //SOM_MAIN_before
 		//probably best to do this this way 
 		//until the kinks can be worked out
 
-		if(!blank++) //optimizing
+		if(!blank) //optimizing
 		{
+			blank = true;
+
 			HWND ch = GetWindow(tv,GW_CHILD); 
 			for(;ch;ch=GetWindow(ch,GW_HWNDNEXT)) ShowWindow(ch,0);			
 		}
@@ -893,7 +895,8 @@ static struct SOM_MAIN_clip : private std::vector<char> //singleton
 	}
 	bool refresh(HWND hwndDlg)
 	{
-		if(fresh++) return po; 		
+		if(fresh) return po; //one_off?
+		fresh = true;
 		if(format=OpenClipboard(hwndDlg)) 
 		{		
 			format = CF_UNICODETEXT;
@@ -977,8 +980,10 @@ namespace SOM_MAIN_cpp //MRU
 static size_t SOM_MAIN_all = 0;
 static void SOM_MAIN_mru(HWND cb1, HWND cb2, int filter=0)
 {
-	static bool one_off = false; if(!one_off++) //???
+	static bool one_off = false; if(!one_off) //???
 	{	
+		one_off = true;
+
 		HKEY hk = 0; 
 		if(RegOpenKeyEx(HKEY_CURRENT_USER,L"SOFTWARE\\FROMSOFTWARE\\SOM_MAIN",0,KEY_READ,&hk))
 		return;
@@ -4040,8 +4045,10 @@ static bool SOM_MAIN_outline(HWND tv, HTREEITEM ctxti, LPARAM param=0)
 		
 		//try to open the nihongo.mo file
 		static wchar_t nihongo_mo[MAX_PATH] = L""; 
-		static bool one_off = false; if(!one_off++) //???
+		static bool one_off = false; if(!one_off) //???
 		{
+			one_off = true;
+
 			namespace zip = SWORDOFMOONLIGHT::zip;
 
 			static zip::inflate_t titles; //32K (+16K that goes to waste)

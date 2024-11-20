@@ -441,6 +441,7 @@ std::vector<IDirect3DTexture9*> icotextures;
 int snapshot = 0;
 float *snapshotmats = 0;
 float *bindposemats = 0;
+int nodecount = 0;
 aiNode **nodetable = 0;
 char *chanindex = 0; 
 
@@ -669,8 +670,8 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 	unsigned int postprocess = 
 	aiProcess_JoinIdenticalVertices|
 	aiProcess_GenUVCoords|
-	aiProcess_RemoveRedundantMaterials|
-	aiProcess_Debone;
+	aiProcess_Debone|
+	aiProcess_RemoveRedundantMaterials;
 
 	//hacks: development only 
 	postprocess|=aiProcess_Triangulate; //in case of polygons
@@ -1084,13 +1085,16 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			buf.push_back('\0');
 			X = aiImportFileFromMemory(&buf[0],rd,postprocess,&buf[rd]);
 
-			auto *cc = const_cast<aiAnimation**>(X->mAnimations);
-			auto pred = [](aiAnimation *a, aiAnimation *b)->bool
+			if(X)
 			{
-				//note: historically (default) is treated as 0
-				return ani2i(a->mName,0)<ani2i(b->mName,0);
-			};
-			std::sort(cc,cc+X->mNumAnimations,pred);
+				auto *cc = const_cast<aiAnimation**>(X->mAnimations);
+				auto pred = [](aiAnimation *a, aiAnimation *b)->bool
+				{
+					//note: historically (default) is treated as 0
+					return ani2i(a->mName,0)<ani2i(b->mName,0);
+				};
+				std::sort(cc,cc+X->mNumAnimations,pred);
+			}
 		}
 
 		if(!X) goto_1; exit_reason = 0; 
@@ -1098,7 +1102,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		std::wcout << "Hello: Converting " << input <<  "...\n" << std::flush;
 
 		//2022: split MDO/MDL+MHM
-		if(mdo) x2mdo_split_XY(); Y: 
+		if(mdo||msm) x2mdo_split_XY(); Y: 
 
 		/*EXPERIMENTAL
 		#ifdef _CONSOLE
@@ -1165,7 +1169,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			}		
 		}
 
-		int nodecount = count(X->mRootNode);
+		nodecount = count(X->mRootNode);
 
 		bool falseroot = false, cyancp = false;
 
@@ -1219,11 +1223,12 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		bool containsbones = false;
 
 		for(int i=0;i<X->mNumMeshes;i++)
-		if(X->mMeshes[i]->mNumBones)
+		if(X->mMeshes[i]->HasBones())
 		{
 			containsbones = true; //breakpoint
 		}
 
+		/*2024: I'm trying to implement this :(
 		if(containsbones)
 		{				
 			int ok = 
@@ -1236,7 +1241,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			X2MDL_EXE,MB_OKCANCEL|MB_ICONERROR);
 
 			if(ok!=IDOK) goto_0;
-		}
+		}*/
 
 		//not well understood
 		if(X->mNumAnimations)
@@ -1244,7 +1249,9 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			//REMINDER: mdl.head.diffs overrides mdl.head.flags
 			if(containsbones)
 			{
-				mdl.head.flags = 0x04;
+				//this was an old plan to convert to soft mode
+				//mdl.head.flags = 0x04;
+				mdl.head.flags = 0x01;
 			}
 			else mdl.head.flags = 0x01;
 		}
@@ -1253,7 +1260,8 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 		mdl.head.anims = 0;
 		mdl.head.diffs = 0; //NOTE: depends on SP_GEN_CONNECTIVITY
 
-		if(!containsbones) if(!mdo&&!msm||::mdl) //MSM?
+		//if(!containsbones)
+		if(!mdo&&!msm||::mdl) //MSM?
 		{
 			for(int i=0;i<X->mNumAnimations;i++)
 			{
@@ -1512,7 +1520,7 @@ int x2mdl(int argc, const wchar_t* argv[], HWND hwnd) //DLL?
 			diffuse.a*=a;
 			if(!mat->GetTextureCount(aiTextureType_DIFFUSE))
 			{
-				if(!mhm) //???
+				if(!mhm&&!tmd) //???
 				if(diffuse.a==1)
 				{
 					controlpts[i][0] = diffuse.r*255;
@@ -4214,7 +4222,7 @@ tex_failure: //allow user to discard texture if desired
 
 _0:	//wchar_t ok; std::wcin >> ok; //debugging
 		
-	for(auto&dt:icotextures) dt->Release();
+	for(auto&dt:icotextures) if(dt) dt->Release();
 
 	if(Y) (void*&)Y->mMaterials = 0; //can Assimp dup aiMaterial?
 
@@ -4717,8 +4725,12 @@ void MDL::File::flush()
 	consolidate(); //testing
 	#endif
 
+	static const aiScene *wasY = 0; //HACK
+
 	if(Y) //split mdo/mhm?
 	{
+		wasY = Y; //X;
+
 		if(!x2msm(true))
 		{
 			#ifndef _CONSOLE
@@ -4727,15 +4739,16 @@ void MDL::File::flush()
 		}
 		return;
 	}
-	else if(msm) //2022
+	else if(msm) //2022: Note: another calls Y
 	{
-		if(!x2msm(mhm)) 
+		if(!x2msm(mhm,wasY==X)) 
 		{
 			#ifndef _CONSOLE
 			if(x2mdo_makedir(name)) x2msm(mhm);
 			#endif
 		}
-		return;
+
+		wasY = 0; return;
 	}
 	else if(mdo) //2021
 	{

@@ -1097,7 +1097,11 @@ struct MapComp_container //MFC?
 
 	T &operator[](int i){ return begin[i]; }	
 };
-static struct MapComp_43e638
+static struct MapComp_43e630
+{
+	DWORD width, height; //2024
+};
+static struct MapComp_43e638 //array
 {
 	//iterate over MSM data
 	//004083FC 8B 0D 30 E6 43 00    mov         ecx,dword ptr ds:[43E630h]
@@ -1147,9 +1151,9 @@ static struct MapComp_43e638
 			//tend to be all zero, except final is 0x40000
 			//or 0x30000 (maybe SomEx is forcing for do_aa)
 
-			DWORD unknown2[3]; //0,0,0
-			DWORD unknown3;    //0
-			DWORD unknown4[3]; //0,0,0x40000/0x30000
+			DWORD unknown1[3]; //0,0,0
+			DWORD unknown2;    //0
+			DWORD unknown3[3]; //0,0,0x40000/0x30000
 
 		}*faces;
 	};
@@ -1173,5 +1177,15 @@ static struct MapComp_43e638
 	MapComp_43e638 &operator[](int i){ return this[i]; }
 
 }&MapComp_43e638 = *(struct MapComp_43e638*)0x43e638; //[100*100]
+
+//2024: these are accessed always with i==0, but maybe
+//there is memory here for layers
+static struct MapComp_layer: MapComp_43e630 //UNUSED
+{
+	struct MapComp_43e638 map[100*100];
+
+	MapComp_layer &operator[](int i){ return this[i]; }
+
+}&MapComp_layers = *(struct MapComp_layer*)0x43e630;
 
 #endif //SOM_TOOL_INCLUDED

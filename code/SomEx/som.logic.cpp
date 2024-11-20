@@ -319,6 +319,18 @@ extern BYTE __cdecl som_logic_40C8E0 //CYLINDERS
 
 	return ret; //breakpoint
 }
+bool som_MHM_ball::hit_ball_cylinder(float p[3], float h, float r)
+{
+	float _[3]; return 0!=som_logic_40C8E0(pos,radius,p,r,h,_,_);
+}
+bool som_MHM_ball::hit_ball_ball(float p[3], float r)
+{
+	float dx = pos[0]-p[0];
+	float dy = pos[1]-p[2];
+	float dz = pos[2]-p[1];
+	float d = sqrtf(dx*dx+dy*dy+dz*dz);
+	return d-r-radius<0;
+}
 /*2022: adding MHM (som_logic_40ec30)
 static BYTE __cdecl som_logic_40dc70 //BOXES
 (FLOAT _1[3], FLOAT _2, FLOAT _3[3], FLOAT _4, FLOAT _5, FLOAT _6, FLOAT _7, FLOAT _8[3], FLOAT _9[3])
@@ -339,13 +351,18 @@ static BYTE __cdecl som_logic_40dc70 //BOXES
 }*/
 static BYTE __cdecl som_logic_40ec30(FLOAT _1[3], FLOAT _2, DWORD obj, FLOAT _4[3], FLOAT _5[3])
 {
-	if(!((BYTE(__cdecl*)(FLOAT*,FLOAT,DWORD,FLOAT*,FLOAT*))0x40ec30)(_1,_2,obj,_4,_5))
-	return 0;
-
 	auto &ai = SOM::L.ai3[obj];
 	auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
 	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; assert(mdl||mdo);
-	if(auto*mhm=mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0)
+	auto *mhm = mdo?mdo->ext.mhm:mdl?mdl->ext.mhm:0;
+
+	if(!((BYTE(__cdecl*)(FLOAT*,FLOAT,DWORD,FLOAT*,FLOAT*))0x40ec30)(_1,_2,obj,_4,_5))
+	{
+		if(!mhm||!mhm->hit_ball_ball(_1,2))
+		return 0;
+	}
+
+	if(mhm)
 	{
 		SOM::Clipper sfxclip(_1,_2,_2,0);
 		if(!sfxclip.clip(mhm,mdo,mdl,_4,_5)) return 0;
@@ -399,7 +416,7 @@ static int som_logic_40dff0 //2021
 	auto &ai = SOM::L.ai3[obj];	
 	auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
 	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; //assert(mdl||mdo);
-	auto *mhm = mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0;	
+	auto *mhm = mdo?mdo->ext.mhm:mdl?mdl->ext.mhm:0;	
 
 	if(_5==0) //lateral?	
 	{
@@ -443,7 +460,10 @@ static int som_logic_40dff0 //2021
 		//if(!som_clipc_x40dff0(_1,_2,_3,obj,_5,_6,_7)) //2-som_clipc_haircut
 		if(!((BYTE(*)(FLOAT*,FLOAT,FLOAT,DWORD,DWORD,FLOAT*,FLOAT*))0x40DFF0)
 		(_1,_2,_3,obj,_5,_6,_7))
-		return 0;
+		{
+			if(!mhm||!mhm->hit_ball_cylinder(_1,2,3))
+			return 0;
+		}
 		if(mhm) //2022: refine?
 		{
 			float yy = _1[1];

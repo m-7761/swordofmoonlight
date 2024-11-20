@@ -180,7 +180,7 @@ static void som_game_once_per_frame() //STAGE 1
 	/*2021: this is bad unless events only happen every
 	//third frame?
 	if(SOM::frame%3==0)*/
-	EX::reevaluating_numbers(0); 
+	EX::reevaluating_numbers(EX::need_calculator()); 
 	
 	//THESE MIGHT BE BETTER PUT IN som_game_once_per_scene
 	//BUT ARE PROBABLY NOT CRUCIAL
@@ -2373,11 +2373,12 @@ static BOOL WINAPI som_game_ReadFile(HANDLE in, LPVOID to, DWORD sz, LPDWORD rd,
 			if(op->do_dash) //2017: assuming dashing is desired
 			*((BYTE*)to+254) = 1;
 			_som_game_mode = *((BYTE*)to+254);
+			auto *c = EX::need_calculator(); //2024
 			SOM::walk = //2020
-			_som_game_walk = EX::reevaluating_number(0,L"_WALK"); //*((FLOAT*)to+64);
+			_som_game_walk = EX::reevaluating_number(c,L"_WALK"); //*((FLOAT*)to+64);
 			SOM::dash = //2020
-			_som_game_dash = EX::reevaluating_number(0,L"_DASH"); //*((FLOAT*)to+65);
-			_som_game_turn = EX::reevaluating_number(0,L"_TURN"); //*((SHORT*)to+132);
+			_som_game_dash = EX::reevaluating_number(c,L"_DASH"); //*((FLOAT*)to+65);
+			_som_game_turn = EX::reevaluating_number(c,L"_TURN"); //*((SHORT*)to+132);
 			if(op->do_save)
 			*((BYTE*)to+722) = 1;
 			_som_game_save = *((BYTE*)to+722); 

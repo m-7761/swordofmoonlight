@@ -1,6 +1,6 @@
 
 #define __COPYRIGHT__ \
-"Copyright (C) 2009-2023 Swordofmoonlight.net. All rights reserved."
+"Copyright (C) 2009-2024 Swordofmoonlight.net. All rights reserved."
 
 #ifndef EX_INCLUDED
 #define EX_INCLUDED SomEx
@@ -37,7 +37,7 @@
 #include <vector>
 #include <string>
 #include <functional> //function
-#include <hash_map> //unordered_map for Windows XP
+//#include <hash_map> //unordered_map for Windows XP
 #include <bitset>
 #endif
 #include <algorithm> //min/max
@@ -130,13 +130,29 @@ EX::including_log(__WOBJECT__,L#NS,\
 #define EX_TRANSLATION_UNIT \
 static const wchar_t *__WOBJECT__ = (__COPYRIGHT__,__WFILE__);
 
+namespace EX //SomEx.ini.cpp uses these
+{ 
+	enum{ contexts=4 };
+	extern int context();
+	extern const wchar_t *log();
+	extern const wchar_t *ini(int);
+	extern const wchar_t *user(int);
+	extern void numbers(),numbers_mismatch(bool,const wchar_t*);
+	extern bool attached,detached; //module
+	extern bool ok_generic_failure(const wchar_t *one_liner,...);
+	extern void is_needed_to_shutdown_immediately(int exitcode=-1, const char *caller=0);	
+
+	static const int log_ceiling = 8;
+}
+#ifndef NO_EX_H //Exselector? //2024
+
+
 #include "../Exselector/Exselector.h" //OpenGL font?
 extern class Exselector *Exselector; //add_watch
 
 namespace EX
 { 
 extern HMODULE module;
-extern bool attached,detached;
 extern HDC hdc(HDC *release=0);
 extern int central_processing_units;
 extern DWORD threadmain,tls(short, DWORD=0);
@@ -144,14 +160,13 @@ extern DWORD threadmain,tls(short, DWORD=0);
 extern void vblank(); //uses DDRAW::vblank
 extern unsigned tick(); //uses multimedia timer
 
-static const int log_ceiling = 8;
-extern const wchar_t *log(), *exe();
+extern const wchar_t *exe();
 extern int messagebox(int,const char*,...);
-extern void numbers(),numbers_mismatch(bool,const wchar_t*);
 									 
 //file system places
-extern const wchar_t *cd(),*user(int);
-extern const wchar_t *ini(int),*text(int);
+extern const wchar_t *cd();
+//extern const wchar_t *user(int);
+extern const wchar_t *text(int);
 extern const wchar_t *lang(int),*font(int),*data(int); 
 template<typename T>
 inline int data(const T *in, wchar_t out[MAX_PATH])
@@ -167,13 +182,10 @@ inline int data(const T *in, wchar_t out[MAX_PATH])
 	*out = '\0'; return 0;
 }
 
-enum{ contexts=4 };
-extern int context(),directx(); 
+extern int directx(); 
 extern void pause(int),unpause(int),play(int);
 extern bool alt(),numlock(),arrow();
 extern int tilt(),is_needed_to_initialize();
-extern bool ok_generic_failure(const wchar_t *one_liner,...);
-extern void is_needed_to_shutdown_immediately(int exitcode=-1, const char *caller=0);
 
 //caution: an internal buffer is returned upon error
 extern const char *need_ansi_equivalent(int cp, const wchar_t *in, char *out=0, int out_s=0);
@@ -336,4 +348,5 @@ extern int Translate(void*DrawTextA,HDC,LPCSTR*,int*,LPRECT*,UINT*,int*);
 #include "../lib/swordofmoonlight.h"
 #endif
 
+#endif //NO_EX_H
 #endif //EX_INCLUDED

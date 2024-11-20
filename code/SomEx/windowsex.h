@@ -25,14 +25,14 @@ typedef LRESULT CALLBACK windowsex_SUBCLASSPROC(HWND,UINT,WPARAM,LPARAM,UINT_PTR
 
 inline ATOM GetClassAtom(HWND hw)
 {
-	return GetClassLong(hw,GCW_ATOM);
+	return (ATOM)GetClassLong(hw,GCW_ATOM);
 }
 
 static float GetWindowFloat(HWND hw)
 {
 	WCHAR d[66],*e; float f;
 	GetWindowTextW(hw,d,66);		
-	f = wcstod(d,&e); if(*e) f = 0; return f;
+	f = (float)wcstod(d,&e); if(*e) f = 0; return f;
 }
 inline float GetDlgItemFloat(HWND hw, int id)
 {

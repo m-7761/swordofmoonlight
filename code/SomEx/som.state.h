@@ -10,6 +10,7 @@
 #include "som.game.h" //som.scene.h?
 
 struct som_MHM; //som.MHM.cpp
+struct som_MHM_ball;
 struct som_MDL; //som.MDL.cpp
 struct som_MDO; //2021
 struct som_BSP; //2022
@@ -2326,34 +2327,20 @@ namespace SOM
 
 struct som_scene_element; //som.scene.cpp
 
-struct som_MDO : SOM::Struct<31>
+struct som_MDO : SOM::Struct<1> //31
 {
-	/*SOM::Struct<47-2> //180B
-	{
-		//TODO: want to remove this base
-		//at some point
+	//data *mdo_data; //<1>
 
-		struct data *d;
-
-		//the _cmp fields are just used
-		//to detect changes in 445cd0
-		//to not rebuild the matrix
-		float trans1[3]; //1
-		float _cmp_trans1[3]; //4
-		float rot1[3]; //7
-		float _cmp_rot1[3]; //10
-		//NOTE: objects use trans2/rot2
-		float trans2[3]; //13
-		float _cmp_trans2[3]; //16
-		float rot2[3]; //19
-		float _cmp_rot2[3]; //22
-		float scale[3]; //25
-		float _cmp_scale[3]; //28
-
-		float fade,fade2;
-
-		// 132B mark (48 unknown) //
-	}*/
+	float transl1[3];
+	float _cmp_transl1[3];
+	float rotate1[3];
+	float _cmp_rotate1[3];
+	float transl2[3];
+	float _cmp_transl2[3];
+	float rotate2[3];
+	float _cmp_rotate2[3];
+	float scale2[3];
+	float _cmp_scale2[3];
 
 	float fade,fade2;
 
@@ -2441,10 +2428,7 @@ struct som_MDO : SOM::Struct<31>
 
 	struct ext_t //debugger
 	{
-		/*REMOVE ME
-		som_MHM *mhm; //2022
-		//NOTE: must recompute if [3][3] is 0
-		float(*inverse)[4][4];*/
+		som_MHM_ball *mhm; //2024: fully transformed
 
 	}ext;
 
@@ -2888,6 +2872,8 @@ struct som_MDL //SOM::Struct<250>
 		float s,t,s2,t2,speed,speed2; //2023
 		int dir,dir2;
 
+		som_MHM_ball *mhm; //2024: fully transformed?
+
 	}ext;
 };
 struct som_MHM //40B
@@ -2920,6 +2906,13 @@ struct som_MHM //40B
 	~som_MHM(); //models_free
 
 	int clip(int,float[5],float[6],int=0); //415450
+};
+struct som_MHM_ball : som_MHM
+{
+	float radius,pos[3]; void init_ball();
+
+	bool hit_ball_cylinder(float[3],float h,float r);
+	bool hit_ball_ball(float[3],float r);
 };
 
 #endif //SOM_STATE_INCLUDED

@@ -1424,8 +1424,10 @@ extern size_t som_tool_xdata(const wchar_t *x, som_tool_xdata_t &inf)
 		}
 	};
 	static std::vector<datapack> out;
-	static bool one_off = false; if(!one_off++) //???
+	static bool one_off = false; if(!one_off) //???
 	{
+		one_off = true;
+
 		for(int i=0;*EX::text(i);i++)
 		{
 			datapack dp; 
@@ -6390,8 +6392,10 @@ extern HWND som_tool_richinit(HWND ed, int em=0)
 	SendMessage(ed,EM_SETOPTIONS,ECOOP_AND,~1); //~ECO_AUTOWORDSELECTION);
 	
 	static CHARFORMAT2W cf;
-	static bool one_off = false; if(!one_off++) //non-aggregate //???
+	static bool one_off = false; if(!one_off) //non-aggregate //???
 	{
+		one_off = true;
+
 		cf.cbSize = sizeof(cf); 
 		cf.dwReserved = 0; //so says the docs???
 		cf.dwMask = CFM_LCID|CFM_CHARSET|CFM_FACE|CFM_SIZE|CFM_COLOR|CFM_ITALIC|CFM_WEIGHT;
@@ -8368,7 +8372,8 @@ static LRESULT CALLBACK som_tool_subclassproc(HWND hWnd, UINT uMsg, WPARAM wPara
 			{
 			case 1022: //alternative default tab
 			{
-				static bool one_off = false; if(one_off++) break; //???
+				static bool one_off = false; 
+				if(!one_off){ one_off = true; break; } //???
 				HWND tab = GetWindow(hWnd,GW_CHILD); SetFocus(tab);
 				if(DLGC_BUTTON&SendMessage(tab,WM_GETDLGCODE,0,0)) //paranoia 
 				return SendMessage(hWnd,WM_COMMAND,GetDlgCtrlID(tab),(LPARAM)tab);
@@ -10837,6 +10842,12 @@ static HWND WINAPI som_tool_CreateDialogIndirectParamA(HINSTANCE A, LPCDLGTEMPLA
 			//(NEW: this is repaired in the else if block below)
 			if(!C&&WS_MINIMIZEBOX&~peek->style)
 			{	
+				if(!som_tool_taskbar)
+				if(EX::debug&&Exselector)
+				{
+					Exselector->extensions();
+				}
+
 				HOOKPROC hack = 0;
 				std::swap(hack,som_tool_cbt);
 				//reminder: must be first window
@@ -11024,11 +11035,13 @@ static BOOL WINAPI som_tool_SetWindowTextA(HWND A, LPCSTR C)
 			{
 				if(control==1008)
 				{
-					static bool one_off = false; if(!one_off++) return TRUE; //???
+					static bool one_off = false; //????
+					if(!one_off){ one_off = true; return TRUE; } //???
 				}
 				else if(control==1010)
 				{
-					static bool one_off = false; if(!one_off++) som_tool_refocus = A; //???
+					static bool one_off = false; //????
+					if(!one_off){ one_off = true; som_tool_refocus = A; } //???
 				}
 			}		
 			return SetWindowTextW(A,*C?som_tool_text:L""); 
@@ -11820,8 +11833,6 @@ static bool som_run_locked = true;
 extern bool som_tool_file_appears_to_be_missing_ignore = false; //2023
 extern bool som_tool_file_appears_to_be_missing(const char *a, const wchar_t *w, wchar_t *w_ext)
 {
-	if(som_tool_file_appears_to_be_missing_ignore) return true;
-
 	//2022: PathFileExistsA returns true now
 	//with a SOMEX_ path. I don't think it's
 	//because of changes. it shouldn't be so
@@ -11830,7 +11841,9 @@ extern bool som_tool_file_appears_to_be_missing(const char *a, const wchar_t *w,
 
 	if(w&&!PathFileExistsW(w)
 	||!w&&!PathFileExistsA(a))
-	{	
+	{			
+		if(som_tool_file_appears_to_be_missing_ignore) return true;
+
 		if(SOM::tool==SOM_RUN.exe&&!strncmp(a,"\\\\.\\",4))
 		{
 			if(som_run_locked) return true; 

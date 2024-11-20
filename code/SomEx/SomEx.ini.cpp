@@ -2,6 +2,11 @@
 #include "Ex.h"
 EX_TRANSLATION_UNIT //(C)
 
+#ifdef NO_EX_H //Exselector?
+#include "../Exselector/Exselector.pch.h"
+extern class Exselector*const Exselector;
+#endif
+
 #include <vector>
 #include <algorithm>
 
@@ -30,13 +35,36 @@ namespace Ex_ini_cpp
 	};
 }
 
+//EXPERIMENTAL //these are for Exselector
+void EX::INI::Section::store_mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
+{
+	if(!*q&&!wcsncmp(p,L"do_",3)) q = L"yes";
+
+	std::wstring a(p,d-p); storage[a] = q;
+}
+const wchar_t *EX::INI::Section::get(const char *lv)
+{
+	//NOTE: this is needed to cross module boundary
+	std::wstring ws; while(*lv) ws.push_back(*lv++); 
+
+	return storage[ws].c_str();	
+}
+
 typedef const wchar_t *const *Ex_ini_e;
+#ifdef NO_EX_H
+static Ex_ini_e Ex_ini(int i, wchar_t *e, int &cont)
+{
+	assert(0); return nullptr;
+}
+#else
 static Ex_ini_e Ex_ini(int i, wchar_t *e, int &cont)
 {
 	namespace ini = SWORDOFMOONLIGHT::ini; 
 	static std::vector<ini::sections_t> out;
-	static bool one_off = false; if(!one_off++) //???
+	static bool one_off = false; if(!one_off) //???
 	{
+		one_off = true;
+
 		for(size_t j=0;*EX::ini(j);j++)
 		{
 			extern void SomEx_environ(const wchar_t*kv[2],void*);
@@ -57,7 +85,8 @@ static Ex_ini_e Ex_ini(int i, wchar_t *e, int &cont)
 	}
 	cont = 0; return 0;
 }
-template <class T, typename mF>	//mF is private
+#endif
+template<class T, typename mF>	//mF is private
 static void Ex_ini_foreach(Ex_ini_e e, T t, mF mf) 
 {
 	const wchar_t *p,*q,*d; if(e) for(int i=0;p=e[i];i++) 
@@ -81,18 +110,23 @@ static void Ex_ini_foreach(Ex_ini_e e, T t, mF mf)
 	}
 }
 //REMOVE ME?
+//total_mentions: HACK storing this in section memory
 #define EX_INI_INITIALIZE_(Name,number) \
-static bool initialized = false; if(!initialized++)\
+/*static bool initialized = false; if(!initialized)*/\
 {\
-	wchar_t section[8] = L###Name L###number;\
-	for(int i=0;*EX::ini(i);i++) for(int j=1;j<=number;j++)\
+	/*initialized = true;*/ if(-1==_section->total_mentions)\
 	{\
-		section[6] = j>1?'0'+j:'\0';\
-		for(int k=1,cont=0;k<=Section::passes;k++)\
-		do EX::INI::Name(number)[k]+=Ex_ini(i,section,cont);\
-		while(cont);\
+		_section->total_mentions = 0; /*Exselector?*/\
+		wchar_t section[8] = L###Name L###number;\
+		for(int i=0;*EX::ini(i);i++) for(int j=1;j<=number;j++)\
+		{\
+			section[6] = j>1?'0'+j:'\0';\
+			for(int k=1,cont=0;k<=Section::passes;k++)\
+			do EX::INI::Name(number)[k]+=Ex_ini(i,section,cont);\
+			while(cont);\
+		}\
+		if(!EX::INI::Name(number)) _section->defaults(); /*hack*/\
 	}\
-	if(!EX::INI::Name(number)) _section->defaults(); /*hack*/\
 } 
 #define EX_INI_MENTION_(xxx,q,ctor_t) \
 ctor_t = Ex_ini_xlat_##xxx##_val(q,ctor_t.enum_memset);
@@ -421,7 +455,8 @@ EX::INI::Action::Action(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -451,6 +486,8 @@ void EX::INI::Action::operator+=(Ex_ini_e in)
 void EX::INI::Action::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 
 	int id = Ex_ini_action_define_macro(p,d,q); //hack
 		
@@ -554,7 +591,8 @@ EX::INI::Adjust::Adjust(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -573,6 +611,8 @@ void EX::INI::Adjust::operator+=(Ex_ini_e in)
 void EX::INI::Adjust::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 
 	switch(Ex_ini_xlat_adjust_section_key(p,d))
 	{
@@ -681,7 +721,8 @@ EX::INI::Analog::Analog(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -700,6 +741,8 @@ void EX::INI::Analog::operator+=(Ex_ini_e in)
 void EX::INI::Analog::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 
 	switch(Ex_ini_xlat_analog_section_key(p,d))
 	{
@@ -760,7 +803,8 @@ EX::INI::Author::Author(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -788,6 +832,8 @@ void EX::INI::Author::operator+=(Ex_ini_e in)
 void EX::INI::Author::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {			
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 
 	switch(Ex_ini_xlat_author_section_key(p,d))
 	{
@@ -856,7 +902,8 @@ EX::INI::Bitmap::Bitmap(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -878,6 +925,8 @@ void EX::INI::Bitmap::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 {	
 	Section *nc = _section; nc->total_mentions++;
 		
+		nc->store_mention(p,d,q);
+
 	if(isdigit(*p))
 	{
 		EX::INI::bitmap b;
@@ -953,7 +1002,8 @@ EX::INI::Boxart::Boxart(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -981,6 +1031,8 @@ void EX::INI::Boxart::operator+=(Ex_ini_e in)
 void EX::INI::Boxart::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 
 	switch(Ex_ini_xlat_boxart_section_key(p,d))
 	{
@@ -1090,7 +1142,8 @@ EX::INI::Bugfix::Bugfix(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -1109,6 +1162,8 @@ void EX::INI::Bugfix::operator+=(Ex_ini_e in)
 void EX::INI::Bugfix::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 
 	bool yes = Ex_ini_xlat_bin_val(q);
 
@@ -1248,7 +1303,8 @@ EX::INI::Button::Button(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -1274,6 +1330,8 @@ void EX::INI::Button::operator+=(Ex_ini_e in)
 void EX::INI::Button::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 		
 	if(*p>='0'&&*p<='9') 
 	{			
@@ -1327,7 +1385,8 @@ EX::INI::Damage::Damage(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -1347,6 +1406,8 @@ void EX::INI::Damage::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 {	
 	Section *nc = _section; nc->total_mentions++;
 			
+		nc->store_mention(p,d,q);
+
 	switch(Ex_ini_xlat_damage_section_key(p,d))
 	{
 	case DAMAGE_INITIALIZATION_FAILURE: nc->total_failures++; break;
@@ -1462,7 +1523,8 @@ EX::INI::Detail::Detail(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -1495,6 +1557,8 @@ void EX::INI::Detail::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 {	
 	Section *nc = _section; nc->total_mentions++;
 			
+		nc->store_mention(p,d,q);
+
 	switch(Ex_ini_xlat_detail_section_key(p,d))
 	{
 	case DETAIL_INITIALIZATION_FAILURE: nc->total_failures++; break;
@@ -1770,7 +1834,8 @@ EX::INI::Editor::Editor(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -1800,6 +1865,8 @@ void EX::INI::Editor::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 {	
 	Section *nc = _section; nc->total_mentions++;	
 				
+		nc->store_mention(p,d,q);
+
 	switch(Ex_ini_xlat_editor_section_key(p,d))
 	{
 	case EDITOR_INITIALIZATION_FAILURE:
@@ -1923,7 +1990,8 @@ EX::INI::Engine::Engine(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -1944,6 +2012,8 @@ void EX::INI::Engine::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	bool yes = Ex_ini_xlat_bin_val(q);
 
 	Section *nc = _section; nc->total_mentions++;	
+
+		nc->store_mention(p,d,q);
 
 	switch(Ex_ini_xlat_engine_section_key(p,d))
 	{
@@ -2026,7 +2096,8 @@ EX::INI::Joypad::Joypad(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -2043,6 +2114,8 @@ void EX::INI::Joypad::operator+=(Ex_ini_e in)
 void EX::INI::Joypad::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;	
+
+		nc->store_mention(p,d,q);
 
 	bool fail = false, neg = *p=='_'; 
 	
@@ -2159,7 +2232,8 @@ EX::INI::Keygen::Keygen(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -2178,6 +2252,8 @@ void EX::INI::Keygen::operator+=(Ex_ini_e in)
 void EX::INI::Keygen::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 				
 	switch(Ex_ini_xlat_keygen_section_key(p,d))
 	{
@@ -2298,7 +2374,8 @@ EX::INI::Keymap::Keymap(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -2327,6 +2404,8 @@ void EX::INI::Keymap::operator+=(Ex_ini_e in)
 void EX::INI::Keymap::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 		
 	if(d==p+2)
 	if((*p>='0'&&*p<='9')||(*p>='a'&&*p<='f'))
@@ -2398,7 +2477,8 @@ EX::INI::Keypad::Keypad(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -2426,6 +2506,8 @@ void EX::INI::Keypad::operator+=(Ex_ini_e in)
 void EX::INI::Keypad::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 	
 	if(d==p+2)
 	if((*p>='0'&&*p<='9')||(*p>='a'&&*p<='f'))
@@ -2508,7 +2590,14 @@ EX::INI::Launch::Launch(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		#ifndef NO_EX_H //HACK
+		extern bool SomEx_load_Exselector();
+		if(!Exselector) 
+		SomEx_load_Exselector(); assert(Exselector);
+		#endif
+
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -2527,6 +2616,8 @@ void EX::INI::Launch::operator+=(Ex_ini_e in)
 void EX::INI::Launch::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 				  				
 	switch(Ex_ini_xlat_launch_section_key(p,d))
 	{
@@ -2557,15 +2648,20 @@ void EX::INI::Launch::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 
 #define SOMEX_INI_NUMBER_SECTION
 
+EX::Calculator *EX::INI::Number::Section::c = 0; //2024
+
 EX::INI::Number::Number(int section)
 {		
 	if(section>=1) 
 	{
 		//EX::INI::Number(); //???
 
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
-		_section = section==1?&_1:0;
+		if(!_1.c) _1.c = EX::need_calculator(); //2024
+
+		_section = section==1?&_1:0; 
 	
 		EX_INI_INITIALIZE_(Number,1) //...
 	}
@@ -2586,11 +2682,13 @@ void EX::INI::Number::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 {	
 	Section *nc = _section; 
 
+		nc->store_mention(p,d,q);
+
 	switch(_section->pass)
 	{
 	case 0: assert(0);
-	case 2: EX::assigning_number(0,p,q); return;
-	case 1: EX::declaring_number(0,p,q); break;	
+	case 2: EX::assigning_number(_section->c,p,q); return;
+	case 1: EX::declaring_number(_section->c,p,q); break;	
 	}
 
 	nc->total_mentions++;
@@ -2641,7 +2739,14 @@ EX::INI::Option::Option(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		#ifndef NO_EX_H //HACK
+		extern bool SomEx_load_Exselector();
+		if(!Exselector) 
+		SomEx_load_Exselector(); 
+		#endif
+
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -2688,6 +2793,8 @@ void EX::INI::Option::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 	bool yes = Ex_ini_xlat_bin_val(q);
 
 	Section *nc = _section; nc->total_mentions++;	
+
+		nc->store_mention(p,d,q);
 
 	switch(Ex_ini_xlat_option_section_key(p,d))
 	{
@@ -2895,7 +3002,8 @@ EX::INI::Output::Output(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -2914,6 +3022,8 @@ void EX::INI::Output::operator+=(Ex_ini_e in)
 void EX::INI::Output::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++; assert(!nc->log); //2024
+
+		nc->store_mention(p,d,q);
 	
 	bool (*log)(const wchar_t*,const wchar_t*) = nc->log?nc->log:Ex_ini_output_log;
 		
@@ -3184,7 +3294,8 @@ EX::INI::Player::Player(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -3203,6 +3314,8 @@ void EX::INI::Player::operator+=(Ex_ini_e in)
 void EX::INI::Player::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 		
 	switch(Ex_ini_xlat_player_section_key(p,d))
 	{
@@ -3320,7 +3433,8 @@ EX::INI::Sample::Sample(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -3340,6 +3454,8 @@ void EX::INI::Sample::mention(const wchar_t *p, const wchar_t *d, const wchar_t 
 {	
 	Section *nc = _section; nc->total_mentions++;
 		
+		nc->store_mention(p,d,q);
+
 	switch(Ex_ini_xlat_sample_section_key(p,d))
 	{
 	case SAMPLE_INITIALIZATION_FAILURE: nc->total_failures++; break;
@@ -3458,7 +3574,8 @@ EX::INI::Script::Script(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -3486,6 +3603,8 @@ void EX::INI::Script::operator+=(Ex_ini_e in)
 void EX::INI::Script::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 	
 	switch(Ex_ini_xlat_script_section_key(p,d))
 	{	
@@ -3592,7 +3711,8 @@ EX::INI::Stereo::Stereo(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -3611,6 +3731,8 @@ void EX::INI::Stereo::operator+=(Ex_ini_e in)
 void EX::INI::Stereo::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 		
 	switch(Ex_ini_xlat_stereo_section_key(p,d))
 	{
@@ -3750,7 +3872,8 @@ EX::INI::System::System(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -3769,6 +3892,8 @@ void EX::INI::System::operator+=(Ex_ini_e in)
 void EX::INI::System::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 	
 	switch(Ex_ini_xlat_system_section_key(p,d))
 	{
@@ -3851,7 +3976,8 @@ EX::INI::Volume::Volume(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -3872,6 +3998,8 @@ void EX::INI::Volume::operator+=(Ex_ini_e in)
 void EX::INI::Volume::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 		
 	if(isdigit(*p))
 	{
@@ -3952,7 +4080,8 @@ EX::INI::Window::Window(int section)
 {		
 	if(section>=1) 
 	{
-		static Section _1; //!
+		//static Section _1; //!
+		static Section &_1 = Exselector->section<Section>();
 
 		_section = section==1?&_1:0;
 		
@@ -3981,6 +4110,8 @@ void EX::INI::Window::Section::initialize_defaults()const
 void EX::INI::Window::mention(const wchar_t *p, const wchar_t *d, const wchar_t *q)
 {	
 	Section *nc = _section; nc->total_mentions++;
+
+		nc->store_mention(p,d,q);
 				
 	switch(Ex_ini_xlat_window_section_key(p,d))
 	{

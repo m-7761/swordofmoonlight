@@ -366,12 +366,15 @@ bool SOM::clipper_40dff0(float _1[3],float _2,float _3, int obj, int _5, float _
 	auto &ai = SOM::L.ai3[obj];	
 	auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
 	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; //assert(mdl||mdo);
-	auto *mhm = mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0;
+	auto *mhm = mdo?mdo->ext.mhm:mdl?mdl->ext.mhm:0;
 
 	float _[3]; assert(_6);
 	float h2 = mhm&&_5&2?ai[SOM::AI::height3]:_2;
 	if(!som_clipc_x40dff0(_1,h2+oo1,_3,obj,_5&2?1:0,_6,_7?_7:_))
-	return false;
+	{
+		if(!mhm||!mhm->hit_ball_cylinder(_1,2,3))
+		return false;
+	}
 
 	if(mhm)
 	{
@@ -458,7 +461,7 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 	auto &ai = SOM::L.ai3[obj];	
 	auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
 	auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; //assert(mdl||mdo);
-	auto *mhm = mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0;
+	auto *mhm = mdo?mdo->ext.mhm:mdl?mdl->ext.mhm:0;
 
 	if(_5==0) //lateral?	
 	{
@@ -498,7 +501,10 @@ static BYTE __cdecl som_clipc_40dff0 //40D420 (objects)
 
 		if(!som_clipc_x40dff0
 		(_1,_2-som_clipc_haircut,_3,obj,_5,_6,_7))
-		return 0;
+		{
+			if(!mhm||!mhm->hit_ball_cylinder(_1,2,3))
+			return 0;
+		}
 		if(mhm) //2022: refine?
 		{
 			float yy = _1[1];
@@ -674,6 +680,14 @@ static BYTE __cdecl som_clipc_4159A0_w_40dff0 //2022
 
 	if(_4==5) //wall test
 	{ 	
+		//2024: make sideways clip shape smaller?
+		{
+			float dx = 1-fabsf(SOM::motions.dx)*0.5f;
+			dx+=(1-dx)*SOM::motions.clinging2; //lerp
+			_3*=dx;
+		//	EX::dbgmsg("dx %f",dx);
+		}
+
 		if(landing_2017) //EXPERIMENTAL
 		{		
 			//som_mocap_surmount keeps aloft up
@@ -1319,15 +1333,15 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 		auto &ai = SOM::L.ai3[obj];
 		auto *mdl = (SOM::MDL*)ai[SOM::AI::mdl3];
 		auto *mdo = (SOM::MDO*)ai[SOM::AI::mdo3]; //assert(mdl||mdo);
-		auto *mhm = mdo?mdo->mdo_data()->ext.mhm:mdl?mdl->mdl_data->ext.mhm:0;
+		auto *mhm = mdo?mdo->ext.mhm:mdl?mdl->ext.mhm:0;
 		float h2 = mhm?ai[SOM::AI::height3]+oo2:fence2;
 		if(som_clipc_x40dff0(futurepos,h2,shape,obj,1,pos,norm))
 		{
 			if(!mhm)
 			{
 				futurepos[1] = pos[1]+oo1; continue;
-			}			
-			SOM::Clipper pclip(futurepos,fence2,shape,14); //2022: MHM?
+			}
+	mhm:	SOM::Clipper pclip(futurepos,fence2,shape,14); //2022: MHM?
 			if(pclip.clip(mhm,mdo,mdl,pos,norm))
 			{
 				//DUPLICATE (same as below)
@@ -1335,6 +1349,7 @@ extern bool SOM::surmountableobstacle(float futurepos[3]) //UNUSED
 				futurepos[1] = max(pclip.slopefloor+e,pclip.floor)+oo1;
 			}
 		}
+		else if(mhm&&mhm->hit_ball_cylinder(futurepos,h2,shape)) goto mhm;
 	}
 	if(SOM::clipper.clip(futurepos,fence2,shape,14,0/*.000001f*/))	
 	{

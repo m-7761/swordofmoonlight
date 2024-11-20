@@ -1,10 +1,10 @@
 
 #ifndef X2MDL_VERSION
-#define X2MDL_VERSION 1,0,1,8
-#define SOMEX_VNUMBER 0x1000108UL
-#define X2MDL_VSTRING "1, 0, 1, 8"
-#define X2MDL_WSTRING L"1, 0, 1, 8"
-#define X2MDL_UPTODATE 2024,6,25 //x2mdl.dll
+#define X2MDL_VERSION 1,0,1,12
+#define SOMEX_VNUMBER 0x100010cUL
+#define X2MDL_VSTRING "1, 0, 1, 12"
+#define X2MDL_WSTRING L"1, 0, 1, 12"
+#define X2MDL_UPTODATE 2024,8,7 //x2mdl.dll
 #endif
 
 #ifndef X2MDL_INCLUDED
@@ -30,7 +30,7 @@ namespace x2mdl_h
 	enum
 	{
 		_lnk=1, //i.e. "shortcut"
-		_mdl=2,_mdo=4,_bp=8,_cp=16,
+		_mdl=2,_mdo=4,_bp=8,_cp=16,_wt=32,
 		_msm=64,
 		_mhm=128,
 		_txr=256, //SFX

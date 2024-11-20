@@ -2,6 +2,7 @@
 #define SOM_EX_INI_INCLUDED
 
 #include <vector>
+#include <map>
 
 //REMOVE ME?
 //alphafog_shadow_thickness
@@ -66,23 +67,30 @@ namespace INI
 	struct Section
 	{
 		int	times_included;	
-		int total_mentions, total_failures;
+		int total_failures, total_mentions;
 
 		static const int passes = 1; int pass;
 
 		Section() : pass(0), pdata(0) //NEW
 		{
-			times_included=total_mentions=total_failures = 0; 
+			times_included = 0;			
+			total_failures = 0;
+			total_mentions = -1;
 		}
 		~Section(){ delete pdata; }
 		
 		struct private_data
 		{
-			virtual ~private_data(){};
+			virtual ~private_data(){}; //???
 
 		}*pdata; //NEW: dynamic internals
 
 		void defaults(){} //hack: Bugfix
+
+		//2024
+		std::map<std::wstring,std::wstring> storage;
+		void store_mention(const wchar_t *p, const wchar_t *d, const wchar_t *q);
+		virtual const wchar_t *get(const char *lv);
 	};
 
 	template<typename T> struct contextual_t
@@ -301,7 +309,7 @@ template<class Section> inline int _pass(Section *t, int n=0)
 	void operator+=(const wchar_t *const *envp);\
 	/*caution: passing 0 defers to ns(Section*)*/\
 	typedef ns##__Section Section; ns(int section=1);\
-	inline operator bool(){	return _mentions(_section); }\
+	inline operator bool(){	return _mentions(_section)>0; }\
 	inline const Section *operator->(){ return _section; }\
 	inline bool operator==(ns nc){ return _section==nc._section; }\
 	inline bool operator!=(ns nc){ return _section!=nc._section; }\
@@ -310,7 +318,7 @@ template<class Section> inline int _pass(Section *t, int n=0)
 	inline void operator=(const wchar_t *const *e){ _reset(_section); *this+=e; }\
 	inline ns operator[](int n){ _pass(_section,n); return *this; }\
 	ns(Section *section){ _section = section; }\
-	private: Section *_section;\
+	/*private:*/ Section *_section;\
 	/*scheduled obsolete: called repeatedly by operator+=*/\
 	void mention(const wchar_t*,const wchar_t*,const wchar_t*);\
 };\
@@ -1014,7 +1022,9 @@ EX_INI_SECTION(Number)
 
 	//1: EX::declaring_number
 	//2: EX::assigning_number
-	static const int passes = 2; 
+	static const int passes = 2;
+
+	static EX::Calculator *c; //2024
 };
 EX_INI_SECTION(Option)
 {

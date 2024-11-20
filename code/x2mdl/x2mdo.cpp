@@ -72,6 +72,7 @@ void x2mdo_cp(float *p, aiMesh *m, int i, float *xf)
 	p[2] = -p[2];
 }
 extern int8_t x2mdo_rmatindex2[33] = {};
+void x2mdo_bonesnapshot(aiMesh*,float[3],float[3],unsigned);
 bool MDL::File::x2mdo()
 {
 	auto &mdl = *this;
@@ -139,16 +140,20 @@ bool MDL::File::x2mdo()
 		}
 	};
 	std::vector<uv> uvv; aiUVTransform uvx;
+		
+	std::vector<Weight> wtv;
 
 	int cp = 0;
 	float cps[3*4] = {};
 	struct ch : SWORDOFMOONLIGHT::mdo::channel_t
 	{
-		float *v,*bp; uint16_t *i,*cverts; 
-		
+		float *v,*bp; uint16_t *i,*cverts;		
 		uint8_t part; uint16_t part_verts;
+		uint8_t skin; //2024
 
 		int32_t uv_fx;
+
+		std::unordered_multimap<uint16_t,uint16_t> rcverts;
 
 		bool operator<(const ch &cmp)const //sort
 		{
@@ -166,11 +171,21 @@ bool MDL::File::x2mdo()
 			int j = matnumber-(int)cmp.matnumber;
 			return i?i<0:j?j<0:blendmode<cmp.blendmode;
 		}
+
+		void build_rcverts()
+		{
+			if(!rcverts.empty()) return;
+
+			for(uint16_t j=vertcount;j-->0;)
+			{
+				rcverts.insert(std::make_pair(cverts[j],j));
+			}
+		}
 	};
 	std::vector<ch> chv;
 	std::vector<uint16_t> iv;
 	std::unordered_map<uint16_t,uint16_t> vv;
-	
+
 	int len,currentnode; //goto err?
 
 		//TEXTURES?
@@ -283,6 +298,9 @@ bool MDL::File::x2mdo()
 		int cverts00 = cverts0;
 		if(cvertsN) cverts0+=pt.verts;
 
+		//2024: adding cstart for x2ico_mdo/x2ico::animator #1						
+		int cstart = cvertsN?cverts00:pt.cstart;
+
 		/*2020: vertices may be in different order if 
 		//converting/consolidating points to triangle
 		//control points
@@ -305,7 +323,7 @@ bool MDL::File::x2mdo()
 			aiMesh *m = X->mMeshes[nodetable[currentnode]->mMeshes[l]];
 
 			if(cv) cv2 = cv+m->mNumVertices;
-						
+
 			//CP? GOOD ENOUGH?
 			int mi = m->mMaterialIndex;			
 			
@@ -354,6 +372,11 @@ bool MDL::File::x2mdo()
 				{
 					uv_fx = (int)uvv.size(); uvv.push_back(v);
 				}
+			}
+			
+			if(m->HasBones()) //2024
+			{
+				assert(cv); weight(real_part,cstart,cv,m,wtv);
 			}
 
 			//HACK: historically som_db.exe's vbuffer limit is 4096
@@ -441,13 +464,8 @@ bool MDL::File::x2mdo()
 					if(cv) 
 					{
 						tmp.cverts = new uint16_t[vv.size()];					
-						//2024: adding cstart for x2ico_mdo/x2ico::animator #1
-						if(cvertsN) //YUCK
 						for(auto&ea:vv)
-						tmp.cverts[ea.second] = cverts00+cv[ea.first];
-						else
-						for(auto&ea:vv)
-						tmp.cverts[ea.second] = pt.cstart+cv[ea.first];
+						tmp.cverts[ea.second] = cstart+cv[ea.first];
 					}
 
 					//the BP file just has different coordinates
@@ -461,6 +479,8 @@ bool MDL::File::x2mdo()
 
 						float *xf = pass==1?snapshotmats:bindposemats;
 						if(!xf) xf = bindposemats;
+
+						bool containsbones = m->HasBones()&&xf!=bindposemats&&xf; //2024
 					
 						for(auto&ea:vv)
 						{
@@ -468,15 +488,24 @@ bool MDL::File::x2mdo()
 
 							float *p = pp+8*ea.second;
 
+							float *pw = 0;
+
 							if(auto*q=m->mVertices)
 							{
 								q+=s;
 
 								memcpy(p,q,3*4);
-
-								//WARNING: this may be required to work since I don't see Assimp's
-								//node transform. REMINDER: this may be be 0 for static/MDO inputs
-								if(xf) SWORDOFMOONLIGHT::mdl::multiply(xf+currentchan*16,p,p,1);
+								
+								if(containsbones) //2024
+								{
+									pw = p; //...
+								}
+								else if(xf)
+								{
+									//WARNING: this may be required to work since I don't see Assimp's
+									//node transform. REMINDER: this may be be 0 for static/MDO inputs
+									SWORDOFMOONLIGHT::mdl::multiply(xf+currentchan*16,p,p,1);
+								}
 
 							//	p[1] = -p[1]; //invert? 
 								p[2] = -p[2];
@@ -488,8 +517,15 @@ bool MDL::File::x2mdo()
 
 								memcpy(p,q,3*4);
 
-								//WARNING: same note as above
-								if(xf) SWORDOFMOONLIGHT::mdl::multiply(xf+currentchan*16,p,p,0); 
+								if(containsbones) //2024
+								{
+									pw[2] = -pw[2]; x2mdo_bonesnapshot(m,pw,p,s);
+									pw[2] = -pw[2]; 
+								}
+								else if(xf) //WARNING: same note as above
+								{
+									SWORDOFMOONLIGHT::mdl::multiply(xf+currentchan*16,p,p,0); 
+								}
 
 							//	p[1] = -p[1]; //invert? 
 								p[2] = -p[2];
@@ -516,9 +552,14 @@ bool MDL::File::x2mdo()
 							{
 								d2 = d1; d1 = bv;
 
-								t = (1+pose)/dt[0];
+								t = (1+pose)/(dt[0]?dt[0]:1); //zero divide
 							}
-							else t = ((1+pose)-dt[0])/(dt[1]-dt[0]);
+							else
+							{
+								//2024: times are length of each frame
+								//t = ((1+pose)-dt[0])/(dt[1]-dt[0]); //zero divide
+								t = ((1+pose)-dt[0])/(dt[1]?dt[1]:1); //zero divide
+							}
 
 							if(t>1) t = 1; //still image?
 
@@ -548,7 +589,12 @@ bool MDL::File::x2mdo()
 					
 					//part_verts is a checksum so som_game.exe wouldn't have
 					//to scan the MDO->MDL link indices to ensure they match
-					tmp.part = (uint8_t)real_part;
+					
+					//KF2's archer (frame animation based) needed this :(
+					//(I'll probably upgrade him to a new skin animation)
+					//tmp.part = real_part;
+					tmp.part = cvertsN?0:real_part; 
+					tmp.skin = !diff&&m->HasBones();
 					tmp.part_verts = (uint16_t)(cvertsN?cvertsN:pt.verts+pt.extra);
 					//HACK: just a guess to get exact match
 					if(k&&!cvertsN)
@@ -571,8 +617,7 @@ bool MDL::File::x2mdo()
 				chunk = true; goto chunk;
 			}
 		}		
-
-		currentnode++;
+		currentnode++; //UNUSED
 	}
 	dw = deinterlace = 0;
 	std::sort(chv.begin(),chv.end());
@@ -657,7 +702,6 @@ bool MDL::File::x2mdo()
 	{
 		//this way games can do an optimization by having
 		//back-to-back parts draw with a single draw call
-		//(TODO: NEED TO PRESORT PARTS BY THEIR MATERIAL)
 		
 		for(auto&ea:chv) 
 		{
@@ -691,13 +735,13 @@ bool MDL::File::x2mdo()
 	//{
 		struct
 		{
-			uint8_t part,_pad;
+			//NOTE: skin is bit 1 of reserved flags
+			uint8_t part,skin;
 			uint16_t part_verts;
 			uint32_t cverts_pos;
 			//version 2
 			uint32_t uv_fx_pos;
 		}rec;
-		rec._pad = 0; //reserved
 		rec.cverts_pos = ftell(f?f:g);
 	//}
 	if(~real_part) //TRICKY
@@ -719,6 +763,7 @@ bool MDL::File::x2mdo()
 		for(auto&ea:chv)
 		{
 			rec.part = ea.part;
+			rec.skin = ea.skin;
 			rec.part_verts = ea.part_verts;
 			//version 2			
 			if(-1!=ea.uv_fx) 
@@ -731,6 +776,61 @@ bool MDL::File::x2mdo()
 			rec.cverts_pos+=2*ea.vertcount;
 		}
 	}
+	
+	if(f) fclose(f);
+	if(g) fclose(g);
+	
+	if(!wtv.empty())
+	{
+		std::sort(wtv.begin(),wtv.end());
+		wtv.erase(std::unique(wtv.begin(),wtv.end()),wtv.end());
+
+		for(auto&ea:chv) if(ea.skin) ea.build_rcverts();
+	}
+
+	wmemcpy(o,L".wt",4);
+	{
+		if(!wtv.empty())
+		{
+			f = _wfopen(name,L"wb");
+
+			for(auto&w:wtv)
+			{
+				unsigned char hd[4];
+				hd[0] = w.jt;
+				hd[2] = (BYTE)(w.wt*200);
+
+				for(BYTE i=0;i<chv.size();i++)			
+				{		
+					auto &ch = chv[i];
+
+					if(chv[i].part!=w.pt) continue;
+
+					assert(ch.skin&1);
+
+					auto er = chv[i].rcverts.equal_range(w.vt);
+					int n = 0;
+					for(auto it=er.first;it!=er.second;it++)
+					n++;				
+					if(n==0) continue;
+
+					hd[1] = i;
+					hd[3] = (unsigned char)n;
+
+					fwrite(hd,4,1,f);
+					for(auto it=er.first;n-->0;it++)
+					{
+						auto vt = (uint16_t)it->second;
+						fwrite(&vt,2,1,f);
+					}
+				}
+			}
+
+			fclose(f);
+		}
+		else DeleteFileW(name);
+	}
+	wmemcpy(o,L".mdl",5);
 
 	for(auto&ea:chv) 
 	{
@@ -740,8 +840,104 @@ bool MDL::File::x2mdo()
 		delete[] ea.cverts;
 	}
 
-	if(f) fclose(f);
-	if(g) fclose(g); return true;
+	return true;
+}
+
+void MDL::File::weight(int cpart, int cstart, WORD *cv, aiMesh *m, std::vector<Weight> &v)
+{
+	auto &mdl = *this;
+	extern int nodecount;
+	extern aiNode **nodetable;	
+	extern char *chanindex;
+
+	for(int i=0;i<m->mNumBones;i++)
+	{
+		auto *b = m->mBones[i];
+
+		/*bones may not have geometry :(
+		uint32_t real_part = ~0;
+		for(int k=0;k<mdl.head.parts;k++) 
+		{				
+			Part &pt = mdl.parts[k];
+			int currentnode = pt.cnode;
+			if(!pt.cextra) real_part++;
+
+			if(b->mName==nodetable[currentnode]->mName)
+			break;
+		}
+		if(real_part==~0||real_part>127)
+		{
+			assert(0); continue;
+		}*/
+		int joint = -1;
+		for(int j=nodecount;j-->0;)		
+		if(b->mName==nodetable[j]->mName)
+		{
+			joint = chanindex[j]; break;
+		}
+		assert(joint>=0);
+
+		Weight wt;
+		wt.jt = (BYTE)joint;
+		wt.pt = (BYTE)cpart;
+
+		for(int j=0,n=b->mNumWeights;j<n;j++)
+		{
+			auto &w = b->mWeights[j];
+			
+			wt.wt = w.mWeight;
+
+			//wt.vt = currentvert+w.mVertexId;
+			wt.vt = cstart+cv[w.mVertexId];
+
+			v.push_back(wt);
+		}		
+	}
+}
+
+bool x2mdo_bonesnapshot_pred(const aiVertexWeight &a, unsigned b)
+{
+	return a.mVertexId<b;
+}
+void x2mdo_bonesnapshot(aiMesh *m, float p[3], float n[3], unsigned v)
+{
+	extern int nodecount;
+	extern aiNode **nodetable;	
+	extern char *chanindex;
+	extern float *snapshotmats;
+
+	float sump[3] = {}, sumn[3] = {};
+
+	for(int i=m->mNumBones;i-->0;) 
+	{
+		auto &b = m->mBones[i]; 		
+		auto *e = b->mWeights+b->mNumWeights;		
+		auto *w = std::lower_bound(b->mWeights,e,v,x2mdo_bonesnapshot_pred);
+		if(w!=e&&v==w->mVertexId)
+		for(int j=nodecount;j-->0;)		
+		if(b->mName==nodetable[j]->mName) //TODO: nodenames/binlookup?
+		{
+			float pp[3],nn[3];
+
+			float *xf = &b->mOffsetMatrix.a1;
+			SWORDOFMOONLIGHT::mdl::multiply_transpose(xf,p,pp,1);
+			SWORDOFMOONLIGHT::mdl::multiply_transpose(xf,n,nn,0);
+			xf = snapshotmats+chanindex[j]*16;
+			SWORDOFMOONLIGHT::mdl::multiply(xf,pp,pp,1);
+			SWORDOFMOONLIGHT::mdl::multiply(xf,nn,nn,0);
+
+			for(int i=3;i-->0;)
+			{
+				sump[i]+=w->mWeight*pp[i];
+				sumn[i]+=w->mWeight*nn[i];
+			}
+			break;
+		}
+		else assert(j>0);
+	}
+
+	memcpy(p,sump,sizeof(sump));
+	memcpy(n,sumn,sizeof(sumn));
 }
 
 static struct x2msm_split_level //2022
@@ -817,7 +1013,7 @@ static struct x2msm_split_level //2022
 
 }x2msm_split2; //SINGLETON
 
-bool MDL::File::x2msm(bool x2mhm) //2022
+bool MDL::File::x2msm(bool x2mhm, bool wasY) //2022
 {
 	x2msm_split2.clear();
 
@@ -844,11 +1040,14 @@ bool MDL::File::x2msm(bool x2mhm) //2022
 	assert(l=='l'&&!o[4]); //mdl?	
 	FILE *f = 0, *g = 0; //MSM?
 	{
-		wmemcpy(o,L".mhm",4);
-		f = _wfopen(name,L"wb");
-		if(!f){ assert(0); return false; } //WIP
-
-		if(!x2mhm) //MHM is always outputted
+		//2024: mhm was "always outputted"
+		if(!wasY||x2mhm) 
+		{
+			wmemcpy(o,L".mhm",4);
+			f = _wfopen(name,L"wb");
+			if(!f){ assert(0); return false; } //WIP
+		}
+		if(!x2mhm) 
 		{
 			wmemcpy(o,L".msm",4);
 			g = _wfopen(name,L"wb");	

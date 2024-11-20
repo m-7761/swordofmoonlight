@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LocalDebuggerCommandArguments>--file-extension=mdo --ico=25 ii02.mm3d</LocalDebuggerCommandArguments>
-    <LocalDebuggerWorkingDirectory>C:\Users\Michael\Saved Games\Playing\KING'S FIELD II\DATA\ENEMY\model</LocalDebuggerWorkingDirectory>
+    <LocalDebuggerCommandArguments>--file-extension=mdl  ii73.mm3d</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\Users\Michael\Saved Games\Playing\KING'S FIELD II\DATA\NPC\model</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerCommand>$(OutDir)x2mdl.exe</LocalDebuggerCommand>
   </PropertyGroup>
@@ -19,6 +19,11 @@
     </LocalDebuggerCommandArguments>
     <LocalDebuggerWorkingDirectory>
     </LocalDebuggerWorkingDirectory>
+    <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='relwithdebinfo-noboost-st|Win32'">
+    <LocalDebuggerCommandArguments>--file-extension=mdl --ico=256 ii15.mm3d</LocalDebuggerCommandArguments>
+    <LocalDebuggerWorkingDirectory>C:\Users\Michael\Saved Games\Playing\KING'S FIELD II\DATA\enemy\model</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release DLL (x2mdl)|Win32'">

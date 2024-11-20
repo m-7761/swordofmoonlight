@@ -79,6 +79,18 @@ public:
 		return watch(name,typeid(*var),var,true); 
 	}
 
+	virtual bool _section(size_t ti, size_t sz, void**); 
+
+	template<typename S> S &section() //SomEx.ini.cpp
+	{
+		void *ret;
+		if(_section(typeid(S).hash_code(),sizeof(S),&ret))
+		new(ret) S;
+		return *(S*)ret;
+	}
+
+	virtual void extensions();
+
 public: //END CURRENT VERSION
 
 		  //// IMPLEMENTATION ////

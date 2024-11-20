@@ -58,6 +58,7 @@
     <ClInclude Include="Exselector.res.h">
       <Filter>resources</Filter>
     </ClInclude>
+    <ClInclude Include="Ex.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\lib\Swordofmoonlight.cpp">
@@ -67,6 +68,15 @@
     <ClCompile Include="Exselector.pch.cpp" />
     <ClCompile Include="src\nanovg\nanovg.c">
       <Filter>nanovg</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SomEx\SomEx.ini.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SomEx\Ex.number.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
+    <ClCompile Include="..\SomEx\Ex.log.cpp">
+      <Filter>sources</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
